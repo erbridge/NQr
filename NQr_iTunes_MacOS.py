@@ -1,0 +1,101 @@
+## Mac OS, iTunes interface
+## TODO: talk applescript directly
+## TODO: allow user to choose playlistname
+
+import subprocess
+
+class iTunesMacOS:
+    playlistname = '"NQr"'
+
+    def runCommand(self, command):
+        PIPE = subprocess.PIPE
+        osa = subprocess.Popen('osascript', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        (out, err) = osa.communicate(command)
+        print out
+        print err
+
+    def launch(self):
+        command = """tell application "iTunes"
+                    launch
+                    end tell"""
+        self.runCommand(command)
+
+    def close(self):
+        command = """tell application "iTunes"
+                    quit
+                    end tell"""
+        self.runCommand(command)
+
+    ## for example: filepath = 'Macintosh HD:Users:ben:Documents:Felix:NQr:TestDir:02 - Monument.mp3'
+    def addTrack(self, filepath):
+        filepath = '"'+filepath+'"'
+        command = """tell application "iTunes"
+                    add """+filepath+""" to user playlist """+self.playlistname+"""
+                    end tell"""
+        self.runCommand(command)
+
+    def playTrack(self, filepath):
+        filepath = '"'+filepath+'"'
+        command = """tell application "iTunes"
+                    play """+filepath+"""
+                    end tell"""
+        self.runCommand(command)
+
+    ## TODO: make it remove the correct number of tracks to maintain the right number of tracks without deleting the currently playing (or subsequent) tracks.
+    ##       perhaps make it leave 3 before the current track.
+    def cropPlaylist(self):
+        command = """tell application "iTunes"
+                    delete track 1 of """+self.playlistname+"""
+                    end tell"""
+        self.runCommand(command)
+
+    def nextTrack(self):
+        command = """tell application "iTunes"
+                    next track
+                    play
+                    end tell"""
+        self.runCommand(command)
+
+    def pause(self):
+        command = """tell application "iTunes"
+                    if player state is playing then
+                    pause
+                    else if player state is paused then
+                    play
+                    end if
+                    end tell"""
+        self.runCommand(command)
+
+    def play(self):
+        command = """tell application "iTunes"
+                    if player state is playing then stop
+                    play
+                    end tell"""
+        self.runCommand(command)
+
+    def previousTrack(self):
+        command = """tell application "iTunes"
+                    previous track
+                    play
+                    end tell"""
+        self.runCommand(command)
+    
+    def stop(self):
+        command = """tell application "iTunes"
+                    stop
+                    end tell"""
+        self.runCommand(command)
+
+##    def addTrack(self, trackname):
+##        trackname = '"'+trackname+'"'
+##        command = """tell application "iTunes"
+##                    duplicate track """+trackname+""" to user playlist """+self.playlistname+"""
+##                    end tell"""
+##        self.runCommand(command)
+
+##    def playTrack(self, trackname):
+##        trackname = '"'+trackname+'"'
+##        command = """tell application "iTunes"
+##                    play track """+trackname+"""
+##                    end tell"""
+##        self.runCommand(command)
