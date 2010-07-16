@@ -4,7 +4,7 @@
 ## TODO: remove bottom lines/copy to main
 
 from NQr_iTunes_MacOS import iTunesMacOS
-from NQr_Database import database as db
+##from NQr_Database import database as db
 import wx
 
 class mainWindow(wx.Frame):
@@ -219,6 +219,7 @@ frame = mainWindow(None, "NQr")
 
 frame.Center()
 frame.addTrack("TestArtist", "TestTrack", "0", "TestLastPlayed")
+frame.addTrack("TestArtist2", "TestTrack2", "1", "TestLastPlayed2")
 frame.addDetail("Test Line 1")
 frame.addDetail("Test Line 2")
 
