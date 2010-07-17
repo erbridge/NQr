@@ -2,9 +2,11 @@
 ## TODO: set minimum sizes of windows
 ## TODO: add library viewer with scoring funcionality
 ## TODO: remove bottom lines/copy to main
+## TODO: debug message window with levels of messages (basic score up/down
+##       etc for users and more complex for devs) using "logging" module?
 
 from NQr_iTunes_MacOS import iTunesMacOS
-##from NQr_Database import database as db
+##from NQr_Database import Database as db
 import wx
 
 class mainWindow(wx.Frame):
@@ -42,11 +44,15 @@ class mainWindow(wx.Frame):
         
     def initFileMenu(self):
         self.fileMenu = wx.Menu()        
-        menuAbout = self.fileMenu.Append(wx.ID_ABOUT, "&About NQr", " Information about NQr")
+        menuAbout = self.fileMenu.Append(wx.ID_ABOUT, "&About NQr",
+                                         " Information about NQr")
         self.fileMenu.AppendSeparator()
-        menuAddFile = self.fileMenu.Append(self.ID_ADDFILE, "Add &File...", " Adds a file to the library")
-        menuAddDirectory = self.fileMenu.Append(self.ID_ADDDIRECTORY, "Add &Directory...", " Adds a directory to the library")
-##        menuOpen = self.fileMenu.Append(wx.ID_OPEN, "&Open", " Opens a file")
+        menuAddFile = self.fileMenu.Append(self.ID_ADDFILE, "Add &File...",
+                                           " Add a file to the library")
+        menuAddDirectory = self.fileMenu.Append(self.ID_ADDDIRECTORY,
+                                                "Add &Directory...",
+                                                " Add a directory to the library")
+##        menuOpen = self.fileMenu.Append(wx.ID_OPEN, "&Open", " Open a file")
         self.fileMenu.AppendSeparator()
         menuExit = self.fileMenu.Append(wx.ID_EXIT, "E&xit", " Terminate NQr")
         
@@ -59,17 +65,26 @@ class mainWindow(wx.Frame):
     ## TODO: change up in "Rate Up" to an arrow
     def initPlayerMenu(self):
         self.playerMenu = wx.Menu()
-        menuPlay = self.playerMenu.Append(-1, "&Play", " Plays or restarts the current track")
-        menuPause = self.playerMenu.Append(-1, "P&ause", " Pauses or resumes the current track")
-        menuNext = self.playerMenu.Append(-1, "&Next Track", " Plays the next track")
-        menuPrevious = self.playerMenu.Append(-1, "Pre&vious Track", " Plays the previous track")
-        menuStop = self.playerMenu.Append(-1, "&Stop", " Stops the current track")
+        menuPlay = self.playerMenu.Append(-1, "&Play",
+                                          " Play or restart the current track")
+        menuPause = self.playerMenu.Append(-1, "P&ause",
+                                           " Pause or resume the current track")
+        menuNext = self.playerMenu.Append(-1, "&Next Track",
+                                          " Play the next track")
+        menuPrevious = self.playerMenu.Append(-1, "Pre&vious Track",
+                                              " Play the previous track")
+        menuStop = self.playerMenu.Append(-1, "&Stop",
+                                          " Stop the current track")
         self.playerMenu.AppendSeparator()
-        menuRateUp = self.playerMenu.Append(-1, "Rate &Up", " Increases the score of the current track")
-        menuRateDown = self.playerMenu. Append(-1, "Rate &Down", " Decreases the score of the current track")
+        menuRateUp = self.playerMenu.Append(-1, "Rate &Up",
+                                            " Increase the score of the current track")
+        menuRateDown = self.playerMenu. Append(-1, "Rate &Down",
+                                               " Decrease the score of the current track")
         self.playerMenu.AppendSeparator()
-        menuLaunchPlayer = self.playerMenu.Append(-1, "&Launch Player", " Launches the selected media player")
-        menuExitPlayer = self.playerMenu.Append(-1, "E&xit Player", " Terminates the selected media player")
+        menuLaunchPlayer = self.playerMenu.Append(-1, "&Launch Player",
+                                                  " Launch the selected media player")
+        menuExitPlayer = self.playerMenu.Append(-1, "E&xit Player",
+                                                " Terminate the selected media player")
 
         self.Bind(wx.EVT_MENU, self.onPlay, menuPlay)
         self.Bind(wx.EVT_MENU, self.onPause, menuPause)
@@ -83,8 +98,10 @@ class mainWindow(wx.Frame):
 
     def initOptionsMenu(self):
         self.optionsMenu = wx.Menu()        
-        menuPrefs = self.optionsMenu.Append(self.ID_PREFS, "&Preferences...", " Change NQr's settings")
-        menuRescan = self.optionsMenu.Append(-1, "&Rescan Library", " Searches previously added directories for new files")
+        menuPrefs = self.optionsMenu.Append(self.ID_PREFS, "&Preferences...",
+                                            " Change NQr's settings")
+        menuRescan = self.optionsMenu.Append(-1, "&Rescan Library",
+                                             " Search previously added directories for new files")
 
 ##        self.Bind(wx.EVT_MENU, self.onPrefs, menuPrefs)
 ##        self.Bind(wx.EVT_MENU, self.onRescan, menuRescan)
@@ -96,7 +113,8 @@ class mainWindow(wx.Frame):
         
         self.mainSizer = wx.BoxSizer(wx.VERTICAL)        
         self.mainSizer.Add(self.playerControls, 0, wx.EXPAND)
-        self.mainSizer.Add(self.trackSizer, 1, wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
+        self.mainSizer.Add(self.trackSizer, 1,
+                           wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
         self.mainSizer.Add(self.details, 0, wx.EXPAND|wx.ALL, 3)
         
         self.SetSizer(self.mainSizer)
@@ -128,7 +146,9 @@ class mainWindow(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.onNext, nextButton)
 
     def initDetails(self):
-        self.details = wx.TextCtrl(self, self.ID_DETAILS, style=wx.TE_READONLY|wx.TE_MULTILINE|wx.TE_DONTWRAP)
+        self.details = wx.TextCtrl(self, self.ID_DETAILS,
+                                   style=wx.TE_READONLY|wx.TE_MULTILINE|
+                                   wx.TE_DONTWRAP)
 
     def initTrackSizer(self):
         self.initTrackList()
@@ -138,16 +158,26 @@ class mainWindow(wx.Frame):
         self.trackSizer.Add(self.trackList, 1, wx.EXPAND|wx.RIGHT, 5)
         self.trackSizer.Add(self.scoreSlider, 0, wx.EXPAND)
 
+    # first column for displaying "Now Playing" or a "+"
     def initTrackList(self):
-        self.trackList = wx.ListCtrl(self, self.ID_TRACKLIST, style=wx.LC_REPORT|wx.LC_VRULES, size=(448,-1))
-        self.trackList.InsertColumn(self.ID_NOWPLAYING, "", format=wx.LIST_FORMAT_CENTER, width=18) # for displaying "Now Playing" or a "+"
-        self.trackList.InsertColumn(self.ID_ARTIST, "Artist", format=wx.LIST_FORMAT_CENTER, width=100)
-        self.trackList.InsertColumn(self.ID_TRACK, "Track", format=wx.LIST_FORMAT_CENTER, width=170)
-        self.trackList.InsertColumn(self.ID_SCORE, "Score", format=wx.LIST_FORMAT_CENTER, width=40)
-        self.trackList.InsertColumn(self.ID_LASTPLAYED, "Last Played", format=wx.LIST_FORMAT_CENTER, width=120)
+        self.trackList = wx.ListCtrl(self, self.ID_TRACKLIST,
+                                     style=wx.LC_REPORT|wx.LC_VRULES,
+                                     size=(448,-1))
+        self.trackList.InsertColumn(self.ID_NOWPLAYING, "",
+                                    format=wx.LIST_FORMAT_CENTER, width=18)
+        self.trackList.InsertColumn(self.ID_ARTIST, "Artist",
+                                    format=wx.LIST_FORMAT_CENTER, width=100)
+        self.trackList.InsertColumn(self.ID_TRACK, "Track",
+                                    format=wx.LIST_FORMAT_CENTER, width=170)
+        self.trackList.InsertColumn(self.ID_SCORE, "Score",
+                                    format=wx.LIST_FORMAT_CENTER, width=40)
+        self.trackList.InsertColumn(self.ID_LASTPLAYED, "Last Played",
+                                    format=wx.LIST_FORMAT_CENTER, width=120)
 
     def initScoreSlider(self):
-        self.scoreSlider = wx.Slider(self, self.ID_SCORESLIDER, 0, -10, 10, style=wx.SL_RIGHT|wx.SL_LABELS|wx.SL_INVERSE)
+        self.scoreSlider = wx.Slider(self, self.ID_SCORESLIDER, 0, -10, 10,
+                                     style=wx.SL_RIGHT|wx.SL_LABELS|
+                                     wx.SL_INVERSE)
         
     def addDetail(self, detail):
         self.details.AppendText(detail+"\n")
@@ -161,7 +191,8 @@ class mainWindow(wx.Frame):
         self.trackList.SetStringItem(index, 4, lastPlayed)
 
     def onAbout(self, e):
-        dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr", wx.OK)
+        dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr",
+                                  wx.OK)
         dialog.ShowModal()
         dialog.Destroy()
 
@@ -171,7 +202,8 @@ class mainWindow(wx.Frame):
         
 ##    def onOpen(self, e):
 ##        self.dirname = ''
-##        dialog = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+##        dialog = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*",
+##                               wx.OPEN)
 ##        if dialog.ShowModal() == wx.ID_OK:
 ##            self.filename = dialog.GetFilename()
 ##            self.dirname = dialog.GetDirectory()
