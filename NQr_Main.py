@@ -4,6 +4,7 @@
 ## TODO: allow user to choose default rating of unheard tracks and mark them as "unrated"
 ## TODO: allow user to change track from media player and have the NQr update
 ## TODO: on startup rescan directories for new files or make an option
+## TODO: allow import of directories with a score
 
 from mutagen.easyid3 import EasyID3
 from NQr_GUI import mainWindow
@@ -15,15 +16,15 @@ print EasyID3.valid_keys.keys()
 
 fileList=[]
 
-def addDirectory(directory):
-    contents = os.listdir(directory)
-    for n in range(0, len(contents)):
-        path = directory+'/'+contents[n]
-        if os.path.isdir(path):
-            addDirectory(path)
-        elif contents[n][-4:]=='.mp3':
-            if fileList.__contains__(path)==False:
-                fileList.append(path)
+##def addDirectory(directory):
+##    contents = os.listdir(directory)
+##    for n in range(0, len(contents)):
+##        path = directory+'/'+contents[n]
+##        if os.path.isdir(path):
+##            addDirectory(path)
+##        elif contents[n][-4:]=='.mp3':
+##            if fileList.__contains__(path)==False:
+##                fileList.append(path)
     
 ##class Track:
 ##    def __init__(self, sql, fn):
