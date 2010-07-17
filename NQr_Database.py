@@ -9,7 +9,8 @@ class Database:
     databasePath = "database"
     defaultScore = 10
 
-    ## TODO: check if track table already exists first
+    ## TODO: check if track table already exists first to confirm whether or not
+    ##       to create other tables (poss corruption)
     def __init__(self):
         self.conn = sqlite3.connect(self.databasePath)
 ##        c = self.conn.cursor()
@@ -18,6 +19,7 @@ class Database:
         self.initCreatePlaysTable()
         self.conn.commit()
 
+    ## poss add boolean unplayed? to table
     def initCreateTrackTable(self):
         c = self.conn.cursor()
         try:
@@ -78,7 +80,9 @@ class Database:
     def getTrack(self, path):
         c = self.conn.cursor()
         c.execute("select path from tracks where path = ?", (path, ))
-        return c.fetchone()
+        result = c.fetchone()
+        c.close()
+        return result
         
 
 db = Database()
