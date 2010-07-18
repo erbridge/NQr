@@ -27,8 +27,7 @@ class iTunesMacOS:
     ## 'Macintosh HD:Users:ben:Documents:Felix:NQr:TestDir:02 - Monument.mp3'
     def addTrack(self, filepath):
         filepath = '"'+filepath+'"'
-        command = "tell application \"iTunes\"\n add "+filepath+
-                  " to user playlist "+self.playlistname+"\n end tell"
+        command = "tell application \"iTunes\"\n add "+filepath+" to user playlist "+self.playlistname+"\n end tell"
         self.runCommand(command)
 
     def playTrack(self, filepath):
@@ -41,8 +40,7 @@ class iTunesMacOS:
     ##       subsequent) tracks. Perhaps make it leave 3 before the current
     ##       track.
     def cropPlaylist(self):
-        command = "tell application \"iTunes\"\n delete track 1 of "
-                  +self.playlistname+"\n end tell"
+        command = "tell application \"iTunes\"\n delete track 1 of "+self.playlistname+"\n end tell"
         self.runCommand(command)
 
     def nextTrack(self):

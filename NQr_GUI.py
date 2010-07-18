@@ -4,10 +4,14 @@
 ## TODO: remove bottom lines/copy to main
 ## TODO: debug message window with levels of messages (basic score up/down
 ##       etc for users and more complex for devs) using "logging" module?
+## TODO: add remove file/directory menus, with confirmation
+## TODO: add rightclick menu to tracks
 
+from NQr_Database import Database
 from NQr_iTunes_MacOS import iTunesMacOS
-##from NQr_Database import Database as db
 import wx
+
+db = Database()
 
 class mainWindow(wx.Frame):
     ID_ARTIST = 1
@@ -122,6 +126,7 @@ class mainWindow(wx.Frame):
         self.mainSizer.Fit(self)
                 
 ## TODO: use svg or gd to create button images via wx.Bitmap and wx.BitmapButton
+## TODO: add requeue button and "play this" button to play selected track
     def initPlayerControls(self):
         self.playerControls = wx.Panel(self)        
         previousButton = wx.Button(self.playerControls, wx.ID_ANY, "Prev")
@@ -148,7 +153,7 @@ class mainWindow(wx.Frame):
     def initDetails(self):
         self.details = wx.TextCtrl(self, self.ID_DETAILS,
                                    style=wx.TE_READONLY|wx.TE_MULTILINE|
-                                   wx.TE_DONTWRAP)
+                                   wx.TE_DONTWRAP, size=(-1,120))
 
     def initTrackSizer(self):
         self.initTrackList()
@@ -167,28 +172,58 @@ class mainWindow(wx.Frame):
                                     format=wx.LIST_FORMAT_CENTER, width=18)
         self.trackList.InsertColumn(self.ID_ARTIST, "Artist",
                                     format=wx.LIST_FORMAT_CENTER, width=100)
-        self.trackList.InsertColumn(self.ID_TRACK, "Track",
+        self.trackList.InsertColumn(self.ID_TRACK, "Title",
                                     format=wx.LIST_FORMAT_CENTER, width=170)
         self.trackList.InsertColumn(self.ID_SCORE, "Score",
                                     format=wx.LIST_FORMAT_CENTER, width=40)
         self.trackList.InsertColumn(self.ID_LASTPLAYED, "Last Played",
                                     format=wx.LIST_FORMAT_CENTER, width=120)
 
+##        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.onSelectTrack, ?)
+
     def initScoreSlider(self):
         self.scoreSlider = wx.Slider(self, self.ID_SCORESLIDER, 0, -10, 10,
                                      style=wx.SL_RIGHT|wx.SL_LABELS|
                                      wx.SL_INVERSE)
-        
+
+    def addTrack(self, path):
+##        if IsCurrentTrack()==False:
+        if db.isScored(path) == False:
+            isScored = "+"
+        else:
+            isScored = ""
+        if db.getLastPlayed(path) == False:
+            lastPlayed = "-"
+        else:
+            lastPlayed = db.getLastPlayed(path) ## should be time from last play
+        index = self.trackList.InsertStringItem(0, isScored)
+        self.trackList.SetStringItem(index, 1, db.getArtist(path))
+        self.trackList.SetStringItem(index, 2, db.getTitle(path))
+        self.trackList.SetStringItem(index, 3, str(db.getScore(path)))
+        self.trackList.SetStringItem(index, 4, lastPlayed)
+
     def addDetail(self, detail):
         self.details.AppendText(detail+"\n")
 
-    def addTrack(self, artist, track, score, lastPlayed):
-##        if track.IsCurrentTrack()==False:
-        index = self.trackList.InsertStringItem(0, "")
-        self.trackList.SetStringItem(index, 1, artist)
-        self.trackList.SetStringItem(index, 2, track)
-        self.trackList.SetStringItem(index, 3, score)
-        self.trackList.SetStringItem(index, 4, lastPlayed)
+    def clearDetails(self):
+        self.details.Clear()
+
+    def populateDetails(self, path):
+        if db.getLastPlayed(path) == False:
+            lastPlayed = "-"
+        else:
+            lastPlayed = db.getLastPlayed(path) ## should be time from last play
+        self.clearDetails()
+        self.addDetail("Artist: "+db.getArtist(path))
+        self.addDetail("Title: "+db.getTitle(path))
+        self.addDetail("Album: "+db.getAlbum(path))
+        self.addDetail("Score: "+str(db.getScore(path))+"     Last Played: "+lastPlayed)
+        self.addDetail("Filepath: "+db.getPath(path))
+
+##    def onSelectTrack(self, e):
+##        path = self.selectedTrack
+##        self.populateDetails(path)
+##        self.setScoreSlider(db.getScoreValue(path))
 
     def onAbout(self, e):
         dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr",
@@ -250,9 +285,10 @@ app = wx.App(False)
 frame = mainWindow(None, "NQr")
 
 frame.Center()
-frame.addTrack("TestArtist", "TestTrack", "0", "TestLastPlayed")
-frame.addTrack("TestArtist2", "TestTrack2", "1", "TestLastPlayed2")
+frame.addTrack("/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3")
+frame.addTrack("/Users/ben/Documents/Felix/NQr-old/TestDir/02 - Monument.mp3")
 frame.addDetail("Test Line 1")
 frame.addDetail("Test Line 2")
+frame.populateDetails("/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3")
 
 app.MainLoop()
