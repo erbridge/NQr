@@ -7,8 +7,8 @@
 ## TODO: allow import of directories with a score
 
 from mutagen.easyid3 import EasyID3
-from NQr_GUI import mainWindow
-from NQr_iTunes_MacOS import iTunesMacOS
+from GUI import mainWindow
+from iTunesMacOS import iTunesMacOS
 import os
 import wx
 

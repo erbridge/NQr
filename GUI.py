@@ -7,8 +7,9 @@
 ## TODO: add remove file/directory menus, with confirmation
 ## TODO: add rightclick menu to tracks
 
-from NQr_Database import Database
-from NQr_iTunes_MacOS import iTunesMacOS
+from Database import Database
+from iTunesMacOS import iTunesMacOS
+import Track
 import wx
 
 db = Database()
@@ -179,28 +180,30 @@ class mainWindow(wx.Frame):
         self.trackList.InsertColumn(self.ID_LASTPLAYED, "Last Played",
                                     format=wx.LIST_FORMAT_CENTER, width=120)
 
-##        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.onSelectTrack, ?)
+        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.onSelectTrack)
+##        self.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.onDeselectTrack)
 
     def initScoreSlider(self):
         self.scoreSlider = wx.Slider(self, self.ID_SCORESLIDER, 0, -10, 10,
                                      style=wx.SL_RIGHT|wx.SL_LABELS|
                                      wx.SL_INVERSE)
 
-    def addTrack(self, path):
+    def addTrack(self, track):
 ##        if IsCurrentTrack()==False:
-        if db.isScored(path) == False:
+        if db.isScored(track) == False:
             isScored = "+"
         else:
             isScored = ""
-        if db.getLastPlayed(path) == False:
+        if db.getLastPlayed(track) == False:
             lastPlayed = "-"
         else:
-            lastPlayed = db.getLastPlayed(path) ## should be time from last play
+            lastPlayed = db.getLastPlayed(track) ## should be time from last play
         index = self.trackList.InsertStringItem(0, isScored)
-        self.trackList.SetStringItem(index, 1, db.getArtist(path))
-        self.trackList.SetStringItem(index, 2, db.getTitle(path))
-        self.trackList.SetStringItem(index, 3, str(db.getScore(path)))
+        self.trackList.SetStringItem(index, 1, db.getArtist(track))
+        self.trackList.SetStringItem(index, 2, db.getTitle(track))
+        self.trackList.SetStringItem(index, 3, str(db.getScore(track)))
         self.trackList.SetStringItem(index, 4, lastPlayed)
+        self.trackList.SetItemData(index, db.getTrackID(track))
 
     def addDetail(self, detail):
         self.details.AppendText(detail+"\n")
@@ -208,22 +211,30 @@ class mainWindow(wx.Frame):
     def clearDetails(self):
         self.details.Clear()
 
-    def populateDetails(self, path):
-        if db.getLastPlayed(path) == False:
+## the first populateDetails seems to produce a larger font than subsequent
+## calls
+    def populateDetails(self, track):
+        if db.getLastPlayed(track) == False:
             lastPlayed = "-"
         else:
-            lastPlayed = db.getLastPlayed(path) ## should be time from last play
+            lastPlayed = db.getLastPlayed(track) ## should be time from last play
         self.clearDetails()
-        self.addDetail("Artist: "+db.getArtist(path))
-        self.addDetail("Title: "+db.getTitle(path))
-        self.addDetail("Album: "+db.getAlbum(path))
-        self.addDetail("Score: "+str(db.getScore(path))+"     Last Played: "+lastPlayed)
-        self.addDetail("Filepath: "+db.getPath(path))
+        self.addDetail("Artist: "+db.getArtist(track))
+        self.addDetail("Title: "+db.getTitle(track))
+        self.addDetail("Album: "+db.getAlbum(track))
+        self.addDetail("Score: "+str(db.getScore(track))+"     Last Played: "+lastPlayed)
+        self.addDetail("Filetrack: "+db.getPath(track))
 
-##    def onSelectTrack(self, e):
-##        path = self.selectedTrack
-##        self.populateDetails(path)
+## should deal with limited cache size
+    def onSelectTrack(self, e):
+        trackID = e.GetData()
+        track = Track.getTrackFromCache(trackID)
+        self.populateDetails(track)
 ##        self.setScoreSlider(db.getScoreValue(path))
+
+##    def onDeselectTrack(self, e):
+##        path = currentTrack()
+##        self.populateDetails(path)
 
     def onAbout(self, e):
         dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr",
@@ -285,10 +296,10 @@ app = wx.App(False)
 frame = mainWindow(None, "NQr")
 
 frame.Center()
-frame.addTrack("/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3")
-frame.addTrack("/Users/ben/Documents/Felix/NQr-old/TestDir/02 - Monument.mp3")
-frame.addDetail("Test Line 1")
-frame.addDetail("Test Line 2")
-frame.populateDetails("/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3")
+frame.addTrack(Track.getTrackFromPath(db, "/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3"))
+frame.addTrack(Track.getTrackFromPath(db, "/Users/ben/Documents/Felix/NQr-old/TestDir/02 - Monument.mp3"))
+##frame.addDetail("Test Line 1")
+##frame.addDetail("Test Line 2")
+##frame.populateDetails("/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3")
 
 app.MainLoop()
