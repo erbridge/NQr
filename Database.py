@@ -95,6 +95,15 @@ class Database:
         else:
             print "Invalid file."
 
+    def addDirectoryNoWatch(self, directory):
+        contents = os.listdir(directory)
+        for n in range(0, len(contents)):
+            path = directory+'/'+contents[n]
+            if os.path.isdir(path):
+                self.addDirectoryNoWatch(path)
+            else: ## or: elif contents[n][-4:]=='.mp3':
+                self.addTrack(path)
+
     def addDirectory(self, directory):
         c = self.conn.cursor()
         DirectoryID = self.getDirectoryID(directory)
@@ -105,13 +114,7 @@ class Database:
             print "\'"+directory+"\' is already in the watch list."
         c.close()
         self.conn.commit()
-        contents = os.listdir(directory)
-        for n in range(0, len(contents)):
-            path = directory+'/'+contents[n]
-            if os.path.isdir(path):
-                self.addDirectory(path)
-            else: ## or: elif contents[n][-4:]=='.mp3':
-                self.addTrack(path)
+        self.addDirectoryNoWatch(directory)
 
     def removeDirectory(self, directory):
         c = self.conn.cursor()
@@ -122,7 +125,16 @@ class Database:
         else:
             print "\'"+directory+"\' is not in the watch list."
         c.close()
-        self.conn.commit()        
+        self.conn.commit()
+
+    def rescanDirectories(self):
+        c = self.conn.cursor()
+        c.execute("select path from directories")
+        result = c.fetchall()
+        print result
+        for n in result:
+            self.addDirectoryNoWatch(n[0])
+        self.conn.commit()
 
 ##    def deleteTrack(self, path):
 ##        track = track.getTrackFromPathNoID(path)

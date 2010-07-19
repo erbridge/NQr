@@ -63,6 +63,9 @@ class mainWindow(wx.Frame):
         menuAddDirectory = self.fileMenu.Append(self.ID_ADDDIRECTORY,
                                                 "Add &Directory...",
                                                 " Add a directory to the library and watch list")
+        menuAddDirectoryOnce = self.fileMenu.Append(-1,
+                                                "Add Directory &Once...",
+                                                " Add a directory to the library but not the watch list")
         self.fileMenu.AppendSeparator()
         menuRemoveDirectory = self.fileMenu.Append(-1, "&Remove Directory...",
                                                    "Remove a directory from the watch list")
@@ -72,6 +75,7 @@ class mainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onAbout, menuAbout)
         self.Bind(wx.EVT_MENU, self.onAddFile, menuAddFile)
         self.Bind(wx.EVT_MENU, self.onAddDirectory, menuAddDirectory)
+        self.Bind(wx.EVT_MENU, self.onAddDirectoryOnce, menuAddDirectoryOnce)
         self.Bind(wx.EVT_MENU, self.onRemoveDirectory, menuRemoveDirectory)
         self.Bind(wx.EVT_MENU, self.onExit, menuExit)
 
@@ -121,7 +125,7 @@ class mainWindow(wx.Frame):
                                              " Search previously added directories for new files")
 
 ##        self.Bind(wx.EVT_MENU, self.onPrefs, menuPrefs)
-##        self.Bind(wx.EVT_MENU, self.onRescan, menuRescan)
+        self.Bind(wx.EVT_MENU, self.onRescan, menuRescan)
         
     def initMainSizer(self):
         self.initPlayerControls()
@@ -345,6 +349,15 @@ class mainWindow(wx.Frame):
             self.db.addDirectory(path)
         dialog.Destroy()
 
+    def onAddDirectoryOnce(self, e):
+        defaultDirectory = ''
+        dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory,
+                              wx.DD_DIR_MUST_EXIST)
+        if dialog.ShowModal() == wx.ID_OK:
+            path = dialog.GetPath()
+            self.db.addDirectoryOnce(path)
+        dialog.Destroy()
+
     def onRemoveDirectory(self, e):
         defaultDirectory = ''
         dialog = wx.DirDialog(self, "Choose a directory to remove",
@@ -421,7 +434,8 @@ class mainWindow(wx.Frame):
 
 ##    def onPrefs(self, e):
 
-##    def onRescan(self, e):
+    def onRescan(self, e):
+        self.db.rescanDirectories()
 
 app = wx.App(False)
 frame = mainWindow(None, Database(), iTunesMacOS())
