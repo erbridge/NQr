@@ -19,6 +19,7 @@ class Database:
     def __init__(self):
         self.conn = sqlite3.connect(self.databasePath)        
         self.initCreateTrackTable()
+        self.initCreateDirectoryTable()
         self.initCreatePlaysTable()
         self.initCreateScoresTable()
         self.conn.commit()
@@ -35,6 +36,19 @@ class Database:
             if str(e) != "table tracks already exists":
                 raise e
             print "Tracks table found."
+        c.close()
+
+    def initCreateDirectoryTable(self):
+        c = self.conn.cursor()
+        try:
+            c.execute("""create table directories (directoryid integer primary
+                                                   key autoincrement,
+                                                   path text)""")
+            print "Directories table created."
+        except sqlite3.OperationalError as e:
+            if str(e) != "table directories already exists":
+                raise e
+            print "Directories table found."
         c.close()
 
     def initCreatePlaysTable(self):
@@ -82,15 +96,35 @@ class Database:
             print "Invalid file."
 
     def addDirectory(self, directory):
+        c = self.conn.cursor()
+        DirectoryID = self.getDirectoryID(directory)
+        if DirectoryID == None:
+            c.execute("insert into directories (path) values (?)", (directory,))
+            print "\'"+directory+"\' has been added to the watch list."
+        else:
+            print "\'"+directory+"\' is already in the watch list."
+        c.close()
+        self.conn.commit()
         contents = os.listdir(directory)
         for n in range(0, len(contents)):
             path = directory+'/'+contents[n]
             if os.path.isdir(path):
                 self.addDirectory(path)
-            else:
+            else: ## or: elif contents[n][-4:]=='.mp3':
                 self.addTrack(path)
 
-##    def removeTrack(self, path):
+    def removeDirectory(self, directory):
+        c = self.conn.cursor()
+        DirectoryID = self.getDirectoryID(directory)
+        if DirectoryID != None:
+            c.execute("delete from directories where path = ?", (directory,))
+            print "\'"+directory+"\' has been removed from the watch list."
+        else:
+            print "\'"+directory+"\' is not in the watch list."
+        c.close()
+        self.conn.commit()        
+
+##    def deleteTrack(self, path):
 ##        track = track.getTrackFromPathNoID(path)
 ##        if track != None:
 ##            c = self.conn.cursor()
@@ -108,7 +142,7 @@ class Database:
 ##        else:
 ##            print "Invalid file."
 
-##    def removeDirectory(self, directory):
+##    def deleteDirectory(self, directory):
 ##        contents = os.listdir(directory)
 ##        for n in range(0, len(contents)):
 ##            path = directory+'/'+contents[n]
@@ -170,6 +204,17 @@ class Database:
         else:
             return result[0]
 
+    def getDirectoryID(self, path):
+        c = self.conn.cursor()
+        c.execute("select directoryid from directories where path = ?",
+                  (path, ))
+        result = c.fetchone()
+        c.close()
+        if result == None:
+            return result
+        else:
+            return result[0]        
+
 ##    def getTrackDetails(self, path):
 ##        track = ''
 ##        try:
@@ -220,7 +265,7 @@ class Database:
         c = self.conn.cursor()
         trackID = self.getTrackID(track)
         c.execute("select score from tracks where trackid = ?",
-                  (trackID(), ))
+                  (trackID, ))
         result = c.fetchone()
         c.close()
         if result != None:
@@ -244,12 +289,13 @@ class Database:
         return track.getArtist()
 
     def getAlbum(self, track):
-        if track != False:
-            return track.getAlbum()
+        return track.getAlbum()
 
     def getTitle(self, track):
-        if track != False:
-            return track.getTitle()
+        return track.getTitle()
+
+    def getTrackNumber(self, track):
+        return track.getTrackNumber()
 
     def getPath(self, track):
         return track.getPath()

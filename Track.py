@@ -11,13 +11,13 @@ def getTrackFromPathNoID(db, path):
     track = None
     try:
         track = ID3Track(db, path)
-    except mutagen.id3.ID3NoHeaderError as e:
+    except mutagen.id3.ID3NoHeaderError as err:
         if path[0] != "\'":
             fullPath = "\'"+path+"\'"
         else:
             fullPath = path
-        if str(e) != fullPath+" doesn't start with an ID3 tag":
-            raise e
+        if str(err) != fullPath+" doesn't start with an ID3 tag":
+            raise err
         print fullPath+" does not have an ID3 tag."
 ##            try:
 ##                track.MP4Track(path)
@@ -71,3 +71,7 @@ class ID3Track(Track):
     def getTitle(self):
         title = self.getAttribute('title')
         return title
+
+    def getTrackNumber(self):
+        trackNumber = self.getAttribute('tracknumber')
+        return trackNumber
