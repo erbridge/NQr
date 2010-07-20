@@ -184,15 +184,15 @@ class mainWindow(wx.Frame):
     def initTrackList(self):
         self.trackList = wx.ListCtrl(self, self.ID_TRACKLIST,
                                      style=wx.LC_REPORT|wx.LC_VRULES,
-                                     size=(448,-1))
+                                     size=(455,-1))
         self.trackList.InsertColumn(self.ID_NOWPLAYING, "",
-                                    format=wx.LIST_FORMAT_CENTER, width=18)
+                                    format=wx.LIST_FORMAT_CENTER, width=20)
         self.trackList.InsertColumn(self.ID_ARTIST, "Artist",
                                     format=wx.LIST_FORMAT_CENTER, width=100)
         self.trackList.InsertColumn(self.ID_TRACK, "Title",
                                     format=wx.LIST_FORMAT_CENTER, width=170)
         self.trackList.InsertColumn(self.ID_SCORE, "Score",
-                                    format=wx.LIST_FORMAT_CENTER, width=40)
+                                    format=wx.LIST_FORMAT_CENTER, width=45)
         self.trackList.InsertColumn(self.ID_LASTPLAYED, "Last Played",
                                     format=wx.LIST_FORMAT_CENTER, width=120)
 
@@ -252,7 +252,7 @@ class mainWindow(wx.Frame):
         self.details.Clear()
 
 ## the first populateDetails seems to produce a larger font than subsequent
-## calls
+## calls in Mac OS
 ## TODO: should focus on the top of the deatils
     def populateDetails(self, track):
         if self.db.getLastPlayed(track) == False:
@@ -312,9 +312,10 @@ class mainWindow(wx.Frame):
 ##        self.playerMenu.AppendSeparator()
 ##        menuTrackRightClickResetScore = trackRightClickMenu.Append(
 ##            -1, "Reset Sc&ore", " Reset the score of the current track")
+        
         self.Bind(wx.EVT_MENU, self.onRateUp, menuTrackRightClickRateUp)
         self.Bind(wx.EVT_MENU, self.onRateDown, menuTrackRightClickRateDown)
-        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
+##        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
 
         self.PopupMenu(trackRightClickMenu, point)
         trackRightClickMenu.Destroy()
@@ -441,9 +442,8 @@ app = wx.App(False)
 frame = mainWindow(None, Database(), iTunesMacOS())
 
 frame.Center()
-frame.addTrack(Track.getTrackFromPath(frame.db, "/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3"))
-frame.addTrack(Track.getTrackFromPath(frame.db, "/Users/ben/Documents/Felix/NQr-old/TestDir/02 - Monument.mp3"))
-frame.addTrack(Track.getTrackFromPath(frame.db, "/Users/ben/Documents/Felix/NQr-old/TestDir/1/03 - Against My Nature.mp3"))
+frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/01 - Arctic Monkeys - Brianstorm.mp3"))
+frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/02 - Arctic Monkeys - Teddy Picker.mp3"))
 ##frame.addDetail("Test Line 1")
 ##frame.addDetail("Test Line 2")
 ##frame.populateDetails("/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3")
