@@ -4,16 +4,17 @@
 ## TODO: remove bottom lines/copy to main
 ## TODO: debug message window with levels of messages (basic score up/down
 ##       etc for users and more complex for devs) using "logging" module?
-## TODO: add remove file/directory menus, with confirmation
-## TODO: add rightclick menu to tracks
+## TODO: add delete file/directory menus, with confirmation?
 ## TODO: add requeue feature
 ## TODO: add support for mulitple selections
 ## TODO: change play button and menu item to play selected track? and add to
 ##       right click menu
 ## TODO: add submenu to player menu and right click menu with e.g. "rate 10"
+## TODO: add menu option to turn NQr queuing on/off
 
 from Database import Database
 from iTunesMacOS import iTunesMacOS
+from WinampWindows import WinampWindows
 import Track
 import wx
 
@@ -30,7 +31,7 @@ class mainWindow(wx.Frame):
     ID_ADDFILE = 10
     ID_PREFS = 11
     
-    def __init__(self, parent, db, player):
+    def __init__(self, parent=None, db=Database(), player=WinampWindows()):
         self.db = db
         self.player = player
         
@@ -262,8 +263,7 @@ class mainWindow(wx.Frame):
         self.clearDetails()
         self.addDetail("Artist: "+self.db.getArtist(track))
         self.addDetail("Title: "+self.db.getTitle(track))
-        self.addDetail("Album: "+self.db.getAlbum(track))
-        self.addDetail("Track: "+self.db.getTrackNumber(track))
+        self.addDetail("Track: "+self.db.getTrackNumber(track)+"     Album: "+self.db.getAlbum(track))
         self.addDetail("Score: "+str(self.db.getScore(track))+"     Last Played: "+lastPlayed)
         self.addDetail("Filetrack: "+self.db.getPath(track))
 
@@ -439,7 +439,7 @@ class mainWindow(wx.Frame):
         self.db.rescanDirectories()
 
 app = wx.App(False)
-frame = mainWindow(None, Database(), iTunesMacOS())
+frame = mainWindow()
 
 frame.Center()
 frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/01 - Arctic Monkeys - Brianstorm.mp3"))

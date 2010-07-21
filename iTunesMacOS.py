@@ -5,7 +5,8 @@
 import subprocess
 
 class iTunesMacOS:
-    playlistname = "\"NQr\""
+    def __init__(self, playlistname="\"NQr\""):
+        self.playlistname = playlistname
 
     def runCommand(self, command):
         PIPE = subprocess.PIPE

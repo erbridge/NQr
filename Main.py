@@ -9,6 +9,6 @@
 import GUI
 
 app = wx.App(False)
-frame = GUI.mainWindow(None, Database(), iTunesMacOS())
+frame = GUI.mainWindow()
 frame.Center()
 app.MainLoop()
