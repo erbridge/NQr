@@ -2,6 +2,7 @@
 # winamp.py
 #
 # Winamp control interface
+# (http://blog.wahlig.eu/2008/05/controlling-winamp-from-python.html)
 #
 # Version 1.0.1 (20-05-2008)
 #

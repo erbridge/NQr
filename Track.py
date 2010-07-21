@@ -1,7 +1,9 @@
 ## Track information
+## TODO: check getPath gets Mac path in correct form for iTunes
 
 import mutagen
 from mutagen.easyid3 import EasyID3 as id3
+import os
 
 ##print id3.valid_keys.keys()
 
@@ -13,11 +15,14 @@ def getTrackFromPathNoID(db, path):
         track = ID3Track(db, path)
     except mutagen.id3.ID3NoHeaderError as err:
         if path[0] != "\'":
-            fullPath = "\'"+path+"\'"
+            fullPath = "\'"+os.path.abspath(path)+"\'"
         else:
-            fullPath = path
-        if str(err) != fullPath+" doesn't start with an ID3 tag":
-            raise err
+            fullPath = os.path.abspath(path)
+####        if str(err) != fullPath+" doesn't start with an ID3 tag":
+##        if "doesn't start with an ID3 tag" not in str(err):
+##            raise err
+##        elif "too small" not in str(err):
+##            raise err
         print fullPath+" does not have an ID3 tag."
 ##            try:
 ##                track.MP4Track(path)
@@ -37,14 +42,19 @@ def getTrackFromCache(trackID):
 
 class Track:
     def __init__(self, db, path):
-        self.path = path
+        self.path = os.path.abspath(path)
         self.db = db
+        self.id = None
 
     def getPath(self):
         return self.path
 
+## poss should add to cache?
     def getID(self):
-        return self.db.getTrackID(self)
+        if self.id != None:
+            return self.id
+        else:
+            return self.db.getTrackID(self)
 
     def setID(self, id):
         self.id = id

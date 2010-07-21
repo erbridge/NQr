@@ -69,7 +69,7 @@ class mainWindow(wx.Frame):
                                                 " Add a directory to the library but not the watch list")
         self.fileMenu.AppendSeparator()
         menuRemoveDirectory = self.fileMenu.Append(-1, "&Remove Directory...",
-                                                   "Remove a directory from the watch list")
+                                                   " Remove a directory from the watch list")
         self.fileMenu.AppendSeparator()
         menuExit = self.fileMenu.Append(wx.ID_EXIT, "E&xit", " Terminate NQr")
         
@@ -218,7 +218,7 @@ class mainWindow(wx.Frame):
             isScored = "+"
         else:
             isScored = ""
-        if self.db.getLastPlayed(track) == False:
+        if self.db.getLastPlayed(track) == None:
             lastPlayed = "-"
         else:
             lastPlayed = self.db.getLastPlayed(track) ## should be time from last play
@@ -235,7 +235,7 @@ class mainWindow(wx.Frame):
             isScored = "+"
         else:
             isScored = ""
-        if self.db.getLastPlayed(track) == False:
+        if self.db.getLastPlayed(track) == None:
             lastPlayed = "-"
         else:
             lastPlayed = self.db.getLastPlayed(track) ## should be time from last play
@@ -256,7 +256,7 @@ class mainWindow(wx.Frame):
 ## calls in Mac OS
 ## TODO: should focus on the top of the deatils
     def populateDetails(self, track):
-        if self.db.getLastPlayed(track) == False:
+        if self.db.getLastPlayed(track) == None:
             lastPlayed = "-"
         else:
             lastPlayed = self.db.getLastPlayed(track) ## should be time from last play
