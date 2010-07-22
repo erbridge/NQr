@@ -34,12 +34,16 @@ class TrackChangeEvent(wx.PyEvent):
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(ID_EVT_TRACK_CHANGE)
+##        self.path = path
+
+##    def getPath(self):
+##        return self.path
 
 ## must be aborted before closing!
 class TrackChangeThread(Thread):
     def __init__(self, window, player):
         Thread.__init__(self)
-        self.setDaemon(True)
+##        self.setDaemon(True)
         self.window = window
         self.player = player
         self.abortFlag = False
@@ -59,6 +63,31 @@ class TrackChangeThread(Thread):
 
     def abort(self):
         self.abortFlag = True
+
+#### TODO: poss create popup dialog when complete
+#### continues even if NQr is closed
+##class DatabaseOperationThread(Thread):
+##    def __init__(self, db, operation, path):
+##        Thread.__init__(self)
+##        self.setDaemon(True)
+##        self.db = db
+##        self.operation = operation
+##        self.path = path
+##        self.start()
+##
+##    def run(self):
+##        if self.operation == 0 or self.operation == "addTrack":
+##            self.db.addTrack(self.path)
+##        if self.operation == 1 or self.operation == "addDirectory":
+##            self.db.addDirectory(self.path)
+##        if self.operation == 2 or self.operation == "addDirecoryOnce":
+##            self.db.addDirectoryNoWatch(self.path)
+##        if self.operation == 3 or self.operation == "removeDirectory":
+##            self.db.removeDirectory(self.path)
+##        if self.operation == 4 or self.operation == "rescanDirectories":
+##            self.db.rescanDirectories()
+##        else:
+##            print "No such operation."
             
 class MainWindow(wx.Frame):
     ID_ARTIST = 1
@@ -93,6 +122,9 @@ class MainWindow(wx.Frame):
         if self.enqueueOnStartup == True:
             self.playerMenu.Check(self.ID_TOGGLENQR, True)
             self.onToggleNQr()
+
+##        if self.rescanOnStartup == True:
+##            self.onRescan()
         
         self.Show(True)
 
@@ -149,12 +181,14 @@ class MainWindow(wx.Frame):
                                           " Stop the current track")
         self.playerMenu.AppendSeparator()
         menuRateUp = self.playerMenu.Append(-1, "Rate &Up",
-                                            " Increase the score of the current track by one")
+                                            " Increase the score of the selected track by one")
         menuRateDown = self.playerMenu.Append(-1, "Rate &Down",
-                                               " Decrease the score of the current track by one")
+                                               " Decrease the score of the selected track by one")
         self.playerMenu.AppendSeparator()
+        menuRequeue = self.playerMenu.Append(-1, "Re&queue Track",
+                                             " Add the selected track to the playlist")
         menuResetScore = self.playerMenu.Append(-1, "Reset Sc&ore",
-                                                " Reset the score of the current track")
+                                                " Reset the score of the selected track")
         self.playerMenu.AppendSeparator()
         menuLaunchPlayer = self.playerMenu.Append(-1, "&Launch Player",
                                                   " Launch the selected media player")
@@ -172,6 +206,7 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onNext, menuNext)
         self.Bind(wx.EVT_MENU, self.onRateUp, menuRateUp)
         self.Bind(wx.EVT_MENU, self.onRateDown, menuRateDown)
+        self.Bind(wx.EVT_MENU, self.onRequeue, menuRequeue)
         self.Bind(wx.EVT_MENU, self.onResetScore, menuResetScore)
         self.Bind(wx.EVT_MENU, self.onLaunchPlayer, menuLaunchPlayer)
         self.Bind(wx.EVT_MENU, self.onExitPlayer, menuExitPlayer)
@@ -244,7 +279,7 @@ class MainWindow(wx.Frame):
     def initTrackList(self):
         self.trackList = wx.ListCtrl(self, self.ID_TRACKLIST,
                                      style=wx.LC_REPORT|wx.LC_VRULES,
-                                     size=(455,-1))
+                                     size=(476,-1))
         self.trackList.InsertColumn(self.ID_NOWPLAYING, "",
                                     format=wx.LIST_FORMAT_CENTER, width=20)
         self.trackList.InsertColumn(self.ID_ARTIST, "Artist",
@@ -311,7 +346,7 @@ class MainWindow(wx.Frame):
                               wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
-            self.db.addDirectoryOnce(path)
+            self.db.addDirectoryNoWatch(path)
         dialog.Destroy()
 
     def onRemoveDirectory(self, e):
@@ -371,6 +406,15 @@ class MainWindow(wx.Frame):
             print "No track selected."
             return
 
+    def onRequeue(self, e):
+        try:
+            self.player.addTrack(self.track.getPath())
+        except AttributeError as err:
+            if str(err) != "'mainWindow' object has no attribute 'track'":
+                raise err
+            print "No track selected."
+            return
+
     def onResetScore(self, e):
         try:
             self.db.setUnscored(self.track)
@@ -399,7 +443,7 @@ class MainWindow(wx.Frame):
 
 ##    def onPrefs(self, e):
 
-    def onRescan(self, e):
+    def onRescan(self, e=None):
         self.db.rescanDirectories()
 
 ## should deal with limited cache size
@@ -421,12 +465,15 @@ class MainWindow(wx.Frame):
             -1, "Rate &Up", " Increase the score of the current track by one")
         menuTrackRightClickRateDown = trackRightClickMenu.Append(
             -1, "Rate &Down", " Decrease the score of the current track by one")
-##        self.playerMenu.AppendSeparator()
+        self.playerMenu.AppendSeparator()
+        menuTrackRightClickRequeue = trackRightClickMenu.Append(
+            -1, "Re&queue Track", " Add the selected track to the playlist")
 ##        menuTrackRightClickResetScore = trackRightClickMenu.Append(
 ##            -1, "Reset Sc&ore", " Reset the score of the current track")
         
         self.Bind(wx.EVT_MENU, self.onRateUp, menuTrackRightClickRateUp)
         self.Bind(wx.EVT_MENU, self.onRateDown, menuTrackRightClickRateDown)
+        self.Bind(wx.EVT_MENU, self.onRequeue, menuTrackRightClickRequeue)
 ##        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
 
         self.PopupMenu(trackRightClickMenu, point)
@@ -446,6 +493,7 @@ class MainWindow(wx.Frame):
 
     def onTrackChange(self, e):
         path = self.player.getCurrentTrackPath()
+##        path = e.getPath()
         track = Track.getTrackFromPath(self.db, path)
         self.db.addPlay(track)
         self.addTrack(track)
@@ -456,10 +504,10 @@ class MainWindow(wx.Frame):
             isScored = "+"
         else:
             isScored = ""
-        if self.db.getLastPlayed(track) == None:
+        if self.db.getLastPlayedLocalTime(track) == None:
             lastPlayed = "-"
         else:
-            lastPlayed = self.db.getLastPlayed(track) ## should be time from last play
+            lastPlayed = self.db.getLastPlayedLocalTime(track) ## should be time from last play
         index = self.trackList.InsertStringItem(0, isScored)
         self.trackList.SetStringItem(index, 1, self.db.getArtist(track))
         self.trackList.SetStringItem(index, 2, self.db.getTitle(track))
@@ -473,10 +521,10 @@ class MainWindow(wx.Frame):
             isScored = "+"
         else:
             isScored = ""
-        if self.db.getLastPlayed(track) == None:
+        if self.db.getLastPlayedLocalTime(track) == None:
             lastPlayed = "-"
         else:
-            lastPlayed = self.db.getLastPlayed(track) ## should be time from last play
+            lastPlayed = self.db.getLastPlayedLocalTime(track) ## should be time from last play
         self.trackList.InsertStringItem(index, isScored)
         self.trackList.SetStringItem(index, 1, self.db.getArtist(track))
         self.trackList.SetStringItem(index, 2, self.db.getTitle(track))
@@ -502,10 +550,10 @@ class MainWindow(wx.Frame):
 ## calls in Mac OS
 ## TODO: should focus on the top of the details
     def populateDetails(self, track):
-        if self.db.getLastPlayed(track) == None:
+        if self.db.getLastPlayedLocalTime(track) == None:
             lastPlayed = "-"
         else:
-            lastPlayed = self.db.getLastPlayed(track) ## should be time from last play
+            lastPlayed = self.db.getLastPlayedLocalTime(track) ## should be time from last play
         self.clearDetails()
         self.addDetail("Artist: "+self.db.getArtist(track))
         self.addDetail("Title: "+self.db.getTitle(track))

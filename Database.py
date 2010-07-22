@@ -184,6 +184,8 @@ class Database:
         else:
 ##            c.execute("""update tracks set score = ?, unscored = 0 where
 ##                      trackid = ?""", (score, trackID))
+            c.execute("update tracks set unscored = 0 where trackid = ?",
+                      (trackID, ))
             c.execute("""insert into scores (trackid, score, datetime) values
                       (?, ?, datetime('now'))""", (trackID, score, ))
         c.close()
@@ -285,11 +287,33 @@ class Database:
                 print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
         elif self.isScored(track) == False:
             return self.defaultScore
-        
+
     def getLastPlayed(self, track):
         c = self.conn.cursor()
         c.execute("""select datetime from plays where trackid = ? order by
                   playid desc""", (track.getID(), ))
+        result = c.fetchone()
+        c.close()
+        if result != None:
+            return result[0]
+        else:
+            return None
+        
+    def getLastPlayedLocalTime(self, track):
+        c = self.conn.cursor()
+        c.execute("""select datetime(datetime, 'localtime') from plays where
+                  trackid = ? order by playid desc""", (track.getID(), ))
+        result = c.fetchone()
+        c.close()
+        if result != None:
+            return result[0]
+        else:
+            return None
+
+    def getTimeSinceLastPlayed(self, track):
+        c = self.conn.cursor()
+        c.execute("""select datetime('now') - datetime from plays where
+                  trackid = ? order by playid desc""", (track.getID(), ))
         result = c.fetchone()
         c.close()
         if result != None:

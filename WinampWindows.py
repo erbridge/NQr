@@ -50,7 +50,7 @@ class WinampWindows:
     def getCurrentTrackPos(self):
         trackPosition = self.winamp.getCurrentTrack()
 
-## poss insecure?
+## poss insecure: should always be checked for trackness
     def getCurrentTrackPath(self):
         trackPosition = self.winamp.getCurrentTrack()
         winampWindow = self.winamp.hwnd
