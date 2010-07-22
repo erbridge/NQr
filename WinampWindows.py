@@ -47,6 +47,9 @@ class WinampWindows:
     def stop(self):
         self.winamp.fadeStop()
 
+    def getCurrentTrackPos(self):
+        trackPosition = self.winamp.getCurrentTrack()
+
 ## poss insecure?
     def getCurrentTrackPath(self):
         trackPosition = self.winamp.getCurrentTrack()
@@ -79,12 +82,3 @@ class WinampWindows:
         winampProcess.Close()
         path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
         return path
-
-##    def getTrackChange(self):
-##        self.currentTrack = self.winamp.getCurrentTrack()
-##        while True:
-##            newTrack = self.winamp.getCurrentTrack()
-##            if newTrack != self.currentTrack:
-##                return True
-##            else:
-##                self.currentTrack = newTrack

@@ -73,9 +73,9 @@ class ID3Track(Track):
 ##            attribute = unicode(self.track[attr])[3:-2]
             return attribute
         except KeyError as err:
-            if err != 'TRCK':
+            if "TRCK" not in err and "TALB" not in err:
                 raise err
-            return "None"
+            return "-"
     
     def getArtist(self):
         artist = self.getAttribute('artist')

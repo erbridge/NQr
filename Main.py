@@ -13,13 +13,14 @@ import Track
 from WinampWindows import WinampWindows
 import wx
 
-app = wx.App(False)
-frame = GUI.mainWindow()
+if __name__ == '__main__':
+    app = wx.App(False)
+    frame = GUI.MainWindow()
 
-frame.Center()
+    frame.Center()
 
-frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/01 - Arctic Monkeys - Brianstorm.mp3"))
-frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/02 - Arctic Monkeys - Teddy Picker.mp3"))
-frame.addTrack(Track.getTrackFromPath(frame.db, frame.player.getCurrentTrackPath()))
+    frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/01 - Arctic Monkeys - Brianstorm.mp3"))
+    frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/02 - Arctic Monkeys - Teddy Picker.mp3"))
+    frame.addTrack(Track.getTrackFromPath(frame.db, frame.player.getCurrentTrackPath()))
 
-app.MainLoop()
+    app.MainLoop()

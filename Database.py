@@ -269,7 +269,7 @@ class Database:
             else:
                 print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
         elif self.isScored(track) == False:
-            return "None"
+            return "-"
 
     def getScoreValue(self, track):
         if self.isScored(track) == True:

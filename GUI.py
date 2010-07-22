@@ -19,11 +19,48 @@
 
 from Database import Database
 from iTunesMacOS import iTunesMacOS
+from threading import *
+import time
 import Track
 from WinampWindows import WinampWindows
 import wx
 
-class mainWindow(wx.Frame):
+ID_EVT_TRACK_CHANGE = wx.NewId()
+
+def EVT_TRACK_CHANGE(window, func):
+    window.Connect(-1, -1, ID_EVT_TRACK_CHANGE, func)
+
+class TrackChangeEvent(wx.PyEvent):
+    def __init__(self):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_TRACK_CHANGE)
+
+## must be aborted before closing!
+class TrackChangeThread(Thread):
+    def __init__(self, window, player):
+        Thread.__init__(self)
+        self.setDaemon(True)
+        self.window = window
+        self.player = player
+        self.abortFlag = False
+        self.start()
+
+## poss should use position rather than filename?
+    def run(self):
+        currentTrack = self.player.getCurrentTrackPath()
+        while True:
+            time.sleep(1)
+            newTrack = self.player.getCurrentTrackPath()
+            if newTrack != currentTrack:
+                currentTrack = newTrack
+                wx.PostEvent(self.window, TrackChangeEvent())
+            if self.abortFlag == True:
+                return
+
+    def abort(self):
+        self.abortFlag = True
+            
+class MainWindow(wx.Frame):
     ID_ARTIST = 1
     ID_TRACK = 2
     ID_SCORE = 3
@@ -35,17 +72,27 @@ class mainWindow(wx.Frame):
     ID_ADDDIRECTORY = 9
     ID_ADDFILE = 10
     ID_PREFS = 11
+    ID_TOGGLENQR = 12
     
-    def __init__(self, parent=None, db=Database(), player=WinampWindows()):
+    def __init__(self, parent=None, db=Database(), player=WinampWindows(),
+                 enqueueOnStartup=True, rescanOnStartup=True):
         self.db = db
         self.player = player
+        self.enqueueOnStartup = enqueueOnStartup
+        self.rescanOnStartup = rescanOnStartup
+        self.trackChangeThread = None
         
         wx.Frame.__init__(self, parent, title="NQr")
         self.CreateStatusBar()
         self.initMenuBar()
         self.initMainSizer()
 
-##        self.Bind(self.EVT_TRACK_CHANGE, self.onTrackChange)
+        EVT_TRACK_CHANGE(self, self.onTrackChange)
+        self.Bind(wx.EVT_CLOSE, self.onClose, self)
+        
+        if self.enqueueOnStartup == True:
+            self.playerMenu.Check(self.ID_TOGGLENQR, True)
+            self.onToggleNQr()
         
         self.Show(True)
 
@@ -113,6 +160,10 @@ class mainWindow(wx.Frame):
                                                   " Launch the selected media player")
         menuExitPlayer = self.playerMenu.Append(-1, "E&xit Player",
                                                 " Terminate the selected media player")
+        self.playerMenu.AppendSeparator()
+        menuToggleNQr = self.playerMenu.AppendCheckItem(self.ID_TOGGLENQR,
+                                                         "En&queue with NQr",
+                                                         " Use NQr to enqueue tracks")
 
         self.Bind(wx.EVT_MENU, self.onPlay, menuPlay)
         self.Bind(wx.EVT_MENU, self.onPause, menuPause)
@@ -124,6 +175,7 @@ class mainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onResetScore, menuResetScore)
         self.Bind(wx.EVT_MENU, self.onLaunchPlayer, menuLaunchPlayer)
         self.Bind(wx.EVT_MENU, self.onExitPlayer, menuExitPlayer)
+        self.Bind(wx.EVT_MENU, self.onToggleNQr, menuToggleNQr)
 
     def initOptionsMenu(self):
         self.optionsMenu = wx.Menu()        
@@ -218,6 +270,11 @@ class mainWindow(wx.Frame):
                   self.scoreSlider)
         self.Bind(wx.EVT_SCROLL_THUMBRELEASE, self.onScoreSliderMove,
                   self.scoreSlider)
+
+    def onClose(self, e):
+        if self.trackChangeThread:
+            self.trackChangeThread.abort()
+        self.Destroy()
     
     def onAbout(self, e):
         dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr",
@@ -331,6 +388,15 @@ class mainWindow(wx.Frame):
     def onExitPlayer(self, e):
         self.player.close()
 
+    def onToggleNQr(self, e=None):
+        if not self.trackChangeThread:
+            self.trackChangeThread = TrackChangeThread(self, self.player)
+            print "Enqueuing turned on."
+        else:
+            self.trackChangeThread.abort()
+            self.trackChangeThread = None
+            print "Enqueuing turned off."
+
 ##    def onPrefs(self, e):
 
     def onRescan(self, e):
@@ -418,6 +484,9 @@ class mainWindow(wx.Frame):
         self.trackList.SetStringItem(index, 4, lastPlayed)
         self.trackList.SetItemData(index, self.db.getTrackID(track))
 
+    def enqueueTrack(self, track):
+        self.player.addTrack(track.getPath())
+
     def setScoreSliderPosition(self, score):
         self.scoreSlider.SetValue(score)
 
@@ -453,7 +522,7 @@ class mainWindow(wx.Frame):
         self.details.Clear()
 
 ##app = wx.App(False)
-##frame = mainWindow()
+##frame = MainWindow()
 ##
 ##frame.Center()
 ##frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/01 - Arctic Monkeys - Brianstorm.mp3"))
