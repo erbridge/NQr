@@ -6,9 +6,20 @@
 ## TODO: on startup rescan directories for new files or make an option
 ## TODO: allow import of directories with a score
 
+from Database import Database
 import GUI
+from iTunesMacOS import iTunesMacOS
+import Track
+from WinampWindows import WinampWindows
+import wx
 
 app = wx.App(False)
 frame = GUI.mainWindow()
+
 frame.Center()
+
+frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/01 - Arctic Monkeys - Brianstorm.mp3"))
+frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/02 - Arctic Monkeys - Teddy Picker.mp3"))
+frame.addTrack(Track.getTrackFromPath(frame.db, frame.player.getCurrentTrackPath()))
+
 app.MainLoop()

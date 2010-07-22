@@ -65,11 +65,17 @@ class ID3Track(Track):
         Track.__init__(self, db, path)
         self.track = id3(self.getPath()) ## poss mutagen(self.getPath()) to get all types?
 
-    ## poss should simply select the first item?
+    ## poss should call all attributes at once, and then read the ones required
     ## ID3 tags are of the form [u'artistName']
     def getAttribute(self, attr):
-        attribute = unicode(self.track[attr])[3:-2]
-        return attribute
+        try:
+            attribute = self.track[attr][0]
+##            attribute = unicode(self.track[attr])[3:-2]
+            return attribute
+        except KeyError as err:
+            if err != 'TRCK':
+                raise err
+            return "None"
     
     def getArtist(self):
         artist = self.getAttribute('artist')
