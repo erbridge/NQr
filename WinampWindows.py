@@ -1,6 +1,12 @@
 ## Windows, Winamp interface
 
+import ctypes
+import os
+import string
 import subprocess
+import win32api
+import win32con
+import win32process
 import winamp as winampImport
 
 class WinampWindows:
@@ -9,8 +15,11 @@ class WinampWindows:
         self.winamp = winampImport.Winamp()
         
     def launch(self):
-        PIPE = subprocess.PIPE
-        subprocess.Popen("start winamp", stdout=PIPE, shell=True)
+        if self.winamp.getRunning() == False:
+            PIPE = subprocess.PIPE
+            subprocess.Popen("start winamp", stdout=PIPE, shell=True)
+        else:
+            self.winamp.focus()
 ##        self.winamp.start()
 
     def close(self):
@@ -37,3 +46,45 @@ class WinampWindows:
 
     def stop(self):
         self.winamp.fadeStop()
+
+## poss insecure?
+    def getCurrentTrackPath(self):
+        trackPosition = self.winamp.getCurrentTrack()
+        winampWindow = self.winamp.hwnd
+        memoryPointer = self.winamp.doIpcCommand(211, trackPosition)
+        (threadID,
+         processID) = win32process.GetWindowThreadProcessId(winampWindow)
+        winampProcess = win32api.OpenProcess(win32con.PROCESS_VM_READ, False,
+                                             processID)
+        memoryBuffer = ctypes.create_string_buffer(256)
+        ctypes.windll.kernel32.ReadProcessMemory(winampProcess.handle,
+                                                 memoryPointer, memoryBuffer,
+                                                 256, 0)
+        winampProcess.Close()
+        path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
+        return path
+
+    def getTrackPathAtPos(self, relativePosition):
+        trackPosition = self.winamp.getCurrentTrack()+relativePosition
+        winampWindow = self.winamp.hwnd
+        memoryPointer = self.winamp.doIpcCommand(211, trackPosition)
+        (threadID,
+         processID) = win32process.GetWindowThreadProcessId(winampWindow)
+        winampProcess = win32api.OpenProcess(win32con.PROCESS_VM_READ, False,
+                                             processID)
+        memoryBuffer = ctypes.create_string_buffer(256)
+        ctypes.windll.kernel32.ReadProcessMemory(winampProcess.handle,
+                                                 memoryPointer, memoryBuffer,
+                                                 256, 0)
+        winampProcess.Close()
+        path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
+        return path
+
+##    def getTrackChange(self):
+##        self.currentTrack = self.winamp.getCurrentTrack()
+##        while True:
+##            newTrack = self.winamp.getCurrentTrack()
+##            if newTrack != self.currentTrack:
+##                return True
+##            else:
+##                self.currentTrack = newTrack

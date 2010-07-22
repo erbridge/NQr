@@ -138,7 +138,6 @@ class Database:
         c = self.conn.cursor()
         c.execute("select path from directories")
         result = c.fetchall()
-        print result
         for n in result:
             self.addDirectoryNoWatch(n[0])
         self.conn.commit()
@@ -314,7 +313,8 @@ class Database:
 
     def getAlbum(self, track):
         c = self.conn.cursor()
-        c.execute("select album from tracks where trackid = ?", (track.getID(), ))
+        c.execute("select album from tracks where trackid = ?",
+                  (track.getID(), ))
         result = c.fetchone()
         c.close()
         if result != None:
@@ -324,7 +324,8 @@ class Database:
 
     def getTitle(self, track):
         c = self.conn.cursor()
-        c.execute("select title from tracks where trackid = ?", (track.getID(), ))
+        c.execute("select title from tracks where trackid = ?",
+                  (track.getID(), ))
         result = c.fetchone()
         c.close()
         if result != None:

@@ -1,6 +1,6 @@
 ## GUI
 ## TODO: set minimum sizes of windows
-## TODO: add library viewer with scoring funcionality
+## TODO: add library viewer with scoring and queuing funcionality
 ## TODO: remove bottom lines/copy to main
 ## TODO: debug message window with levels of messages (basic score up/down
 ##       etc for users and more complex for devs) using "logging" module?
@@ -10,12 +10,15 @@
 ## TODO: change play button and menu item to play selected track? and add to
 ##       right click menu
 ## TODO: add submenu to player menu and right click menu with e.g. "rate 10"
-## TODO: add menu option to turn NQr queuing on/off
+## TODO: add menu option to turn NQr queuing on/off. When off change trackList
+##       behaviour to only show played tracks, not to represent unplayed tracks,
+##       or show only 3 future tracks?
+## TODO: set up rescan on startup?
 
 from Database import Database
 from iTunesMacOS import iTunesMacOS
-from WinampWindows import WinampWindows
 import Track
+from WinampWindows import WinampWindows
 import wx
 
 class mainWindow(wx.Frame):
@@ -65,8 +68,8 @@ class mainWindow(wx.Frame):
                                                 "Add &Directory...",
                                                 " Add a directory to the library and watch list")
         menuAddDirectoryOnce = self.fileMenu.Append(-1,
-                                                "Add Directory &Once...",
-                                                " Add a directory to the library but not the watch list")
+                                                    "Add Directory &Once...",
+                                                    " Add a directory to the library but not the watch list")
         self.fileMenu.AppendSeparator()
         menuRemoveDirectory = self.fileMenu.Append(-1, "&Remove Directory...",
                                                    " Remove a directory from the watch list")
@@ -181,7 +184,7 @@ class mainWindow(wx.Frame):
         self.trackSizer.Add(self.trackList, 1, wx.EXPAND|wx.RIGHT, 5)
         self.trackSizer.Add(self.scoreSlider, 0, wx.EXPAND)
 
-    # first column for displaying "Now Playing" or a "+"
+    ## first column for displaying "Now Playing" or a "+"
     def initTrackList(self):
         self.trackList = wx.ListCtrl(self, self.ID_TRACKLIST,
                                      style=wx.LC_REPORT|wx.LC_VRULES,
@@ -254,7 +257,7 @@ class mainWindow(wx.Frame):
 
 ## the first populateDetails seems to produce a larger font than subsequent
 ## calls in Mac OS
-## TODO: should focus on the top of the deatils
+## TODO: should focus on the top of the details
     def populateDetails(self, track):
         if self.db.getLastPlayed(track) == None:
             lastPlayed = "-"
@@ -263,8 +266,10 @@ class mainWindow(wx.Frame):
         self.clearDetails()
         self.addDetail("Artist: "+self.db.getArtist(track))
         self.addDetail("Title: "+self.db.getTitle(track))
-        self.addDetail("Track: "+self.db.getTrackNumber(track)+"     Album: "+self.db.getAlbum(track))
-        self.addDetail("Score: "+str(self.db.getScore(track))+"     Last Played: "+lastPlayed)
+        self.addDetail("Track: "+self.db.getTrackNumber(track)\
+                       +"     Album: "+self.db.getAlbum(track))
+        self.addDetail("Score: "+str(self.db.getScore(track))\
+                       +"     Last Played: "+lastPlayed)
         self.addDetail("Filetrack: "+self.db.getPath(track))
 
     def setScoreSliderPosition(self, score):
@@ -329,16 +334,15 @@ class mainWindow(wx.Frame):
 ## TODO: change buttons to say "import" rather than "open"/"choose"
     def onAddFile(self, e):
         defaultDirectory = ''
-        dialog = wx.FileDialog(self, "Choose a file", defaultDirectory, "",
-                               "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|MP4 files (*.mp4)|*.mp4",
-                               wx.FD_OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR)
+        dialog = wx.FileDialog(
+            self, "Choose a file", defaultDirectory, "",
+            "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|MP4 files (*.mp4)|*.mp4",
+            wx.FD_OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR
+            )
         if dialog.ShowModal() == wx.ID_OK:
             paths = dialog.GetPaths()
             for f in paths:
                 self.db.addTrack(f)
-##            f = open(os.path.join(self.dirname, self.filename), 'r')
-##            self.control.SetValue(f.read())
-##            f.close()
         dialog.Destroy()
 
     def onAddDirectory(self, e):
@@ -444,8 +448,6 @@ frame = mainWindow()
 frame.Center()
 frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/01 - Arctic Monkeys - Brianstorm.mp3"))
 frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/02 - Arctic Monkeys - Teddy Picker.mp3"))
-##frame.addDetail("Test Line 1")
-##frame.addDetail("Test Line 2")
-##frame.populateDetails("/Users/ben/Documents/Felix/NQr-old/TestDir/01 - Day's End.mp3")
+frame.addTrack(Track.getTrackFromPath(frame.db, frame.player.getCurrentTrackPath())
 
 app.MainLoop()
