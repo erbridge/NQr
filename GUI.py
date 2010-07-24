@@ -1,24 +1,27 @@
 ## GUI
 ## TODO: set minimum sizes of windows
-## TODO: add library viewer with scoring and queuing funcionality
+## TODO: add library viewer with scoring and queueing funcionality
 ## TODO: remove bottom lines/copy to main
 ## TODO: debug message window with levels of messages (basic score up/down
 ##       etc for users and more complex for devs) using "logging" module?
 ## TODO: add delete file/directory menus, with confirmation?
-## TODO: add requeue feature
 ## TODO: add support for mulitple selections
-## TODO: change play button and menu item to play selected track? and add to
+## TODO: add play button and menu item to play selected track? and add to
 ##       right click menu
 ## TODO: add submenu to player menu and right click menu with e.g. "rate 10"
-## TODO: add menu option to turn NQr queuing on/off. When off change trackList
+## TODO: add menu option to turn NQr queueing on/off. When off change trackList
 ##       behaviour to only show played tracks, not to represent unplayed tracks,
 ##       or show only 3 future tracks?
 ## TODO: set up rescan on startup?
-## TODO: make add directory/files a background operation
+## TODO: make add/rescan directory/files a background operation: poss create a
+##       thread to check the directory and queue the database to add the file.
 ## TODO: poss create delay before counting a play (to ignore skips)
+## TODO: deal with tracks played not in database (ignore them?)
+## TODO: fix error when player (winamp) not running
 
 from Database import Database
 from iTunesMacOS import iTunesMacOS
+from Randomizer import Randomizer
 from threading import *
 import time
 import Track
@@ -53,7 +56,7 @@ class TrackChangeThread(Thread):
     def run(self):
         currentTrack = self.player.getCurrentTrackPath()
         while True:
-            time.sleep(1)
+            time.sleep(.5)
             newTrack = self.player.getCurrentTrackPath()
             if newTrack != currentTrack:
                 currentTrack = newTrack
@@ -63,6 +66,20 @@ class TrackChangeThread(Thread):
 
     def abort(self):
         self.abortFlag = True
+
+
+## doesn't yet unlock GUI
+class DatabaseThread(Thread):
+    def __init__(self, db=Database()):
+        Thread.__init__(self)
+        self.database = db
+        self.start()
+
+    def run(self):
+        pass
+
+    def rescanDirectories(self):
+        self.database.rescanDirectories()
 
 #### TODO: poss create popup dialog when complete
 #### continues even if NQr is closed
@@ -90,22 +107,25 @@ class TrackChangeThread(Thread):
 ##            print "No such operation."
             
 class MainWindow(wx.Frame):
-    ID_ARTIST = 1
-    ID_TRACK = 2
-    ID_SCORE = 3
-    ID_LASTPLAYED = 4
-    ID_SCORESLIDER = 5
-    ID_TRACKLIST = 6
-    ID_DETAILS = 7
-    ID_NOWPLAYING = 8
-    ID_ADDDIRECTORY = 9
-    ID_ADDFILE = 10
-    ID_PREFS = 11
-    ID_TOGGLENQR = 12
+    ID_ARTIST = wx.NewId()
+    ID_TRACK = wx.NewId()
+    ID_SCORE = wx.NewId()
+    ID_LASTPLAYED = wx.NewId()
+    ID_SCORESLIDER = wx.NewId()
+    ID_TRACKLIST = wx.NewId()
+    ID_DETAILS = wx.NewId()
+    ID_NOWPLAYING = wx.NewId()
+    ID_ADDDIRECTORY = wx.NewId()
+    ID_ADDFILE = wx.NewId()
+    ID_PREFS = wx.NewId()
+    ID_TOGGLENQR = wx.NewId()
     
-    def __init__(self, parent=None, db=Database(), player=WinampWindows(),
-                 enqueueOnStartup=True, rescanOnStartup=True):
+    def __init__(self, parent=None, db=Database(), randomizer=Randomizer(),
+                 player=WinampWindows(), enqueueOnStartup=True,
+                 rescanOnStartup=True):
+##        self.db = DatabaseThread(db).database
         self.db = db
+        self.randomizer = randomizer
         self.player = player
         self.enqueueOnStartup = enqueueOnStartup
         self.rescanOnStartup = rescanOnStartup
@@ -120,7 +140,7 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.onClose, self)
         
         if self.enqueueOnStartup == True:
-            self.playerMenu.Check(self.ID_TOGGLENQR, True)
+            self.optionsMenu.Check(self.ID_TOGGLENQR, True)
             self.onToggleNQr()
 
 ##        if self.rescanOnStartup == True:
@@ -194,10 +214,6 @@ class MainWindow(wx.Frame):
                                                   " Launch the selected media player")
         menuExitPlayer = self.playerMenu.Append(-1, "E&xit Player",
                                                 " Terminate the selected media player")
-        self.playerMenu.AppendSeparator()
-        menuToggleNQr = self.playerMenu.AppendCheckItem(self.ID_TOGGLENQR,
-                                                         "En&queue with NQr",
-                                                         " Use NQr to enqueue tracks")
 
         self.Bind(wx.EVT_MENU, self.onPlay, menuPlay)
         self.Bind(wx.EVT_MENU, self.onPause, menuPause)
@@ -210,7 +226,6 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onResetScore, menuResetScore)
         self.Bind(wx.EVT_MENU, self.onLaunchPlayer, menuLaunchPlayer)
         self.Bind(wx.EVT_MENU, self.onExitPlayer, menuExitPlayer)
-        self.Bind(wx.EVT_MENU, self.onToggleNQr, menuToggleNQr)
 
     def initOptionsMenu(self):
         self.optionsMenu = wx.Menu()        
@@ -218,9 +233,16 @@ class MainWindow(wx.Frame):
                                             " Change NQr's settings")
         menuRescan = self.optionsMenu.Append(-1, "&Rescan Library",
                                              " Search previously added directories for new files")
+        self.optionsMenu.AppendSeparator()
+        menuToggleNQr = self.optionsMenu.AppendCheckItem(self.ID_TOGGLENQR,
+                                                         "En&queue with NQr",
+                                                         " Use NQr to enqueue tracks")
+
+
 
 ##        self.Bind(wx.EVT_MENU, self.onPrefs, menuPrefs)
         self.Bind(wx.EVT_MENU, self.onRescan, menuRescan)
+        self.Bind(wx.EVT_MENU, self.onToggleNQr, menuToggleNQr)
         
     def initMainSizer(self):
         self.initPlayerControls()
@@ -432,14 +454,16 @@ class MainWindow(wx.Frame):
     def onExitPlayer(self, e):
         self.player.close()
 
+## should always be monitoring track changes, but toggle should turn on/off
+## auto queueing
     def onToggleNQr(self, e=None):
         if not self.trackChangeThread:
             self.trackChangeThread = TrackChangeThread(self, self.player)
-            print "Enqueuing turned on."
+            print "Enqueueing turned on."
         else:
             self.trackChangeThread.abort()
             self.trackChangeThread = None
-            print "Enqueuing turned off."
+            print "Enqueueing turned off."
 
 ##    def onPrefs(self, e):
 

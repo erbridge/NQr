@@ -34,6 +34,13 @@ class WinampWindows:
 
     def nextTrack(self):
         self.winamp.next()
+##        try:
+##            self.winamp.next()
+##        except winampImport.WinampError as err:
+##            if "Winamp is not running" not in err:
+##                raise err
+##            self.launch()
+##            self.winamp.next()
 
     def pause(self):
         self.winamp.pause()

@@ -1,4 +1,8 @@
 ## Database Control
+## TODO: check metadata haven't changed when grabbing track?
+## TODO: use a hash as a track identifier instead of path to allow for path
+##       changes.
+## TODO: add a function to remove the last play record (to undo the play)
 
 import mutagen
 import Track
@@ -206,6 +210,14 @@ class Database:
         c.close()
         self.conn.commit()
 
+## returns a list of tuples of the form (trackID, )
+    def getAllTrackIDs(self):
+        c = self.conn.cursor()
+        c.execute("select trackid from tracks")
+        result = c.fetchall()
+        c.close()
+        return result
+
     def getTrackID(self, track):
         c = self.conn.cursor()
         c.execute("select trackid from tracks where path = ?",
@@ -226,31 +238,24 @@ class Database:
         if result == None:
             return result
         else:
-            return result[0]        
-
-##    def getTrackDetails(self, path):
-##        track = ''
-##        try:
-##            track = ID3Track(path)
-####            return True
-##        except mutagen.id3.ID3NoHeaderError as e:
-##            if path[0] != "\'":
-##                fullPath = "\'"+path+"\'"
-##            else:
-##                fullPath = path
-##            if str(e) != fullPath+" doesn't start with an ID3 tag":
-##                raise e
-##            print fullPath+" does not have an ID3 tag."
-####            try:
-####                track.MP4Track(path)
-##            return None
-##        return track
+            return result[0]
 
     ## determines whether user has changed score for this track
     def isScored(self, track):
         c = self.conn.cursor()
         c.execute("select unscored from tracks where trackid = ?",
                   (track.getID(), ))
+        result = c.fetchone()
+        c.close()
+        if result[0] == 1:
+            return False
+        elif result[0] == 0:
+            return True
+
+    def isScoredFromID(self, trackID):
+        c = self.conn.cursor()
+        c.execute("select unscored from tracks where trackid = ?",
+                  (trackID, ))
         result = c.fetchone()
         c.close()
         if result[0] == 1:
@@ -288,6 +293,21 @@ class Database:
         elif self.isScored(track) == False:
             return self.defaultScore
 
+    def getScoreValueFromID(self, trackID):
+        if self.isScoredFromID(trackID) == True:
+            c = self.conn.cursor()
+            c.execute("""select score from scores where trackid = ? order by
+                      scoreid desc""",
+                      (trackID, ))
+            result = c.fetchone()
+            c.close()
+            if result != None:
+                return result[0]
+##            else:
+##                print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
+        elif self.isScoredFromID(trackID) == False:
+            return self.defaultScore
+
     def getLastPlayed(self, track):
         c = self.conn.cursor()
         c.execute("""select datetime from plays where trackid = ? order by
@@ -314,6 +334,18 @@ class Database:
         c = self.conn.cursor()
         c.execute("""select datetime('now') - datetime from plays where
                   trackid = ? order by playid desc""", (track.getID(), ))
+        result = c.fetchone()
+        c.close()
+        if result != None:
+            return result[0]
+        else:
+            return None
+
+    def getSecondsSinceLastPlayedFromID(self, trackID):
+        c = self.conn.cursor()
+        c.execute("""select strftime('%s', 'now') - strftime('%s', datetime)
+                  from plays where trackid = ? order by playid desc""",
+                  (trackID, ))
         result = c.fetchone()
         c.close()
         if result != None:
@@ -387,6 +419,3 @@ class Database:
             return result[0]
         else:
             return None
-        
-
-##data = Database()
