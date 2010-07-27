@@ -4,15 +4,15 @@
 ##       changes.
 ## TODO: add a function to remove the last play record (to undo the play)
 
-import mutagen
-import Track
+##import Track
 import os
 import sqlite3
 
 class Database:
     ## TODO: check if track table already exists first to confirm whether or not
     ##       to create other tables (poss corruption)
-    def __init__(self, databasePath="database", defaultScore=10):
+    def __init__(self, trackFactory, databasePath="database", defaultScore=10):
+        self.trackFactory = trackFactory
         self.databasePath = databasePath
         self.defaultScore = defaultScore
         self.conn = sqlite3.connect(self.databasePath)        
@@ -77,7 +77,7 @@ class Database:
         c.close()
 
     def addTrack(self, path):
-        track = Track.getTrackFromPathNoID(self, path)
+        track = self.trackFactory.getTrackFromPathNoID(self, path)
         if track != None:
             c = self.conn.cursor()
             trackID = self.getTrackID(track)

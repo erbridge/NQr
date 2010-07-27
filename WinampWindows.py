@@ -4,6 +4,7 @@ import ctypes
 import os
 import string
 import subprocess
+import time
 import win32api
 import win32con
 import win32process
@@ -13,6 +14,7 @@ class WinampWindows:
 ## playlistname not used in winamp
     def __init__(self, playlistname=None):
         self.winamp = winampImport.Winamp()
+        self.launchBackground()
         
     def launch(self):
         if self.winamp.getRunning() == False:
@@ -20,12 +22,24 @@ class WinampWindows:
             subprocess.Popen("start winamp", stdout=PIPE, shell=True)
         else:
             self.winamp.focus()
-##        self.winamp.start()
+
+    def launchBackground(self):
+        if self.winamp.getRunning() == False:
+            PIPE = subprocess.PIPE
+            subprocess.Popen("start winamp", stdout=PIPE, shell=True)
+            while True:
+                time.sleep(.25)
+                if self.winamp.getRunning() == True:
+                    print "Winamp has been launched."
+                    return
 
     def close(self):
-        self.winamp.close()
+        if self.winamp.getRunning() == True:
+            self.winamp.close()
 
     def addTrack(self, filepath):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
         self.winamp.enqueue(filepath)
 
 ##    def playTrack(self, filepath):
@@ -33,33 +47,38 @@ class WinampWindows:
 ##    def cropPlaylist(self):
 
     def nextTrack(self):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
         self.winamp.next()
-##        try:
-##            self.winamp.next()
-##        except winampImport.WinampError as err:
-##            if "Winamp is not running" not in err:
-##                raise err
-##            self.launch()
-##            self.winamp.next()
 
     def pause(self):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
         self.winamp.pause()
 
     def play(self):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
         self.winamp.play()
 
     def previousTrack(self):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
         self.winamp.previous()
 
     def stop(self):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
         self.winamp.fadeStop()
 
     def getCurrentTrackPos(self):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
         trackPosition = self.winamp.getCurrentTrack()
 
 ## poss insecure: should always be checked for trackness
     def getCurrentTrackPath(self):
-        trackPosition = self.winamp.getCurrentTrack()
+        trackPosition = self.getCurrentTrackPos()
         winampWindow = self.winamp.hwnd
         memoryPointer = self.winamp.doIpcCommand(211, trackPosition)
         (threadID,
@@ -74,8 +93,10 @@ class WinampWindows:
         path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
         return path
 
+## gets track at a playlist position relative to the current track (+ve is
+## later)
     def getTrackPathAtPos(self, relativePosition):
-        trackPosition = self.winamp.getCurrentTrack()+relativePosition
+        trackPosition = self.getCurrentTrackPos()+relativePosition
         winampWindow = self.winamp.hwnd
         memoryPointer = self.winamp.doIpcCommand(211, trackPosition)
         (threadID,

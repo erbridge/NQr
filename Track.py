@@ -7,38 +7,40 @@ import os
 
 ##print id3.valid_keys.keys()
 
-_trackCache = {}
+class Factory:
+    def __init__(self):
+        self.trackCache = {}
 
-def getTrackFromPathNoID(db, path):
-    track = None
-    try:
-        track = ID3Track(db, path)
-    except mutagen.id3.ID3NoHeaderError as err:
-        if path[0] != "\'":
-            fullPath = "\'"+os.path.abspath(path)+"\'"
-        else:
-            fullPath = os.path.abspath(path)
-####        if str(err) != fullPath+" doesn't start with an ID3 tag":
-##        if "doesn't start with an ID3 tag" not in str(err):
-##            raise err
-##        elif "too small" not in str(err):
-##            raise err
-        print fullPath+" does not have an ID3 tag."
-##            try:
-##                track.MP4Track(path)
-        return None
-    return track
+    def getTrackFromPathNoID(self, db, path):
+        track = None
+        try:
+            track = ID3Track(db, path)
+        except mutagen.id3.ID3NoHeaderError as err:
+            if path[0] != "\'":
+                fullPath = "\'"+os.path.abspath(path)+"\'"
+            else:
+                fullPath = os.path.abspath(path)
+    ####        if str(err) != fullPath+" doesn't start with an ID3 tag":
+    ##        if "doesn't start with an ID3 tag" not in str(err):
+    ##            raise err
+    ##        elif "too small" not in str(err):
+    ##            raise err
+            print fullPath+" does not have an ID3 tag."
+    ##            try:
+    ##                track.MP4Track(path)
+            return None
+        return track
 
-def addTrackToCache(track):
-    _trackCache[track.getID()] = track
+    def addTrackToCache(self, track):
+        self.trackCache[track.getID()] = track
 
-def getTrackFromPath(db, path):
-    track = getTrackFromPathNoID(db, path)
-    addTrackToCache(track)
-    return track
+    def getTrackFromPath(self, db, path):
+        track = self.getTrackFromPathNoID(db, path)
+        self.addTrackToCache(track)
+        return track
 
-def getTrackFromCache(trackID):
-    return _trackCache[trackID]
+    def getTrackFromCache(self, trackID):
+        return self.trackCache[trackID]
 
 class Track:
     def __init__(self, db, path):

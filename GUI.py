@@ -17,15 +17,15 @@
 ##       thread to check the directory and queue the database to add the file.
 ## TODO: poss create delay before counting a play (to ignore skips)
 ## TODO: deal with tracks played not in database (ignore them?)
-## TODO: fix error when player (winamp) not running
+## TODO: add keyboard shortcuts
 
-from Database import Database
-from iTunesMacOS import iTunesMacOS
-from Randomizer import Randomizer
+##from Database import Database
+##from iTunesMacOS import iTunesMacOS
+##from Randomizer import Randomizer
 from threading import *
 import time
-import Track
-from WinampWindows import WinampWindows
+##import Track
+##from WinampWindows import WinampWindows
 import wx
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
@@ -53,6 +53,8 @@ class TrackChangeThread(Thread):
         self.start()
 
 ## poss should use position rather than filename?
+## sometimes gets the wrong track if skipped too fast: should return the path
+## with the event
     def run(self):
         currentTrack = self.player.getCurrentTrackPath()
         while True:
@@ -70,16 +72,16 @@ class TrackChangeThread(Thread):
 
 ## doesn't yet unlock GUI
 class DatabaseThread(Thread):
-    def __init__(self, db=Database()):
+    def __init__(self, db):
         Thread.__init__(self)
-        self.database = db
+        self.db = db
         self.start()
 
     def run(self):
         pass
 
     def rescanDirectories(self):
-        self.database.rescanDirectories()
+        self.db.rescanDirectories()
 
 #### TODO: poss create popup dialog when complete
 #### continues even if NQr is closed
@@ -120,18 +122,18 @@ class MainWindow(wx.Frame):
     ID_PREFS = wx.NewId()
     ID_TOGGLENQR = wx.NewId()
     
-    def __init__(self, parent=None, db=Database(), randomizer=Randomizer(),
-                 player=WinampWindows(), enqueueOnStartup=True,
-                 rescanOnStartup=True):
+    def __init__(self, parent, db, randomizer, player, trackFactory,
+                 title="NQr", enqueueOnStartup=True, rescanOnStartup=True):
 ##        self.db = DatabaseThread(db).database
         self.db = db
         self.randomizer = randomizer
         self.player = player
+        self.trackFactory = trackFactory
         self.enqueueOnStartup = enqueueOnStartup
         self.rescanOnStartup = rescanOnStartup
         self.trackChangeThread = None
         
-        wx.Frame.__init__(self, parent, title="NQr")
+        wx.Frame.__init__(self, parent, title=title)
         self.CreateStatusBar()
         self.initMenuBar()
         self.initMainSizer()
@@ -145,7 +147,12 @@ class MainWindow(wx.Frame):
 
 ##        if self.rescanOnStartup == True:
 ##            self.onRescan()
-        
+
+        self.addTrack(
+            self.trackFactory.getTrackFromPath(
+                self.db, self.player.getCurrentTrackPath())
+            )
+
         self.Show(True)
 
     def initMenuBar(self):
@@ -474,7 +481,7 @@ class MainWindow(wx.Frame):
     def onSelectTrack(self, e):
         self.trackID = e.GetData()
         self.index = e.GetIndex()
-        self.track = Track.getTrackFromCache(self.trackID)
+        self.track = self.trackFactory.getTrackFromCache(self.trackID)
         self.populateDetails(self.track)
         self.setScoreSliderPosition(self.db.getScoreValue(self.track))
 
@@ -518,7 +525,7 @@ class MainWindow(wx.Frame):
     def onTrackChange(self, e):
         path = self.player.getCurrentTrackPath()
 ##        path = e.getPath()
-        track = Track.getTrackFromPath(self.db, path)
+        track = self.trackFactory.getTrackFromPath(self.db, path)
         self.db.addPlay(track)
         self.addTrack(track)
 
