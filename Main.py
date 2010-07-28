@@ -9,14 +9,20 @@
 import Database
 import GUI
 import iTunesMacOS
+import platform
 import Randomizer
 import Track
-import WinampWindows
 import wx
 
 ## this info should be read from a settings file
 if __name__ == '__main__':
-    player = WinampWindows.WinampWindows() ## should be called early
+    # Do platform-dependent imports, and choose a player type. For
+    # now, we just choose it based on the platform...
+    print "Running on ", platform.system()
+    player = None
+    if platform.system() == 'Windows':
+        import WinampWindows
+        player = WinampWindows.WinampWindows() ## should be called early
     trackFactory = Track.Factory()
     db = Database.Database(trackFactory)
     randomizer = Randomizer.Randomizer(db)
