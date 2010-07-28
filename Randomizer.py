@@ -1,7 +1,6 @@
 ## Randomization Algorithm
 ## TODO: work out time factor if track has never been played: poss use time
 ##       since added to database?
-## TODO: add score threshold functionality
 
 ##from Database import Database
 import random

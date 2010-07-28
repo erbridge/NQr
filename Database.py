@@ -3,6 +3,7 @@
 ## TODO: use a hash as a track identifier instead of path to allow for path
 ##       changes.
 ## TODO: add a function to remove the last play record (to undo the play)
+## TODO: add ignore list
 
 ##import Track
 import os
@@ -12,18 +13,19 @@ class Database:
     ## TODO: check if track table already exists first to confirm whether or not
     ##       to create other tables (poss corruption)
     def __init__(self, trackFactory, databasePath="database", defaultScore=10):
-        self.trackFactory = trackFactory
-        self.databasePath = databasePath
-        self.defaultScore = defaultScore
-        self.conn = sqlite3.connect(self.databasePath)        
-        self.initCreateTrackTable()
-        self.initCreateDirectoryTable()
-        self.initCreatePlaysTable()
-        self.initCreateScoresTable()
-        self.conn.commit()
+        self._trackFactory = trackFactory
+        self._databasePath = databasePath
+        self._defaultScore = defaultScore
+        self._conn = sqlite3.connect(self._databasePath)        
+        self._initCreateTrackTable()
+        self._initCreateDirectoryTable()
+        self._initCreatePlaysTable()
+        self._initCreateScoresTable()
+        self._initCreateIgnoreTable()
+        self._conn.commit()
 
-    def initCreateTrackTable(self):
-        c = self.conn.cursor()
+    def _initCreateTrackTable(self):
+        c = self._conn.cursor()
         try:
             c.execute("""create table tracks (trackid integer primary key
                                               autoincrement, path text,
@@ -37,8 +39,8 @@ class Database:
             print "Tracks table found."
         c.close()
 
-    def initCreateDirectoryTable(self):
-        c = self.conn.cursor()
+    def _initCreateDirectoryTable(self):
+        c = self._conn.cursor()
         try:
             c.execute("""create table directories (directoryid integer primary
                                                    key autoincrement,
@@ -50,8 +52,8 @@ class Database:
             print "Directories table found."
         c.close()
 
-    def initCreatePlaysTable(self):
-        c = self.conn.cursor()
+    def _initCreatePlaysTable(self):
+        c = self._conn.cursor()
         try:
             c.execute("""create table plays (playid integer primary key
                                              autoincrement, trackid integer,
@@ -63,8 +65,8 @@ class Database:
             print "Plays table found."
         c.close()
 
-    def initCreateScoresTable(self):
-        c = self.conn.cursor()
+    def _initCreateScoresTable(self):
+        c = self._conn.cursor()
         try:
             c.execute("""create table scores (scoreid integer primary key
                                               autoincrement, trackid integer,
@@ -76,29 +78,42 @@ class Database:
             print "Scores table found."
         c.close()
 
-    def addTrack(self, path):
-        track = self.trackFactory.getTrackFromPathNoID(self, path)
-        if track != None:
-            c = self.conn.cursor()
-            trackID = self._getTrackID(track)
-            path = track.getPath()
-            if trackID == None:
-                c.execute("""insert into tracks (path, artist, album, title,
-                          tracknumber, unscored) values
-                          (?, ?, ?, ?, ?, 1)""", (path, track.getArtist(),
-                                                     track.getAlbum(),
-                                                     track.getTitle(),
-                                                     track.getTrackNumber(), ))
-                trackID = c.lastrowid
-                print "\'"+path+"\' has been added to the library."
-            else:
-                print "\'"+path+"\' is already in the library."                
-            c.close()
-            self.conn.commit()
-            track.setID(self.trackFactory, trackID)
-            return trackID
-        else:
+    def _initCreateIgnoreTable(self):
+        c = self._conn.cursor()
+        try:
+            c.execute("""create table ignore (ignoreid integer primary key
+                                              autoincrement, trackid
+                                              integer)""")
+            print "Ignore table created."
+        except sqlite3.OperationalError as e:
+            if str(e) != "table ignore already exists":
+                raise e
+            print "Ignore table found."
+        c.close()
+
+    def addTrack(self, path, hasTrackID=True):
+        track = self._trackFactory.getTrackFromPathNoID(self, path)
+        if track == None:
             print "Invalid file."
+            return None
+        c = self._conn.cursor()
+        trackID = None
+        if hasTrackID == True:
+            trackID = self._getTrackID(track)
+        path = track.getPath()
+        if hasTrackID == False or trackID == None:
+            c.execute("""insert into tracks (path, artist, album, title,
+                      tracknumber, unscored) values (?, ?, ?, ?, ?, 1)""",
+                      (path, track.getArtist(), track.getAlbum(),
+                       track.getTitle(), track.getTrackNumber(), ))
+            trackID = c.lastrowid
+            print "\'"+path+"\' has been added to the library."
+        else:
+            print "\'"+path+"\' is already in the library."                
+        c.close()
+        self._conn.commit()
+        track.setID(self._trackFactory, trackID)
+        return trackID
 
     def addDirectoryNoWatch(self, directory):
         contents = os.listdir(directory)
@@ -110,7 +125,7 @@ class Database:
                 self.addTrack(path)
 
     def addDirectory(self, directory):
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         DirectoryID = self.getDirectoryID(directory)
         if DirectoryID == None:
             c.execute("insert into directories (path) values (?)", (directory,))
@@ -118,11 +133,11 @@ class Database:
         else:
             print "\'"+directory+"\' is already in the watch list."
         c.close()
-        self.conn.commit()
+        self._conn.commit()
         self.addDirectoryNoWatch(directory)
 
     def removeDirectory(self, directory):
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         DirectoryID = self.getDirectoryID(directory)
         if DirectoryID != None:
             c.execute("delete from directories where path = ?", (directory,))
@@ -130,97 +145,67 @@ class Database:
         else:
             print "\'"+directory+"\' is not in the watch list."
         c.close()
-        self.conn.commit()
+        self._conn.commit()
 
     def rescanDirectories(self):
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         c.execute("select path from directories")
         result = c.fetchall()
         for n in result:
             self.addDirectoryNoWatch(n[0])
-        self.conn.commit()
-
-##    def deleteTrack(self, path):
-##        track = track.getTrackFromPathNoID(path)
-##        if track != None:
-##            c = self.conn.cursor()
-##            if self.getTrackID(track.getPath()) != None:
-##                trackID = self.getTrackID(track.getPath())
-##                c.execute("delete from tracks where path = ? ",
-##                          (track.getPath(), ))
-##                c.execute("delete from plays where trackid = ?", (trackID, ))
-##                track.setID(trackID)
-##                print "\'"+track.getPath()+"\' and associated plays have been removed from the library."
-##            else:
-##                print "\'"+track.getPath()+"\' is not in the library."
-##            c.close()
-##            self.conn.commit()
-##        else:
-##            print "Invalid file."
-
-##    def deleteDirectory(self, directory):
-##        contents = os.listdir(directory)
-##        for n in range(0, len(contents)):
-##            path = directory+'/'+contents[n]
-##            if os.path.isdir(path):
-##                self.removeDirectory(path)
-##            else:
-##                self.removeTrack(path)
+        self._conn.commit()
 
     ## poss add track if track not in library
     def addPlay(self, track):
-##        track = self.getTrackDetails(path)
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         trackID = track.getID()
         if trackID == None:
             print "\'"+self.getPath(track)+"\' is not in the library."
-        else:
-            c.execute("""insert into plays (trackid, datetime) values
-                      (?, datetime('now'))""", (trackID, ))
+            return
+        c.execute("""insert into plays (trackid, datetime) values
+                  (?, datetime('now'))""", (trackID, ))
         c.close()
-        self.conn.commit()
+        self._conn.commit()
             
     ## poss add track if track not in library
     def setScore(self, track, score):
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         trackID = track.getID()
         if trackID == None:
             print "\'"+self.getPath(track)+"\' is not in the library."
-        else:
-##            c.execute("""update tracks set score = ?, unscored = 0 where
-##                      trackid = ?""", (score, trackID))
-            c.execute("update tracks set unscored = 0 where trackid = ?",
-                      (trackID, ))
-            c.execute("""insert into scores (trackid, score, datetime) values
-                      (?, ?, datetime('now'))""", (trackID, score, ))
+            return
+        c.execute("update tracks set unscored = 0 where trackid = ?",
+                  (trackID, ))
+        c.execute("""insert into scores (trackid, score, datetime) values
+                  (?, ?, datetime('now'))""", (trackID, score, ))
         c.close()
-        self.conn.commit()
+        self._conn.commit()
 
     ## poss should add a record to scores table
     def setUnscored(self, track):
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         trackID = track.getID()
         if trackID == None:
             print "\'"+self.getPath(track)+"\' is not in the library."
         else:
 ##            c.execute("""insert into scores (trackid, score, datetime) values
 ##                      (?, ?, datetime('now'))""", (trackID,
-##                                                   self.defaultScore, ))
+##                                                   self._defaultScore, ))
             c.execute("""update tracks set unscored = 1 where
                       trackid = ?""", (trackID, ))
         c.close()
-        self.conn.commit()
+        self._conn.commit()
 
 ## returns a list of tuples of the form (trackID, )
     def getAllTrackIDs(self):
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         c.execute("select trackid from tracks")
         result = c.fetchall()
         c.close()
         return result
 
     def _getTrackID(self, track):
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         c.execute("select trackid from tracks where path = ?",
                   (track.getPath(), ))
         result = c.fetchone()
@@ -233,198 +218,144 @@ class Database:
     def getTrackID(self, track):
         trackID = self._getTrackID(track)
         if trackID == None:
-            # FIXME: kinda icky, this calls _getTrackID()
-            # again. Refactor.
-            return self.addTrack(track.getPath())
+            return self.addTrack(track.getPath(), hasTrackID=False)
         return trackID
 
     def getDirectoryID(self, path):
-        c = self.conn.cursor()
+        c = self._conn.cursor()
         c.execute("select directoryid from directories where path = ?",
                   (path, ))
         result = c.fetchone()
         c.close()
         if result == None:
-            return result
+            return None
         else:
             return result[0]
 
-    ## determines whether user has changed score for this track
-    def isScored(self, track):
-        c = self.conn.cursor()
-        c.execute("select unscored from tracks where trackid = ?",
-                  (track.getID(), ))
+    def _getLastPlayed(self, queryString, track=None, trackID=None):
+        if trackID == None and track == None:
+            print "No track has been identified."
+            return None
+        if trackID == None and track != None:
+            trackID = track.getID()
+        c = self._conn.cursor()
+        c.execute("""select ? from plays where trackid = ? order by
+                  playid desc""", (queryString, trackID))
         result = c.fetchone()
         c.close()
-        if result[0] == 1:
-            return False
-        elif result[0] == 0:
-            return True
-
-    def isScoredFromID(self, trackID):
-        c = self.conn.cursor()
-        c.execute("select unscored from tracks where trackid = ?",
-                  (trackID, ))
-        result = c.fetchone()
-        c.close()
-        if result[0] == 1:
-            return False
-        elif result[0] == 0:
-            return True
-
-    def getScore(self, track):
-        if self.isScored(track) == True:
-            c = self.conn.cursor()
-            c.execute("""select score from scores where trackid = ? order by
-                      scoreid desc""",
-                      (track.getID(), ))
-            result = c.fetchone()
-            c.close()
-            if result != None:
-                return result[0]
-            else:
-                print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
-        elif self.isScored(track) == False:
-            return "-"
-
-    def getScoreValue(self, track):
-        if self.isScored(track) == True:
-            c = self.conn.cursor()
-            c.execute("""select score from scores where trackid = ? order by
-                      scoreid desc""",
-                      (track.getID(), ))
-            result = c.fetchone()
-            c.close()
-            if result != None:
-                return result[0]
-            else:
-                print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
-        elif self.isScored(track) == False:
-            return self.defaultScore
-
-    def getScoreValueFromID(self, trackID):
-        if self.isScoredFromID(trackID) == True:
-            c = self.conn.cursor()
-            c.execute("""select score from scores where trackid = ? order by
-                      scoreid desc""",
-                      (trackID, ))
-            result = c.fetchone()
-            c.close()
-            if result != None:
-                return result[0]
-##            else:
-##                print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
-        elif self.isScoredFromID(trackID) == False:
-            return self.defaultScore
+        if result != None:
+            return result[0]
+        else:
+            return None
 
     def getLastPlayed(self, track):
-        c = self.conn.cursor()
-        c.execute("""select datetime from plays where trackid = ? order by
-                  playid desc""", (track.getID(), ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-        else:
-            return None
+        return self._getLastPlayed("datetime", track=track)
         
     def getLastPlayedLocalTime(self, track):
-        c = self.conn.cursor()
-        c.execute("""select datetime(datetime, 'localtime') from plays where
-                  trackid = ? order by playid desc""", (track.getID(), ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-        else:
-            return None
+        return self._getLastPlayed("datetime(datetime, 'localtime')",
+                                   track=track)
 
     def getTimeSinceLastPlayed(self, track):
-        c = self.conn.cursor()
-        c.execute("""select datetime('now') - datetime from plays where
-                  trackid = ? order by playid desc""", (track.getID(), ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-        else:
-            return None
+        return self._getLastPlayed("datetime('now') - datetime", track=track)
 
     def getSecondsSinceLastPlayedFromID(self, trackID):
-        c = self.conn.cursor()
-        c.execute("""select strftime('%s', 'now') - strftime('%s', datetime)
-                  from plays where trackid = ? order by playid desc""",
-                  (trackID, ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-        else:
-            return None
+        return self._getLastPlayed(
+            "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
 
-    def getArtist(self, track):
-        c = self.conn.cursor()
-        c.execute("select artist from tracks where trackid = ?",
-                  (track.getID(), ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-        else:
+    def _getTrackDetails(self, track=None, trackID=None):
+        if trackID == None and track == None:
+            print "No track has been identified."
             return None
-##        return track.getArtist()
-
-    def getAlbum(self, track):
-        c = self.conn.cursor()
-        c.execute("select album from tracks where trackid = ?",
-                  (track.getID(), ))
+        if trackID == None and track != None:
+            trackID = track.getID()
+        c = self._conn.cursor()
+        c.execute("select * from tracks where trackid = ?", (trackID, ))
         result = c.fetchone()
         c.close()
         if result != None:
-            return result[0]
-        else:
-            return None
-
-    def getTitle(self, track):
-        c = self.conn.cursor()
-        c.execute("select title from tracks where trackid = ?",
-                  (track.getID(), ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-        else:
-            return None
-
-    def getTrackNumber(self, track):
-        c = self.conn.cursor()
-        c.execute("select tracknumber from tracks where trackid = ?",
-                  (track.getID(), ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
+            return result
         else:
             return None
 
     def getPath(self, track):
-        c = self.conn.cursor()
-        c.execute("select path from tracks where trackid = ?",
-                  (track.getID(), ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-        else:
+        details = self._getTrackDetails(track=track)
+        if details == None:
             return None
+        return details[2]
 
     def getPathFromID(self, trackID):
-        c = self.conn.cursor()
-        c.execute("select path from tracks where trackid = ?",
-                  (trackID, ))
+        details = self._getTrackDetails(trackID=trackID)
+        if details == None:
+            return None
+        return details[2]
+
+    def getArtist(self, track):
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        return details[3]
+
+    def getAlbum(self, track):
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        return details[4]
+
+    def getTitle(self, track):
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        return details[5]
+
+    def getTrackNumber(self, track):
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        return details[6]
+
+    ## determines whether user has changed score for this track
+    def _isScored(self, track=None, trackID=None):
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        if details[7] == 1:
+            return False
+        elif details[7] == 0:
+            return True
+
+    def isScored(self, track):
+        return self._isScored(track=track)
+
+    def isScoredFromID(self, trackID):
+        return self._isScored(trackID=trackID)
+
+    def _getScore(self, track=None, trackID=None):
+        if trackID == None and track == None:
+            print "No track has been identified."
+            return None
+        if trackID == None and track != None:
+            trackID = track.getID()
+        c = self._conn.cursor()
+        c.execute("""select score from scores where trackid = ? order by
+                  scoreid desc""", (trackID, ))
         result = c.fetchone()
         c.close()
         if result != None:
             return result[0]
         else:
-            return None
+            print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
+
+    def getScore(self, track):
+        if self.isScored(track) == False:
+            return "-"
+        return self._getScore(track=track)
+
+    def getScoreValue(self, track):
+        if self.isScored(track) == False:
+            return self._defaultScore
+        return self._getScore(track=track)
+
+    def getScoreValueFromID(self, trackID):
+        if self.isScoredFromID(trackID) == False:
+            return self._defaultScore
+        return self._getScore(trackID=trackID)
