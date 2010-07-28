@@ -18,11 +18,14 @@ import wx
 if __name__ == '__main__':
     # Do platform-dependent imports, and choose a player type. For
     # now, we just choose it based on the platform...
-    print "Running on ", platform.system()
+    print "Running on", platform.system()
     player = None
     if platform.system() == 'Windows':
         import WinampWindows
         player = WinampWindows.WinampWindows() ## should be called early
+    elif platform.system() == 'FreeBSD':
+        import XMMS
+        player = XMMS.XMMS()
     trackFactory = Track.Factory()
     db = Database.Database(trackFactory)
     randomizer = Randomizer.Randomizer(db)
