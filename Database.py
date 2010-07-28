@@ -95,7 +95,7 @@ class Database:
                 print "\'"+path+"\' is already in the library."                
             c.close()
             self.conn.commit()
-            track.setID(trackID)
+            track.setID(self.trackFactory, trackID)
             return trackID
         else:
             print "Invalid file."

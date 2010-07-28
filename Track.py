@@ -58,9 +58,9 @@ class Track:
         else:
             return self.db.getTrackID(self)
 
-    def setID(self, id):
+    def setID(self, factory, id):
         self.id = id
-        addTrackToCache(self)
+        factory.addTrackToCache(self)
 
 class ID3Track(Track):
     def __init__(self, db, path):
