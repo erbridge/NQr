@@ -80,7 +80,7 @@ class Database:
         track = self.trackFactory.getTrackFromPathNoID(self, path)
         if track != None:
             c = self.conn.cursor()
-            trackID = self.getTrackID(track)
+            trackID = self._getTrackID(track)
             path = track.getPath()
             if trackID == None:
                 c.execute("""insert into tracks (path, artist, album, title,
@@ -96,6 +96,7 @@ class Database:
             c.close()
             self.conn.commit()
             track.setID(trackID)
+            return trackID
         else:
             print "Invalid file."
 
@@ -218,16 +219,24 @@ class Database:
         c.close()
         return result
 
-    def getTrackID(self, track):
+    def _getTrackID(self, track):
         c = self.conn.cursor()
         c.execute("select trackid from tracks where path = ?",
                   (track.getPath(), ))
         result = c.fetchone()
         c.close()
         if result == None:
-            return result
+            return None
         else:
             return result[0]
+
+    def getTrackID(self, track):
+        trackID = self._getTrackID(track)
+        if trackID == None:
+            # FIXME: kinda icky, this calls _getTrackID()
+            # again. Refactor.
+            return self.addTrack(track.getPath())
+        return trackID
 
     def getDirectoryID(self, path):
         c = self.conn.cursor()
