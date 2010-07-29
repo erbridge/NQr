@@ -18,6 +18,8 @@
 ## TODO: poss create delay before counting a play (to ignore skips)
 ## TODO: deal with tracks played not in database (ignore them?)
 ## TODO: add keyboard shortcuts
+## TODO: make NQr only queue tracks up to a limit (rather than 3 tracks every
+##       time 3 are played)
 
 ##from Database import Database
 ##from iTunesMacOS import iTunesMacOS
@@ -29,6 +31,7 @@ import time
 import wx
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
+ID_EVT_TRACK_QUEUE = wx.NewId()
 
 def EVT_TRACK_CHANGE(window, func):
     window.Connect(-1, -1, ID_EVT_TRACK_CHANGE, func)
@@ -41,6 +44,14 @@ class TrackChangeEvent(wx.PyEvent):
 
 ##    def getPath(self):
 ##        return self.path
+
+def EVT_TRACK_QUEUE(window, func):
+    window.Connect(-1, -1, ID_EVT_TRACK_QUEUE, func)
+
+class TrackQueueEvent(wx.PyEvent):
+    def __init__(self):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_TRACK_QUEUE)
 
 ## must be aborted before closing!
 class TrackChangeThread(Thread):
@@ -57,12 +68,17 @@ class TrackChangeThread(Thread):
 ## with the event
     def run(self):
         currentTrack = self.player.getCurrentTrackPath()
+        changeCount = 3
         while True:
             time.sleep(.5)
             newTrack = self.player.getCurrentTrackPath()
             if newTrack != currentTrack:
                 currentTrack = newTrack
                 wx.PostEvent(self.window, TrackChangeEvent())
+                changeCount += 1
+            if changeCount == 3:
+                wx.PostEvent(self.window, TrackQueueEvent())
+                changeCount = 0
             if self.abortFlag == True:
                 return
 
@@ -139,6 +155,7 @@ class MainWindow(wx.Frame):
         self.initMainSizer()
 
         EVT_TRACK_CHANGE(self, self.onTrackChange)
+        EVT_TRACK_QUEUE(self, self.onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self.onClose, self)
         
         if self.enqueueOnStartup == True:
@@ -599,6 +616,12 @@ class MainWindow(wx.Frame):
 
     def clearDetails(self):
         self.details.Clear()
+
+## should queue the correct number of tracks
+    def onEnqueueTracks(self, e=None):
+        for n in range(3):
+            track = self.randomizer.chooseTrack()
+            self.enqueueTrack(track)
 
 ##app = wx.App(False)
 ##frame = MainWindow()

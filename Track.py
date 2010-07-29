@@ -40,7 +40,17 @@ class Factory:
         return track
 
     def getTrackFromCache(self, trackID):
-        return self.trackCache[trackID]
+        try:
+            return self.trackCache[trackID]
+        except KeyError as err:
+            return None
+
+    def getTrackFromID(self, db, trackID):
+        track = self.getTrackFromCache(trackID)
+        if track == None:
+            path = db.getPathFromID(trackID)
+            track = self.getTrackFromPath(db, path)
+        return track
 
 class Track:
     def __init__(self, db, path):

@@ -4,14 +4,14 @@
 ##       changes.
 ## TODO: add a function to remove the last play record (to undo the play)
 ## TODO: add ignore list
+## TODO: check if track table already exists first to confirm whether or not
+##       to create other tables (poss corruption)
 
 ##import Track
 import os
 import sqlite3
 
 class Database:
-    ## TODO: check if track table already exists first to confirm whether or not
-    ##       to create other tables (poss corruption)
     def __init__(self, trackFactory, databasePath="database", defaultScore=10):
         self._trackFactory = trackFactory
         self._databasePath = databasePath
@@ -232,15 +232,16 @@ class Database:
         else:
             return result[0]
 
+## poss should do similar thing to _getTrackDetails
     def _getLastPlayed(self, queryString, track=None, trackID=None):
-        if trackID == None and track == None:
-            print "No track has been identified."
-            return None
-        if trackID == None and track != None:
+        if trackID == None:
+            if track == None:
+                print "No track has been identified."
+                return None
             trackID = track.getID()
         c = self._conn.cursor()
-        c.execute("""select ? from plays where trackid = ? order by
-                  playid desc""", (queryString, trackID))
+        c.execute("select "+queryString+""" from plays where trackid = ? order
+                  by playid desc""", (trackID, ))
         result = c.fetchone()
         c.close()
         if result != None:
@@ -263,13 +264,14 @@ class Database:
             "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
 
     def _getTrackDetails(self, track=None, trackID=None):
-        if trackID == None and track == None:
-            print "No track has been identified."
-            return None
-        if trackID == None and track != None:
+        if trackID == None:
+            if track == None:
+                print "No track has been identified."
+                return None
             trackID = track.getID()
         c = self._conn.cursor()
-        c.execute("select * from tracks where trackid = ?", (trackID, ))
+        c.execute("""select path, artist, album, title, tracknumber, unscored
+                  from tracks where trackid = ?""", (trackID, ))
         result = c.fetchone()
         c.close()
         if result != None:
@@ -281,46 +283,49 @@ class Database:
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[2]
+        return details[0]
 
     def getPathFromID(self, trackID):
         details = self._getTrackDetails(trackID=trackID)
         if details == None:
             return None
-        return details[2]
+        return details[0]
 
     def getArtist(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[3]
+        return details[1]
 
     def getAlbum(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[4]
+        return details[2]
 
     def getTitle(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[5]
+        return details[3]
 
     def getTrackNumber(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[6]
+        return details[4]
 
     ## determines whether user has changed score for this track
     def _isScored(self, track=None, trackID=None):
-        details = self._getTrackDetails(track=track)
+        if trackID != None:
+            details = self._getTrackDetails(trackID=trackID)
+        else:
+            details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        if details[7] == 1:
+        if details[5] == 1:
             return False
-        elif details[7] == 0:
+        elif details[5] == 0:
             return True
 
     def isScored(self, track):
@@ -330,10 +335,10 @@ class Database:
         return self._isScored(trackID=trackID)
 
     def _getScore(self, track=None, trackID=None):
-        if trackID == None and track == None:
-            print "No track has been identified."
-            return None
-        if trackID == None and track != None:
+        if trackID == None:
+            if track == None:
+                print "No track has been identified."
+                return None
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select score from scores where trackid = ? order by
@@ -342,8 +347,8 @@ class Database:
         c.close()
         if result != None:
             return result[0]
-        else:
-            print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
+##        else:
+##            print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
 
     def getScore(self, track):
         if self.isScored(track) == False:

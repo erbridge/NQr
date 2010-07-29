@@ -1,6 +1,7 @@
 ## Randomization Algorithm
 ## TODO: work out time factor if track has never been played: poss use time
 ##       since added to database?
+## TODO: work out what weights should be (poss make sliders)
 
 ##from Database import Database
 import random
@@ -9,8 +10,9 @@ import time
 ## tracks with a score >= scoreThreshold get played
 ## by default, -10s are not played
 class Randomizer:
-    def __init__(self, db, scoreThreshold=-9):
+    def __init__(self, db, trackFactory, scoreThreshold=-9):
         self.db = db
+        self.trackFactory = trackFactory
         self.scoreThreshold = scoreThreshold
 
 ## will throw exception if databse is empty?
@@ -23,6 +25,10 @@ class Randomizer:
             if selector < 0:
 ##                print time.time()
                 return trackID
+
+    def chooseTrack(self):
+        trackID = self.chooseTrackID()
+        return self.trackFactory.getTrackFromID(self.db, trackID)
 
     def createLists(self):
         rawTrackIDList = self.db.getAllTrackIDs()
@@ -80,5 +86,6 @@ class Randomizer:
         weight = score * time
         return weight
 
-##r = Randomizer()
+##d = Database(None)
+##r = Randomizer(d, None)
 ##r.chooseTrackID()

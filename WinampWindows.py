@@ -75,8 +75,10 @@ class WinampWindows:
         if self.winamp.getRunning() == False:
             self.launchBackground()
         trackPosition = self.winamp.getCurrentTrack()
+        return trackPosition
 
 ## poss insecure: should always be checked for trackness
+## os.path.abspath breaks with unicode
     def getCurrentTrackPath(self):
         trackPosition = self.getCurrentTrackPos()
         winampWindow = self.winamp.hwnd

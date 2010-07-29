@@ -28,7 +28,7 @@ if __name__ == '__main__':
         player = XMMS.XMMS()
     trackFactory = Track.Factory()
     db = Database.Database(trackFactory)
-    randomizer = Randomizer.Randomizer(db)
+    randomizer = Randomizer.Randomizer(db, trackFactory)
     app = wx.App(False)
     frame = GUI.MainWindow(None, db=db, randomizer=randomizer, player=player,
                            trackFactory=trackFactory)
