@@ -78,7 +78,7 @@ class WinampWindows:
         return trackPosition
 
 ## poss insecure: should always be checked for trackness
-## os.path.abspath breaks with unicode
+## os.path.abspath breaks with unicode poss use win32api.GetFullPathName
     def getCurrentTrackPath(self):
         trackPosition = self.getCurrentTrackPos()
         winampWindow = self.winamp.hwnd

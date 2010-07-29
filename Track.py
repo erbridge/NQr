@@ -2,37 +2,47 @@
 ## TODO: check getPath gets Mac path in correct form for iTunes
 
 import mutagen
-from mutagen.easyid3 import EasyID3 as id3
-import os
+##from mutagen.easyid3 import EasyID3 as id3
+##import os
 
-##print id3.valid_keys.keys()
+##print mutagen.easyid3.EasyID3.valid_keys.keys()
 
 class Factory:
     def __init__(self):
-        self.trackCache = {}
+        self._trackCache = {}
 
     def getTrackFromPathNoID(self, db, path):
-        track = None
-        try:
-            track = ID3Track(db, path)
-        except mutagen.id3.ID3NoHeaderError as err:
-            if path[0] != "\'":
-                fullPath = "\'"+os.path.abspath(path)+"\'"
-            else:
-                fullPath = os.path.abspath(path)
-    ####        if str(err) != fullPath+" doesn't start with an ID3 tag":
-    ##        if "doesn't start with an ID3 tag" not in str(err):
-    ##            raise err
-    ##        elif "too small" not in str(err):
-    ##            raise err
-            print fullPath+" does not have an ID3 tag."
-    ##            try:
-    ##                track.MP4Track(path)
-            return None
+        track = AudioTrack(db, path)
+        if track == None:
+            print "File is not a supported audio file."
+##            track = VideoTrack()
+##            if track == None:
+##                return None
         return track
 
+#### os.path.abspath breaks with unicode poss use win32api.GetFullPathName
+##    def getTrackFromPathNoID(self, db, path):
+##        track = None
+##        try:
+##            track = ID3Track(db, path)
+##        except mutagen.id3.ID3NoHeaderError as err:
+##            if path[0] != "\'":
+##                fullPath = "\'"+os.path.abspath(path)+"\'"
+##            else:
+##                fullPath = os.path.abspath(path)
+##    ####        if str(err) != fullPath+" doesn't start with an ID3 tag":
+##    ##        if "doesn't start with an ID3 tag" not in str(err):
+##    ##            raise err
+##    ##        elif "too small" not in str(err):
+##    ##            raise err
+##            print fullPath+" does not have an ID3 tag."
+##    ##            try:
+##    ##                track.MP4Track(path)
+##            return None
+##        return track
+
     def addTrackToCache(self, track):
-        self.trackCache[track.getID()] = track
+        self._trackCache[track.getID()] = track
 
     def getTrackFromPath(self, db, path):
         track = self.getTrackFromPathNoID(db, path)
@@ -41,8 +51,9 @@ class Factory:
 
     def getTrackFromCache(self, trackID):
         try:
-            return self.trackCache[trackID]
+            return self._trackCache[trackID]
         except KeyError as err:
+            ## FIXME: should only except errors where err is integer
             return None
 
     def getTrackFromID(self, db, trackID):
@@ -72,13 +83,14 @@ class Track:
         self.id = id
         factory.addTrackToCache(self)
 
-class ID3Track(Track):
+class AudioTrack(Track):
     def __init__(self, db, path):
         Track.__init__(self, db, path)
-        self.track = id3(self.getPath()) ## poss mutagen(self.getPath()) to get all types?
+        self.track = mutagen.File(self.getPath(), easy=True)
+        ## returns None if the track is not a supported file type
 
     ## poss should call all attributes at once, and then read the ones required
-    ## ID3 tags are of the form [u'artistName']
+    ## tags are of the form [u'artistName']
     def getAttribute(self, attr):
         try:
             attribute = self.track[attr][0]
@@ -104,3 +116,36 @@ class ID3Track(Track):
     def getTrackNumber(self):
         trackNumber = self.getAttribute('tracknumber')
         return trackNumber
+
+##class ID3Track(Track):
+##    def __init__(self, db, path):
+##        Track.__init__(self, db, path)
+##        self.track = id3(self.getPath()) ## poss mutagen(self.getPath()) to get all types?
+##
+##    ## poss should call all attributes at once, and then read the ones required
+##    ## ID3 tags are of the form [u'artistName']
+##    def getAttribute(self, attr):
+##        try:
+##            attribute = self.track[attr][0]
+####            attribute = unicode(self.track[attr])[3:-2]
+##            return attribute
+##        except KeyError as err:
+##            if "TRCK" not in err and "TALB" not in err:
+##                raise err
+##            return "-"
+##    
+##    def getArtist(self):
+##        artist = self.getAttribute('artist')
+##        return artist
+##    
+##    def getAlbum(self):
+##        album = self.getAttribute('album')
+##        return album
+##
+##    def getTitle(self):
+##        title = self.getAttribute('title')
+##        return title
+##
+##    def getTrackNumber(self):
+##        trackNumber = self.getAttribute('tracknumber')
+##        return trackNumber

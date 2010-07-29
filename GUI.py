@@ -368,7 +368,7 @@ class MainWindow(wx.Frame):
         defaultDirectory = ''
         dialog = wx.FileDialog(
             self, "Choose a file", defaultDirectory, "",
-            "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|MP4 files (*.mp4)|*.mp4",
+            "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
             wx.FD_OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR
             )
         if dialog.ShowModal() == wx.ID_OK:
