@@ -54,7 +54,7 @@ class Randomizer:
 ####        print time.time()
 ##        (trackIDList, weightList) = self.createLists()
 ##        selector = random.random() * sum(weightList)
-##        for weight, trackID in reversed(sorted(zip(weightList, trackIDList))): ## make array of arrays instead
+##        for weight, trackID in reversed(sorted(zip(weightList, trackIDList))):
 ##            selector -= weight
 ##            if selector < 0:
 ####                print time.time()

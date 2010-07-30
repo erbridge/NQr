@@ -8,8 +8,6 @@
 ## TODO: add support for mulitple selections
 ## TODO: add play button and menu item to play selected track? and add to
 ##       right click menu
-## TODO: add submenu to player menu and right click menu with e.g. "rate 10"
-##       checkboxes
 ## TODO: add menu option to turn NQr queueing on/off. When off change trackList
 ##       behaviour to only show played tracks, not to represent unplayed tracks,
 ##       or show only 3 future tracks?
@@ -23,6 +21,11 @@
 ##       time 3 are played)
 ## TODO: when nothing is selected NQr should act as if the currently playing
 ##       track is
+## TODO: remember playlist contents for when NQr is toggled off.
+## TODO: leftmost column of track list no longer needed
+##
+## FIXME: after rating track with right click an extra separator is added to
+##        player menu
 
 ##from Database import Database
 ##from iTunesMacOS import iTunesMacOS
@@ -34,19 +37,21 @@ import time
 import wx
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
-ID_EVT_TRACK_QUEUE = wx.NewId()
+##ID_EVT_TRACK_QUEUE = wx.NewId()
 
 def EVT_TRACK_CHANGE(window, func):
     window.Connect(-1, -1, ID_EVT_TRACK_CHANGE, func)
 
 class TrackChangeEvent(wx.PyEvent):
-    def __init__(self):
+    def __init__(self, db, trackFactory, path):
         wx.PyEvent.__init__(self)
         self.SetEventType(ID_EVT_TRACK_CHANGE)
-##        self.path = path
+        self.db = db
+        self.trackFactory = trackFactory
+        self.path = path
 
-##    def getPath(self):
-##        return self.path
+    def getTrack(self):
+        return self.trackFactory.getTrackFromPath(self.db, self.path)
 
 ##def EVT_TRACK_QUEUE(window, func):
 ##    window.Connect(-1, -1, ID_EVT_TRACK_QUEUE, func)
@@ -58,17 +63,19 @@ class TrackChangeEvent(wx.PyEvent):
 
 ## must be aborted before closing!
 class TrackChangeThread(Thread):
-    def __init__(self, window, player):
+    def __init__(self, window, db, player, trackFactory):
         Thread.__init__(self)
 ##        self.setDaemon(True)
         self.window = window
+        self.db = db
         self.player = player
+        self.trackFactory = trackFactory
         self.abortFlag = False
         self.start()
 
 ## poss should use position rather than filename?
-## sometimes gets the wrong track if skipped too fast: should return the path
-## with the event
+## FIXME: sometimes gets the wrong track if skipped too fast: should return the
+##        path with the event (poss fixed)
     def run(self):
         currentTrack = self.player.getCurrentTrackPath()
 ##        changeCount = 3
@@ -77,7 +84,8 @@ class TrackChangeThread(Thread):
             newTrack = self.player.getCurrentTrackPath()
             if newTrack != currentTrack:
                 currentTrack = newTrack
-                wx.PostEvent(self.window, TrackChangeEvent())
+                wx.PostEvent(self.window, TrackChangeEvent(self.db, self.trackFactory,
+                                                           currentTrack))
 ##                changeCount += 1
 ##            if changeCount == 3:
 ##                wx.PostEvent(self.window, TrackQueueEvent())
@@ -153,8 +161,10 @@ class MainWindow(wx.Frame):
         self.rescanOnStartup = rescanOnStartup
         self.defaultPlaylistLength = defaultPlaylistLength
         self.defaultTrackPosition = int(round(self.defaultPlaylistLength/2))
-        self.trackChangeThread = TrackChangeThread(self, self.player)
+        self.trackChangeThread = TrackChangeThread(self, self.db, self.player,
+                                                   self.trackFactory)
 ##        self.trackChangeThread = None
+        self.index = None
         
         wx.Frame.__init__(self, parent, title=title)
         self.CreateStatusBar()
@@ -167,14 +177,12 @@ class MainWindow(wx.Frame):
         
         if self.enqueueOnStartup == True:
             self.optionsMenu.Check(self.ID_TOGGLENQR, True)
-##            self.onToggleNQr()
-            self.toggleNQr = True
-            print "Enqueueing turned on."
-        elif self.enqueueOnStartup == False:
-            self.optionsMenu.Check(self.ID_TOGGLENQR, False)
-##            self.onToggleNQr()
-            self.toggleNQr = False
-            print "Enqueueing turned off."
+            self.onToggleNQr()
+##        elif self.enqueueOnStartup == False:
+##            self.optionsMenu.Check(self.ID_TOGGLENQR, False)
+####            self.onToggleNQr()
+##            self.toggleNQr = False
+##            print "Enqueueing turned off."
 
 ##        if self.rescanOnStartup == True:
 ##            self.onRescan()
@@ -656,10 +664,13 @@ class MainWindow(wx.Frame):
 ## auto queueing
     def onToggleNQr(self, e=None):
         if self.menuToggleNQr.IsChecked() == False:
-            self.toggleNQr == False
+            self.toggleNQr = False
+            self.player.setShuffle(self.oldShuffleStatus)
             print "Enqueueing turned off."
         elif self.menuToggleNQr.IsChecked() == True:
-            self.toggleNQr == True
+            self.toggleNQr = True
+            self.oldShuffleStatus = self.player.getShuffle()
+            self.player.setShuffle(False)
             print "Enqueueing turned on."
 ##        if not self.trackChangeThread:
 ##            self.trackChangeThread = TrackChangeThread(self, self.player)
@@ -723,9 +734,7 @@ class MainWindow(wx.Frame):
             return
 
     def onTrackChange(self, e):
-        path = self.player.getCurrentTrackPath()
-##        path = e.getPath()
-        track = self.trackFactory.getTrackFromPath(self.db, path)
+        track = e.getTrack()
         self.db.addPlay(track)
         self.addTrack(track)
         if self.toggleNQr == True:
@@ -759,6 +768,8 @@ class MainWindow(wx.Frame):
         self.trackList.SetStringItem(index, 3, str(self.db.getScore(track)))
         self.trackList.SetStringItem(index, 4, lastPlayed)
         self.trackList.SetItemData(index, self.db.getTrackID(track))
+        if self.index:
+            self.index += 1
 
     def addTrackAtPos(self, track, index):
 ##        if IsCurrentTrack()==False:
@@ -776,6 +787,8 @@ class MainWindow(wx.Frame):
         self.trackList.SetStringItem(index, 3, str(self.db.getScore(track)))
         self.trackList.SetStringItem(index, 4, lastPlayed)
         self.trackList.SetItemData(index, self.db.getTrackID(track))
+        if self.index > index:
+            self.index += 1
 
     def enqueueTrack(self, track):
         self.player.addTrack(track.getPath())

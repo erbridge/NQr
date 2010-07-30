@@ -83,6 +83,17 @@ class WinampWindows:
             self.launchBackground()
         self.winamp.fadeStop()
 
+    def getShuffle(self):
+        return self.winamp.getShuffle()
+
+    def setShuffle(self, status):
+        if status == True:
+            self.winamp.setShuffle(1)
+        if status == False:
+            self.winamp.setShuffle(0)
+        else:
+            self.winamp.setShuffle(status)
+
     def getPlaylistLength(self):
         if self.winamp.getRunning() == False:
             self.launchBackground()

@@ -5,6 +5,10 @@
 ## TODO: allow user to change track from media player and have the NQr update
 ## TODO: on startup rescan directories for new files or make an option
 ## TODO: allow import of directories with a score
+##
+## FIXME: sometimes when changing the score of a track which was selected a
+##        while ago, the track replaces the current track in the track list
+##        (poss now fixed)
 
 import Database
 import GUI
@@ -18,12 +22,13 @@ import wx
 if __name__ == '__main__':
     # Do platform-dependent imports, and choose a player type. For
     # now, we just choose it based on the platform...
-    print "Running on", platform.system()
+    system = platform.system()
+    print "Running on", system
     player = None
-    if platform.system() == 'Windows':
+    if system == 'Windows':
         import WinampWindows
         player = WinampWindows.WinampWindows() ## should be called early
-    elif platform.system() == 'FreeBSD':
+    elif system == 'FreeBSD':
         import XMMS
         player = XMMS.XMMS()
     trackFactory = Track.Factory()
