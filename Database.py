@@ -6,6 +6,7 @@
 ## TODO: add ignore list
 ## TODO: check if track table already exists first to confirm whether or not
 ##       to create other tables (poss corruption)
+## TODO: add more attributes to tracks
 
 ##import Track
 import os

@@ -40,9 +40,10 @@ class iTunesMacOS:
     ##       number of tracks without deleting the currently playing (or
     ##       subsequent) tracks. Perhaps make it leave 3 before the current
     ##       track.
-    def cropPlaylist(self):
-        command = "tell application \"iTunes\"\n delete track 1 of "+self.playlistname+"\n end tell"
-        self.runCommand(command)
+    def cropPlaylist(self, number):
+        for n in range(number):
+            command = "tell application \"iTunes\"\n delete track 1 of "+self.playlistname+"\n end tell"
+            self.runCommand(command)
 
     def nextTrack(self):
         command = "tell application \"iTunes\"\n next track\n play\n end tell"

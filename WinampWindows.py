@@ -10,6 +10,13 @@ import win32con
 import win32process
 import winamp as winampImport
 
+WM_USER = 0x400
+WM_WA_IPC = WM_USER
+IPC_GETWND_PE = 1
+IPC_GETWND = 260
+IPC_PE_DELETEINDEX = 104
+IPC_GETLISTLENGTH = 124
+
 class WinampWindows:
 ## playlistname not used in winamp
     def __init__(self, playlistname=None):
@@ -44,7 +51,12 @@ class WinampWindows:
 
 ##    def playTrack(self, filepath):
 
-##    def cropPlaylist(self):
+    def cropPlaylist(self, number):
+        for n in range(number):
+            playlistEditorHandle = self.winamp.doIpcCommand(IPC_GETWND,
+                                                            IPC_GETWND_PE)
+            ctypes.windll.user32.SendMessageA(playlistEditorHandle, WM_WA_IPC,
+                                              IPC_PE_DELETEINDEX, 0)
 
     def nextTrack(self):
         if self.winamp.getRunning() == False:
@@ -70,6 +82,12 @@ class WinampWindows:
         if self.winamp.getRunning() == False:
             self.launchBackground()
         self.winamp.fadeStop()
+
+    def getPlaylistLength(self):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
+        playlistLength = self.winamp.doIpcCommand(IPC_GETLISTLENGTH)
+        return playlistLength
 
     def getCurrentTrackPos(self):
         if self.winamp.getRunning() == False:

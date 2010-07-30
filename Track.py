@@ -3,7 +3,7 @@
 
 import mutagen
 ##from mutagen.easyid3 import EasyID3 as id3
-##import os
+import os
 
 ##print mutagen.easyid3.EasyID3.valid_keys.keys()
 

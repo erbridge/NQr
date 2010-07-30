@@ -9,6 +9,7 @@
 ## TODO: add play button and menu item to play selected track? and add to
 ##       right click menu
 ## TODO: add submenu to player menu and right click menu with e.g. "rate 10"
+##       checkboxes
 ## TODO: add menu option to turn NQr queueing on/off. When off change trackList
 ##       behaviour to only show played tracks, not to represent unplayed tracks,
 ##       or show only 3 future tracks?
@@ -45,13 +46,13 @@ class TrackChangeEvent(wx.PyEvent):
 ##    def getPath(self):
 ##        return self.path
 
-def EVT_TRACK_QUEUE(window, func):
-    window.Connect(-1, -1, ID_EVT_TRACK_QUEUE, func)
-
-class TrackQueueEvent(wx.PyEvent):
-    def __init__(self):
-        wx.PyEvent.__init__(self)
-        self.SetEventType(ID_EVT_TRACK_QUEUE)
+##def EVT_TRACK_QUEUE(window, func):
+##    window.Connect(-1, -1, ID_EVT_TRACK_QUEUE, func)
+##
+##class TrackQueueEvent(wx.PyEvent):
+##    def __init__(self):
+##        wx.PyEvent.__init__(self)
+##        self.SetEventType(ID_EVT_TRACK_QUEUE)
 
 ## must be aborted before closing!
 class TrackChangeThread(Thread):
@@ -68,17 +69,17 @@ class TrackChangeThread(Thread):
 ## with the event
     def run(self):
         currentTrack = self.player.getCurrentTrackPath()
-        changeCount = 3
+##        changeCount = 3
         while True:
             time.sleep(.5)
             newTrack = self.player.getCurrentTrackPath()
             if newTrack != currentTrack:
                 currentTrack = newTrack
                 wx.PostEvent(self.window, TrackChangeEvent())
-                changeCount += 1
-            if changeCount == 3:
-                wx.PostEvent(self.window, TrackQueueEvent())
-                changeCount = 0
+##                changeCount += 1
+##            if changeCount == 3:
+##                wx.PostEvent(self.window, TrackQueueEvent())
+##                changeCount = 0
             if self.abortFlag == True:
                 return
 
@@ -139,7 +140,8 @@ class MainWindow(wx.Frame):
     ID_TOGGLENQR = wx.NewId()
     
     def __init__(self, parent, db, randomizer, player, trackFactory,
-                 title="NQr", enqueueOnStartup=True, rescanOnStartup=True):
+                 title="NQr", enqueueOnStartup=True, rescanOnStartup=True,
+                 defaultPlaylistLength=11):
 ##        self.db = DatabaseThread(db).database
         self.db = db
         self.randomizer = randomizer
@@ -147,7 +149,10 @@ class MainWindow(wx.Frame):
         self.trackFactory = trackFactory
         self.enqueueOnStartup = enqueueOnStartup
         self.rescanOnStartup = rescanOnStartup
-        self.trackChangeThread = None
+        self.defaultPlaylistLength = defaultPlaylistLength
+        self.defaultTrackPosition = int(round(self.defaultPlaylistLength/2))
+        self.trackChangeThread = TrackChangeThread(self, self.player)
+##        self.trackChangeThread = None
         
         wx.Frame.__init__(self, parent, title=title)
         self.CreateStatusBar()
@@ -155,12 +160,19 @@ class MainWindow(wx.Frame):
         self.initMainSizer()
 
         EVT_TRACK_CHANGE(self, self.onTrackChange)
-        EVT_TRACK_QUEUE(self, self.onEnqueueTracks)
+##        EVT_TRACK_QUEUE(self, self.onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self.onClose, self)
         
         if self.enqueueOnStartup == True:
             self.optionsMenu.Check(self.ID_TOGGLENQR, True)
-            self.onToggleNQr()
+##            self.onToggleNQr()
+            self.toggleNQr = True
+            print "Enqueueing turned on."
+        elif self.enqueueOnStartup == False:
+            self.optionsMenu.Check(self.ID_TOGGLENQR, False)
+##            self.onToggleNQr()
+            self.toggleNQr = False
+            print "Enqueueing turned off."
 
 ##        if self.rescanOnStartup == True:
 ##            self.onRescan()
@@ -481,13 +493,19 @@ class MainWindow(wx.Frame):
 ## should always be monitoring track changes, but toggle should turn on/off
 ## auto queueing
     def onToggleNQr(self, e=None):
-        if not self.trackChangeThread:
-            self.trackChangeThread = TrackChangeThread(self, self.player)
-            print "Enqueueing turned on."
-        else:
-            self.trackChangeThread.abort()
-            self.trackChangeThread = None
+        if self.toggleNQr == True:
+            self.toggleNQr == False
             print "Enqueueing turned off."
+        elif self.toggleNQr == False:
+            self.toggleNQr == True
+            print "Enqueueing turned on."
+##        if not self.trackChangeThread:
+##            self.trackChangeThread = TrackChangeThread(self, self.player)
+##            print "Enqueueing turned on."
+##        else:
+##            self.trackChangeThread.abort()
+##            self.trackChangeThread = None
+##            print "Enqueueing turned off."
 
 ##    def onPrefs(self, e):
 
@@ -545,6 +563,20 @@ class MainWindow(wx.Frame):
         track = self.trackFactory.getTrackFromPath(self.db, path)
         self.db.addPlay(track)
         self.addTrack(track)
+        if self.toggleNQr == True:
+            trackPosition = self.player.getCurrentTrackPos()
+            if trackPosition > self.defaultTrackPosition:
+                self.player.cropPlaylist(
+                    trackPosition - self.defaultTrackPosition)
+            playlistLength = self.player.getPlaylistLength()
+            if playlistLength < self.defaultPlaylistLength:
+                self.enqueueRandomTracks(
+                    self.defaultPlaylistLength - playlistLength)
+
+#### should queue the correct number of tracks
+##    def onEnqueueTracks(self, e=None):
+##        track = self.randomizer.chooseTrack()
+##        self.enqueueTrack(track)
 
     def addTrack(self, track):
 ##        if IsCurrentTrack()==False:
@@ -583,6 +615,11 @@ class MainWindow(wx.Frame):
     def enqueueTrack(self, track):
         self.player.addTrack(track.getPath())
 
+    def enqueueRandomTracks(self, number):
+        for n in range(number):
+            track = self.randomizer.chooseTrack()
+            self.enqueueTrack(track)
+
     def setScoreSliderPosition(self, score):
         self.scoreSlider.SetValue(score)
 
@@ -616,12 +653,6 @@ class MainWindow(wx.Frame):
 
     def clearDetails(self):
         self.details.Clear()
-
-## should queue the correct number of tracks
-    def onEnqueueTracks(self, e=None):
-        for n in range(3):
-            track = self.randomizer.chooseTrack()
-            self.enqueueTrack(track)
 
 ##app = wx.App(False)
 ##frame = MainWindow()
