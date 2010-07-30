@@ -21,6 +21,8 @@
 ## TODO: add keyboard shortcuts
 ## TODO: make NQr only queue tracks up to a limit (rather than 3 tracks every
 ##       time 3 are played)
+## TODO: when nothing is selected NQr should act as if the currently playing
+##       track is
 
 ##from Database import Database
 ##from iTunesMacOS import iTunesMacOS
@@ -177,6 +179,8 @@ class MainWindow(wx.Frame):
 ##        if self.rescanOnStartup == True:
 ##            self.onRescan()
 
+## TODO: if current track is None or there is only one track, NQr should queue
+##       a load of tracks
         self.addTrack(
             self.trackFactory.getTrackFromPath(
                 self.db, self.player.getCurrentTrackPath())
@@ -198,20 +202,21 @@ class MainWindow(wx.Frame):
         
     def initFileMenu(self):
         self.fileMenu = wx.Menu()        
-        menuAbout = self.fileMenu.Append(wx.ID_ABOUT, "&About NQr",
-                                         " Information about NQr")
+        menuAbout = self.fileMenu.Append(
+            wx.ID_ABOUT, "&About NQr", " Information about NQr")
         self.fileMenu.AppendSeparator()
-        menuAddFile = self.fileMenu.Append(self.ID_ADDFILE, "Add &File...",
-                                           " Add a file to the library")
-        menuAddDirectory = self.fileMenu.Append(self.ID_ADDDIRECTORY,
-                                                "Add &Directory...",
-                                                " Add a directory to the library and watch list")
-        menuAddDirectoryOnce = self.fileMenu.Append(-1,
-                                                    "Add Directory &Once...",
-                                                    " Add a directory to the library but not the watch list")
+        menuAddFile = self.fileMenu.Append(
+            self.ID_ADDFILE, "Add &File...", " Add a file to the library")
+        menuAddDirectory = self.fileMenu.Append(
+            self.ID_ADDDIRECTORY, "Add &Directory...",
+            " Add a directory to the library and watch list")
+        menuAddDirectoryOnce = self.fileMenu.Append(
+            -1, "Add Directory &Once...",
+            " Add a directory to the library but not the watch list")
         self.fileMenu.AppendSeparator()
-        menuRemoveDirectory = self.fileMenu.Append(-1, "&Remove Directory...",
-                                                   " Remove a directory from the watch list")
+        menuRemoveDirectory = self.fileMenu.Append(
+            -1, "&Remove Directory...",
+            " Remove a directory from the watch list")
         self.fileMenu.AppendSeparator()
         menuExit = self.fileMenu.Append(wx.ID_EXIT, "E&xit", " Terminate NQr")
         
@@ -224,6 +229,8 @@ class MainWindow(wx.Frame):
 
     ## TODO: change up in "Rate Up" to an arrow
     def initPlayerMenu(self):
+        self.initRateMenu()
+        
         self.playerMenu = wx.Menu()
         menuPlay = self.playerMenu.Append(-1, "&Play",
                                           " Play or restart the current track")
@@ -236,20 +243,22 @@ class MainWindow(wx.Frame):
         menuStop = self.playerMenu.Append(-1, "&Stop",
                                           " Stop the current track")
         self.playerMenu.AppendSeparator()
-        menuRateUp = self.playerMenu.Append(-1, "Rate &Up",
-                                            " Increase the score of the selected track by one")
-        menuRateDown = self.playerMenu.Append(-1, "Rate &Down",
-                                               " Decrease the score of the selected track by one")
+        menuRateUp = self.playerMenu.Append(
+            -1, "Rate &Up", " Increase the score of the selected track by one")
+        menuRateDown = self.playerMenu.Append(
+            -1, "Rate &Down",
+            " Decrease the score of the selected track by one")
+        self.playerMenu.AppendMenu(-1, "&Rate", self.rateMenu)
         self.playerMenu.AppendSeparator()
-        menuRequeue = self.playerMenu.Append(-1, "Re&queue Track",
-                                             " Add the selected track to the playlist")
-        menuResetScore = self.playerMenu.Append(-1, "Reset Sc&ore",
-                                                " Reset the score of the selected track")
+        menuRequeue = self.playerMenu.Append(
+            -1, "Re&queue Track", " Add the selected track to the playlist")
+        menuResetScore = self.playerMenu.Append(
+            -1, "Reset Sc&ore", " Reset the score of the selected track")
         self.playerMenu.AppendSeparator()
-        menuLaunchPlayer = self.playerMenu.Append(-1, "&Launch Player",
-                                                  " Launch the selected media player")
-        menuExitPlayer = self.playerMenu.Append(-1, "E&xit Player",
-                                                " Terminate the selected media player")
+        menuLaunchPlayer = self.playerMenu.Append(
+            -1, "&Launch Player", " Launch the selected media player")
+        menuExitPlayer = self.playerMenu.Append(
+            -1, "E&xit Player", " Terminate the selected media player")
 
         self.Bind(wx.EVT_MENU, self.onPlay, menuPlay)
         self.Bind(wx.EVT_MENU, self.onPause, menuPause)
@@ -263,22 +272,160 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onLaunchPlayer, menuLaunchPlayer)
         self.Bind(wx.EVT_MENU, self.onExitPlayer, menuExitPlayer)
 
+## could be better with a for loop?
+    def initRateMenu(self):
+        self.rateMenu = wx.Menu()
+        menuRatePos10 = self.rateMenu.Append(
+            -1, "Rate as 10", " Set the score of the selected track to 10")
+        menuRatePos9 = self.rateMenu.Append(
+            -1, "Rate as 9", " Set the score of the selected track to 9")
+        menuRatePos8 = self.rateMenu.Append(
+            -1, "Rate as 8", " Set the score of the selected track to 8")
+        menuRatePos7 = self.rateMenu.Append(
+            -1, "Rate as 7", " Set the score of the selected track to 7")
+        menuRatePos6 = self.rateMenu.Append(
+            -1, "Rate as 6", " Set the score of the selected track to 6")
+        menuRatePos5 = self.rateMenu.Append(
+            -1, "Rate as 5", " Set the score of the selected track to 5")
+        menuRatePos4 = self.rateMenu.Append(
+            -1, "Rate as 4", " Set the score of the selected track to 4")
+        menuRatePos3 = self.rateMenu.Append(
+            -1, "Rate as 3", " Set the score of the selected track to 3")
+        menuRatePos2 = self.rateMenu.Append(
+            -1, "Rate as 2", " Set the score of the selected track to 2")
+        menuRatePos1 = self.rateMenu.Append(
+            -1, "Rate as 1", " Set the score of the selected track to 1")
+        menuRate0 = self.rateMenu.Append(
+            -1, "Rate as 0", " Set the score of the selected track to 0")
+        menuRateNeg1 = self.rateMenu.Append(
+            -1, "Rate as -1", " Set the score of the selected track to -1")
+        menuRateNeg2 = self.rateMenu.Append(
+            -1, "Rate as -2", " Set the score of the selected track to -2")
+        menuRateNeg3 = self.rateMenu.Append(
+            -1, "Rate as -3", " Set the score of the selected track to -3")
+        menuRateNeg4 = self.rateMenu.Append(
+            -1, "Rate as -4", " Set the score of the selected track to -4")
+        menuRateNeg5 = self.rateMenu.Append(
+            -1, "Rate as -5", " Set the score of the selected track to -5")
+        menuRateNeg6 = self.rateMenu.Append(
+            -1, "Rate as -6", " Set the score of the selected track to -6")
+        menuRateNeg7 = self.rateMenu.Append(
+            -1, "Rate as -7", " Set the score of the selected track to -7")
+        menuRateNeg8 = self.rateMenu.Append(
+            -1, "Rate as -8", " Set the score of the selected track to -8")
+        menuRateNeg9 = self.rateMenu.Append(
+            -1, "Rate as -9", " Set the score of the selected track to -9")
+        menuRateNeg10 = self.rateMenu.Append(
+            -1, "Rate as -10", " Set the score of the selected track to -10")
+
+        self.Bind(wx.EVT_MENU, lambda e, score=10: self.onRate(e, score),
+                  menuRatePos10)
+        self.Bind(wx.EVT_MENU, lambda e, score=9: self.onRate(e, score),
+                  menuRatePos9)
+        self.Bind(wx.EVT_MENU, lambda e, score=8: self.onRate(e, score),
+                  menuRatePos8)
+        self.Bind(wx.EVT_MENU, lambda e, score=7: self.onRate(e, score),
+                  menuRatePos7)
+        self.Bind(wx.EVT_MENU, lambda e, score=6: self.onRate(e, score),
+                  menuRatePos6)
+        self.Bind(wx.EVT_MENU, lambda e, score=5: self.onRate(e, score),
+                  menuRatePos5)
+        self.Bind(wx.EVT_MENU, lambda e, score=4: self.onRate(e, score),
+                  menuRatePos4)
+        self.Bind(wx.EVT_MENU, lambda e, score=3: self.onRate(e, score),
+                  menuRatePos3)
+        self.Bind(wx.EVT_MENU, lambda e, score=2: self.onRate(e, score),
+                  menuRatePos2)
+        self.Bind(wx.EVT_MENU, lambda e, score=1: self.onRate(e, score),
+                  menuRatePos1)
+        self.Bind(wx.EVT_MENU, lambda e, score=0: self.onRate(e, score),
+                  menuRate0)
+        self.Bind(wx.EVT_MENU, lambda e, score=-1: self.onRate(e, score),
+                  menuRateNeg1)
+        self.Bind(wx.EVT_MENU, lambda e, score=-2: self.onRate(e, score),
+                  menuRateNeg2)
+        self.Bind(wx.EVT_MENU, lambda e, score=-3: self.onRate(e, score),
+                  menuRateNeg3)
+        self.Bind(wx.EVT_MENU, lambda e, score=-4: self.onRate(e, score),
+                  menuRateNeg4)
+        self.Bind(wx.EVT_MENU, lambda e, score=-5: self.onRate(e, score),
+                  menuRateNeg5)
+        self.Bind(wx.EVT_MENU, lambda e, score=-6: self.onRate(e, score),
+                  menuRateNeg6)
+        self.Bind(wx.EVT_MENU, lambda e, score=-7: self.onRate(e, score),
+                  menuRateNeg7)
+        self.Bind(wx.EVT_MENU, lambda e, score=-8: self.onRate(e, score),
+                  menuRateNeg8)
+        self.Bind(wx.EVT_MENU, lambda e, score=-9: self.onRate(e, score),
+                  menuRateNeg9)
+        self.Bind(wx.EVT_MENU, lambda e, score=-10: self.onRate(e, score),
+                  menuRateNeg10)
+
+##        self.rateMenu.Check(self.ID_menuRate0, True)
+##        try:
+##            score = self.db.getScoreValueFromID(self.trackID)
+##            if score == 10:
+##                self.rateMenu.Check(menuRatePos10, True)
+##            elif score == 9:
+##                self.rateMenu.Check(menuRatePos9, True)
+##            elif score == 8:
+##                self.rateMenu.Check(menuRatePos8, True)
+##            elif score == 7:
+##                self.rateMenu.Check(menuRatePos7, True)
+##            elif score == 6:
+##                self.rateMenu.Check(menuRatePos6, True)
+##            elif score == 5:
+##                self.rateMenu.Check(menuRatePos5, True)
+##            elif score == 4:
+##                self.rateMenu.Check(menuRatePos4, True)
+##            elif score == 3:
+##                self.rateMenu.Check(menuRatePos3, True)
+##            elif score == 2:
+##                self.rateMenu.Check(menuRatePos2, True)
+##            elif score == 1:
+##                self.rateMenu.Check(menuRatePos1, True)
+##            elif score == 0:
+##                self.rateMenu.Check(menuRate0, True)
+##            elif score == 1:
+##                self.rateMenu.Check(menuRateNeg1, True)
+##            elif score == 2:
+##                self.rateMenu.Check(menuRateNeg2, True)
+##            elif score == 3:
+##                self.rateMenu.Check(menuRateNeg3, True)
+##            elif score == 4:
+##                self.rateMenu.Check(menuRateNeg4, True)
+##            elif score == 5:
+##                self.rateMenu.Check(menuRateNeg5, True)
+##            elif score == 6:
+##                self.rateMenu.Check(menuRateNeg6, True)
+##            elif score == 7:
+##                self.rateMenu.Check(menuRateNeg7, True)
+##            elif score == 8:
+##                self.rateMenu.Check(menuRateNeg8, True)
+##            elif score == 9:
+##                self.rateMenu.Check(menuRateNeg9, True)
+##            elif score == 10:
+##                self.rateMenu.Check(menuRateNeg10, True)
+##        except AttributeError as err:
+##            if str(err) != "'MainWindow' object has no attribute 'trackID'":
+##                raise err
+##            print "No track selected."
+##            return
+
     def initOptionsMenu(self):
         self.optionsMenu = wx.Menu()        
         menuPrefs = self.optionsMenu.Append(self.ID_PREFS, "&Preferences...",
                                             " Change NQr's settings")
-        menuRescan = self.optionsMenu.Append(-1, "&Rescan Library",
-                                             " Search previously added directories for new files")
+        menuRescan = self.optionsMenu.Append(
+            -1, "&Rescan Library", " Search previously added directories for new files")
         self.optionsMenu.AppendSeparator()
-        menuToggleNQr = self.optionsMenu.AppendCheckItem(self.ID_TOGGLENQR,
-                                                         "En&queue with NQr",
-                                                         " Use NQr to enqueue tracks")
-
-
+        self.menuToggleNQr = self.optionsMenu.AppendCheckItem(
+            self.ID_TOGGLENQR, "En&queue with NQr",
+            " Use NQr to enqueue tracks")
 
 ##        self.Bind(wx.EVT_MENU, self.onPrefs, menuPrefs)
         self.Bind(wx.EVT_MENU, self.onRescan, menuRescan)
-        self.Bind(wx.EVT_MENU, self.onToggleNQr, menuToggleNQr)
+        self.Bind(wx.EVT_MENU, self.onToggleNQr, self.menuToggleNQr)
         
     def initMainSizer(self):
         self.initPlayerControls()
@@ -444,7 +591,7 @@ class MainWindow(wx.Frame):
             else:
                 print "The track already has the maximum score!"
         except AttributeError as err:
-            if str(err) != "'mainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
             print "No track selected."
             return
@@ -459,7 +606,22 @@ class MainWindow(wx.Frame):
             else:
                 print "The track already has the minimum score!"
         except AttributeError as err:
-            if str(err) != "'mainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute 'track'":
+                raise err
+            print "No track selected."
+            return
+
+    def onRate(self, e, score):
+        try:
+            oldScore = self.db.getScoreValue(self.track)
+            if score != oldScore:
+                self.db.setScore(self.track, score)
+                self.refreshSelectedTrack()
+                self.populateDetails(self.track) ## poss superfluous
+            else:
+                print "The track already has that score!"
+        except AttributeError as err:
+            if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
             print "No track selected."
             return
@@ -468,7 +630,7 @@ class MainWindow(wx.Frame):
         try:
             self.player.addTrack(self.track.getPath())
         except AttributeError as err:
-            if str(err) != "'mainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
             print "No track selected."
             return
@@ -479,7 +641,7 @@ class MainWindow(wx.Frame):
             self.refreshSelectedTrack()
             self.populateDetails(self.track) ## poss superfluous
         except AttributeError as err:
-            if str(err) != "'mainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
             print "No track selected."
             return
@@ -493,10 +655,10 @@ class MainWindow(wx.Frame):
 ## should always be monitoring track changes, but toggle should turn on/off
 ## auto queueing
     def onToggleNQr(self, e=None):
-        if self.toggleNQr == True:
+        if self.menuToggleNQr.IsChecked() == False:
             self.toggleNQr == False
             print "Enqueueing turned off."
-        elif self.toggleNQr == False:
+        elif self.menuToggleNQr.IsChecked() == True:
             self.toggleNQr == True
             print "Enqueueing turned on."
 ##        if not self.trackChangeThread:
@@ -512,11 +674,10 @@ class MainWindow(wx.Frame):
     def onRescan(self, e=None):
         self.db.rescanDirectories()
 
-## should deal with limited cache size
     def onSelectTrack(self, e):
         self.trackID = e.GetData()
         self.index = e.GetIndex()
-        self.track = self.trackFactory.getTrackFromCache(self.trackID)
+        self.track = self.trackFactory.getTrackFromID(self.db, self.trackID)
         self.populateDetails(self.track)
         self.setScoreSliderPosition(self.db.getScoreValue(self.track))
 
@@ -526,11 +687,14 @@ class MainWindow(wx.Frame):
 
     def onTrackRightClick(self, e):
         point = e.GetPoint()
+        self.initRateMenu()
         trackRightClickMenu = wx.Menu()
         menuTrackRightClickRateUp = trackRightClickMenu.Append(
             -1, "Rate &Up", " Increase the score of the current track by one")
         menuTrackRightClickRateDown = trackRightClickMenu.Append(
             -1, "Rate &Down", " Decrease the score of the current track by one")
+        rateRightClickMenu = trackRightClickMenu.AppendMenu(
+            -1, "&Rate", self.rateMenu)
         self.playerMenu.AppendSeparator()
         menuTrackRightClickRequeue = trackRightClickMenu.Append(
             -1, "Re&queue Track", " Add the selected track to the playlist")
@@ -543,6 +707,7 @@ class MainWindow(wx.Frame):
 ##        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
 
         self.PopupMenu(trackRightClickMenu, point)
+        rateRightClickMenu.Destroy()
         trackRightClickMenu.Destroy()
 
     def onScoreSliderMove(self, e):
@@ -552,7 +717,7 @@ class MainWindow(wx.Frame):
             self.refreshSelectedTrack()
             self.populateDetails(self.track) ## poss superfluous
         except AttributeError as err:
-            if str(err) != "'mainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
             print "No track selected."
             return
