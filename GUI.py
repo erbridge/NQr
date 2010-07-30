@@ -84,7 +84,8 @@ class TrackChangeThread(Thread):
             newTrack = self.player.getCurrentTrackPath()
             if newTrack != currentTrack:
                 currentTrack = newTrack
-                wx.PostEvent(self.window, TrackChangeEvent(self.db, self.trackFactory,
+                wx.PostEvent(self.window, TrackChangeEvent(self.db,
+                                                           self.trackFactory,
                                                            currentTrack))
 ##                changeCount += 1
 ##            if changeCount == 3:
@@ -134,7 +135,7 @@ class DatabaseThread(Thread):
 ##            self.db.rescanDirectories()
 ##        else:
 ##            print "No such operation."
-            
+
 class MainWindow(wx.Frame):
     ID_ARTIST = wx.NewId()
     ID_TRACK = wx.NewId()
@@ -148,7 +149,7 @@ class MainWindow(wx.Frame):
     ID_ADDFILE = wx.NewId()
     ID_PREFS = wx.NewId()
     ID_TOGGLENQR = wx.NewId()
-    
+
     def __init__(self, parent, db, randomizer, player, trackFactory,
                  title="NQr", enqueueOnStartup=True, rescanOnStartup=True,
                  defaultPlaylistLength=11):
@@ -165,7 +166,7 @@ class MainWindow(wx.Frame):
                                                    self.trackFactory)
 ##        self.trackChangeThread = None
         self.index = None
-        
+
         wx.Frame.__init__(self, parent, title=title)
         self.CreateStatusBar()
         self.initMenuBar()
@@ -174,7 +175,7 @@ class MainWindow(wx.Frame):
         EVT_TRACK_CHANGE(self, self.onTrackChange)
 ##        EVT_TRACK_QUEUE(self, self.onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self.onClose, self)
-        
+
         if self.enqueueOnStartup == True:
             self.optionsMenu.Check(self.ID_TOGGLENQR, True)
             self.onToggleNQr()
@@ -200,16 +201,16 @@ class MainWindow(wx.Frame):
         self.initFileMenu()
         self.initPlayerMenu()
         self.initOptionsMenu()
-        
-        menuBar = wx.MenuBar()        
+
+        menuBar = wx.MenuBar()
         menuBar.Append(self.fileMenu, "&File")
         menuBar.Append(self.playerMenu, "&Player")
         menuBar.Append(self.optionsMenu, "&Options")
 
         self.SetMenuBar(menuBar)
-        
+
     def initFileMenu(self):
-        self.fileMenu = wx.Menu()        
+        self.fileMenu = wx.Menu()
         menuAbout = self.fileMenu.Append(
             wx.ID_ABOUT, "&About NQr", " Information about NQr")
         self.fileMenu.AppendSeparator()
@@ -227,7 +228,7 @@ class MainWindow(wx.Frame):
             " Remove a directory from the watch list")
         self.fileMenu.AppendSeparator()
         menuExit = self.fileMenu.Append(wx.ID_EXIT, "E&xit", " Terminate NQr")
-        
+
         self.Bind(wx.EVT_MENU, self.onAbout, menuAbout)
         self.Bind(wx.EVT_MENU, self.onAddFile, menuAddFile)
         self.Bind(wx.EVT_MENU, self.onAddDirectory, menuAddDirectory)
@@ -238,7 +239,7 @@ class MainWindow(wx.Frame):
     ## TODO: change up in "Rate Up" to an arrow
     def initPlayerMenu(self):
         self.initRateMenu()
-        
+
         self.playerMenu = wx.Menu()
         menuPlay = self.playerMenu.Append(-1, "&Play",
                                           " Play or restart the current track")
@@ -421,7 +422,7 @@ class MainWindow(wx.Frame):
 ##            return
 
     def initOptionsMenu(self):
-        self.optionsMenu = wx.Menu()        
+        self.optionsMenu = wx.Menu()
         menuPrefs = self.optionsMenu.Append(self.ID_PREFS, "&Preferences...",
                                             " Change NQr's settings")
         menuRescan = self.optionsMenu.Append(
@@ -434,39 +435,39 @@ class MainWindow(wx.Frame):
 ##        self.Bind(wx.EVT_MENU, self.onPrefs, menuPrefs)
         self.Bind(wx.EVT_MENU, self.onRescan, menuRescan)
         self.Bind(wx.EVT_MENU, self.onToggleNQr, self.menuToggleNQr)
-        
+
     def initMainSizer(self):
         self.initPlayerControls()
         self.initDetails()
         self.initTrackSizer()
-        
-        self.mainSizer = wx.BoxSizer(wx.VERTICAL)        
+
+        self.mainSizer = wx.BoxSizer(wx.VERTICAL)
         self.mainSizer.Add(self.playerControls, 0, wx.EXPAND)
         self.mainSizer.Add(self.trackSizer, 1,
                            wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
         self.mainSizer.Add(self.details, 0, wx.EXPAND|wx.ALL, 3)
-        
+
         self.SetSizer(self.mainSizer)
         self.SetAutoLayout(True)
         self.mainSizer.Fit(self)
-                
+
 ## TODO: use svg or gd to create button images via wx.Bitmap and wx.BitmapButton
 ## TODO: add requeue button and "play this" button to play selected track
     def initPlayerControls(self):
-        self.playerControls = wx.Panel(self)        
+        self.playerControls = wx.Panel(self)
         previousButton = wx.Button(self.playerControls, wx.ID_ANY, "Prev")
         playButton = wx.Button(self.playerControls, wx.ID_ANY, "Play")
         pauseButton = wx.Button(self.playerControls, wx.ID_ANY, "Pause")
         stopButton = wx.Button(self.playerControls, wx.ID_ANY, "Stop")
         nextButton = wx.Button(self.playerControls, wx.ID_ANY, "Next")
-        
+
         buttonPanel = wx.BoxSizer(wx.HORIZONTAL)
         buttonPanel.Add(previousButton, 0, wx.ALL, 4)
         buttonPanel.Add(playButton, 0, wx.ALL, 4)
         buttonPanel.Add(pauseButton, 0, wx.ALL, 4)
         buttonPanel.Add(stopButton, 0, wx.ALL, 4)
         buttonPanel.Add(nextButton, 0, wx.ALL, 4)
-        
+
         self.playerControls.SetSizer(buttonPanel)
 
         self.Bind(wx.EVT_BUTTON, self.onPrevious, previousButton)
@@ -483,7 +484,7 @@ class MainWindow(wx.Frame):
     def initTrackSizer(self):
         self.initTrackList()
         self.initScoreSlider()
-        
+
         self.trackSizer = wx.BoxSizer(wx.HORIZONTAL)
         self.trackSizer.Add(self.trackList, 1, wx.EXPAND|wx.RIGHT, 5)
         self.trackSizer.Add(self.scoreSlider, 0, wx.EXPAND)
@@ -523,7 +524,7 @@ class MainWindow(wx.Frame):
         if self.trackChangeThread:
             self.trackChangeThread.abort()
         self.Destroy()
-    
+
     def onAbout(self, e):
         dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr",
                                   wx.OK)
@@ -653,7 +654,7 @@ class MainWindow(wx.Frame):
                 raise err
             print "No track selected."
             return
-        
+
     def onLaunchPlayer(self, e):
         self.player.launch()
 
@@ -711,7 +712,7 @@ class MainWindow(wx.Frame):
             -1, "Re&queue Track", " Add the selected track to the playlist")
 ##        menuTrackRightClickResetScore = trackRightClickMenu.Append(
 ##            -1, "Reset Sc&ore", " Reset the score of the current track")
-        
+
         self.Bind(wx.EVT_MENU, self.onRateUp, menuTrackRightClickRateUp)
         self.Bind(wx.EVT_MENU, self.onRateDown, menuTrackRightClickRateDown)
         self.Bind(wx.EVT_MENU, self.onRequeue, menuTrackRightClickRequeue)

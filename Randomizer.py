@@ -2,6 +2,8 @@
 ## TODO: work out time factor if track has never been played: poss use time
 ##       since added to database?
 ## TODO: work out what weights should be (poss make sliders)
+## TODO: getWeights from a text option (convert into python code) allowing
+##       length of list etc.
 
 ##from Database import Database
 import random
@@ -83,7 +85,8 @@ class Randomizer:
 ##        return trackIDList, weightList##, totalWeight
 
     def getWeight(self, score, time):
-        weight = score * time
+        weight = time^(score/50)
+##        weight = score * time
         return weight
 
 ##d = Database(None)
