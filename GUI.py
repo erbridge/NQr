@@ -17,15 +17,10 @@
 ## TODO: poss create delay before counting a play (to ignore skips)
 ## TODO: deal with tracks played not in database (ignore them?)
 ## TODO: add keyboard shortcuts
-## TODO: make NQr only queue tracks up to a limit (rather than 3 tracks every
-##       time 3 are played)
 ## TODO: when nothing is selected NQr should act as if the currently playing
-##       track is
+##       track is selected
 ## TODO: remember playlist contents for when NQr is toggled off.
 ## TODO: leftmost column of track list no longer needed
-##
-## FIXME: after rating track with right click an extra separator is added to
-##        player menu
 
 ##from Database import Database
 ##from iTunesMacOS import iTunesMacOS
@@ -151,13 +146,14 @@ class MainWindow(wx.Frame):
     ID_TOGGLENQR = wx.NewId()
 
     def __init__(self, parent, db, randomizer, player, trackFactory,
-                 title="NQr", enqueueOnStartup=True, rescanOnStartup=True,
-                 defaultPlaylistLength=11):
+                 title="NQr", restorePlaylist=True, enqueueOnStartup=True,
+                 rescanOnStartup=False, defaultPlaylistLength=11):
 ##        self.db = DatabaseThread(db).database
         self.db = db
         self.randomizer = randomizer
         self.player = player
         self.trackFactory = trackFactory
+        self.restorePlaylist = restorePlaylist
         self.enqueueOnStartup = enqueueOnStartup
         self.rescanOnStartup = rescanOnStartup
         self.defaultPlaylistLength = defaultPlaylistLength
@@ -176,6 +172,9 @@ class MainWindow(wx.Frame):
 ##        EVT_TRACK_QUEUE(self, self.onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self.onClose, self)
 
+        if self.restorePlaylist == True:
+            self.oldPlaylist = None
+
         if self.enqueueOnStartup == True:
             self.optionsMenu.Check(self.ID_TOGGLENQR, True)
             self.onToggleNQr()
@@ -185,8 +184,8 @@ class MainWindow(wx.Frame):
 ##            self.toggleNQr = False
 ##            print "Enqueueing turned off."
 
-##        if self.rescanOnStartup == True:
-##            self.onRescan()
+        if self.rescanOnStartup == True:
+            self.onRescan()
 
 ## TODO: if current track is None or there is only one track, NQr should queue
 ##       a load of tracks
@@ -667,11 +666,15 @@ class MainWindow(wx.Frame):
         if self.menuToggleNQr.IsChecked() == False:
             self.toggleNQr = False
             self.player.setShuffle(self.oldShuffleStatus)
+            if self.oldPlaylist != None and self.restorePlaylist == True:
+                self.player.loadPlaylist(self.oldPlaylist)
             print "Enqueueing turned off."
         elif self.menuToggleNQr.IsChecked() == True:
             self.toggleNQr = True
             self.oldShuffleStatus = self.player.getShuffle()
             self.player.setShuffle(False)
+            if self.restorePlaylist == True:
+                self.oldPlaylist = self.player.savePlaylist()
             print "Enqueueing turned on."
 ##        if not self.trackChangeThread:
 ##            self.trackChangeThread = TrackChangeThread(self, self.player)
@@ -707,7 +710,7 @@ class MainWindow(wx.Frame):
             -1, "Rate &Down", " Decrease the score of the current track by one")
         rateRightClickMenu = trackRightClickMenu.AppendMenu(
             -1, "&Rate", self.rateMenu)
-        self.playerMenu.AppendSeparator()
+        trackRightClickMenu.AppendSeparator()
         menuTrackRightClickRequeue = trackRightClickMenu.Append(
             -1, "Re&queue Track", " Add the selected track to the playlist")
 ##        menuTrackRightClickResetScore = trackRightClickMenu.Append(
@@ -819,13 +822,13 @@ class MainWindow(wx.Frame):
         else:
             lastPlayed = self.db.getLastPlayedLocalTime(track) ## should be time from last play
         self.clearDetails()
-        self.addDetail("Artist: "+self.db.getArtist(track))
-        self.addDetail("Title: "+self.db.getTitle(track))
-        self.addDetail("Track: "+self.db.getTrackNumber(track)\
-                       +"     Album: "+self.db.getAlbum(track))
-        self.addDetail("Score: "+str(self.db.getScore(track))\
-                       +"     Last Played: "+lastPlayed)
-        self.addDetail("Filetrack: "+self.db.getPath(track))
+        self.addDetail("Artist:   "+self.db.getArtist(track))
+        self.addDetail("Title:   "+self.db.getTitle(track))
+        self.addDetail("Track:   "+self.db.getTrackNumber(track)\
+                       +"       Album:   "+self.db.getAlbum(track))
+        self.addDetail("Score:   "+str(self.db.getScore(track))\
+                       +"       Last Played:   "+lastPlayed)
+        self.addDetail("Filetrack:   "+self.db.getPath(track))
 
     def addDetail(self, detail):
         self.details.AppendText(detail+"\n")

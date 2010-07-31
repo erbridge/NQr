@@ -16,6 +16,7 @@ IPC_GETWND_PE = 1
 IPC_GETWND = 260
 IPC_PE_DELETEINDEX = 104
 IPC_GETLISTLENGTH = 124
+IPC_GETPLAYLISTFILE = 211
 
 class WinampWindows:
 ## playlistname not used in winamp
@@ -111,7 +112,8 @@ class WinampWindows:
     def getCurrentTrackPath(self):
         trackPosition = self.getCurrentTrackPos()
         winampWindow = self.winamp.hwnd
-        memoryPointer = self.winamp.doIpcCommand(211, trackPosition)
+        memoryPointer = self.winamp.doIpcCommand(IPC_GETPLAYLISTFILE,
+                                                 trackPosition)
         (threadID,
          processID) = win32process.GetWindowThreadProcessId(winampWindow)
         winampProcess = win32api.OpenProcess(win32con.PROCESS_VM_READ, False,
@@ -124,12 +126,12 @@ class WinampWindows:
         path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
         return path
 
-## gets track at a playlist position relative to the current track (+ve is
-## later)
-    def getTrackPathAtPos(self, relativePosition):
-        trackPosition = self.getCurrentTrackPos()+relativePosition
+## gets track at a playlist position
+    def getTrackPathAtPos(self, trackPosition):
+##        trackPosition = self.getCurrentTrackPos()+relativePosition
         winampWindow = self.winamp.hwnd
-        memoryPointer = self.winamp.doIpcCommand(211, trackPosition)
+        memoryPointer = self.winamp.doIpcCommand(IPC_GETPLAYLISTFILE,
+                                                 trackPosition)
         (threadID,
          processID) = win32process.GetWindowThreadProcessId(winampWindow)
         winampProcess = win32api.OpenProcess(win32con.PROCESS_VM_READ, False,
@@ -141,3 +143,18 @@ class WinampWindows:
         winampProcess.Close()
         path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
         return path
+
+    def savePlaylist(self):
+        playlist = []
+        for trackPosition in range(self.getPlaylistLength()):
+            playlist.append(self.getTrackPathAtPos(trackPosition))
+        return playlist
+
+## FIXME: sets currently playing track to first track in the list, but continues
+##        to play the old track
+    def loadPlaylist(self, playlist):
+        if self.winamp.getRunning() == False:
+            self.launchBackground()
+        self.winamp.clearPlaylist()
+        for filepath in playlist:
+            self.winamp.enqueue(filepath)

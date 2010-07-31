@@ -22,6 +22,7 @@ class Database:
         self._initCreateDirectoryTable()
         self._initCreatePlaysTable()
         self._initCreateScoresTable()
+        self._initCreateLinksTable()
         self._initCreateIgnoreTable()
         self._conn.commit()
 
@@ -79,6 +80,19 @@ class Database:
             print "Scores table found."
         c.close()
 
+    def _initCreateLinksTable(self):
+        c = self._conn.cursor()
+        try:
+            c.execute("""create table links (linkid integer primary key
+                                             autoincrement, firsttrackid
+                                             integer, secondtrackid integer)""")
+            print "Track links table created."
+        except sqlite3.OperationalError as e:
+            if str(e) != "table links already exists":
+                raise e
+            print "Track links table found."
+        c.close()
+
     def _initCreateIgnoreTable(self):
         c = self._conn.cursor()
         try:
@@ -106,7 +120,7 @@ class Database:
             c.execute("""insert into tracks (path, artist, album, title,
                       tracknumber, unscored) values (?, ?, ?, ?, ?, 1)""",
                       (path, track.getArtist(), track.getAlbum(),
-                       track.getTitle(), track.getTrackNumber(), ))
+                       track.getTitle(), track.getTrackNumber()))
             trackID = c.lastrowid
             print "\'"+path+"\' has been added to the library."
         else:
@@ -127,9 +141,10 @@ class Database:
 
     def addDirectory(self, directory):
         c = self._conn.cursor()
-        DirectoryID = self.getDirectoryID(directory)
-        if DirectoryID == None:
-            c.execute("insert into directories (path) values (?)", (directory,))
+        directoryID = self.getDirectoryID(directory)
+        if directoryID == None:
+            c.execute("insert into directories (path) values (?)",
+                      (directory, ))
             print "\'"+directory+"\' has been added to the watch list."
         else:
             print "\'"+directory+"\' is already in the watch list."
@@ -139,9 +154,9 @@ class Database:
 
     def removeDirectory(self, directory):
         c = self._conn.cursor()
-        DirectoryID = self.getDirectoryID(directory)
-        if DirectoryID != None:
-            c.execute("delete from directories where path = ?", (directory,))
+        directoryID = self.getDirectoryID(directory)
+        if directoryID != None:
+            c.execute("delete from directories where path = ?", (directory, ))
             print "\'"+directory+"\' has been removed from the watch list."
         else:
             print "\'"+directory+"\' is not in the watch list."
@@ -165,6 +180,52 @@ class Database:
             return
         c.execute("""insert into plays (trackid, datetime) values
                   (?, datetime('now'))""", (trackID, ))
+        c.close()
+        self._conn.commit()
+
+    def addLink(self, firstTrack, secondTrack):
+        c = self._conn.cursor()
+        firstTrackID = firstTrack.getID()
+        secondTrackID = secondTrack.getID()
+        if firstTrackID == None:
+            print "\'"+self.getPath(firstTrack)+"\' is not in the library."
+            return
+        if secondTrackID == None:
+            print "\'"+self.getPath(secondTrack)+"\' is not in the library."
+            return
+        c.execute("""insert into links (firsttrackid, secondtrackid) values
+                  (?, ?)""", (firstTrackID, secondTrackID))
+        c.close()
+        self._conn.commit()
+
+    def getLink(self, firstTrack, secondTrack):
+        c = self._conn.cursor()
+        c.execute("""select linkid from links where firsttrackid = ? and
+                  secondtrackid = ?""", (firstTrackID, secondTrackID))
+        result = c.fetchone()
+        c.close()
+        if result == None:
+            return None
+        else:
+            return result[0]
+
+    def removeLink(self, firstTrack, secondTrack):
+        c = self._conn.cursor()
+        firstTrackID = firstTrack.getID()
+        secondTrackID = secondTrack.getID()
+        if firstTrackID == None:
+            print "\'"+self.getPath(firstTrack)+"\' is not in the library."
+            return
+        if secondTrackID == None:
+            print "\'"+self.getPath(secondTrack)+"\' is not in the library."
+            return
+        linkID = self.getLink(firstTrackID, secondTrackID)
+        if linkID != None:
+            c.execute("""delete from links where firsttrackid = ? and
+                      secondtrackid = ?""", (firstTrackID, secondTrackID))
+            print "The link has been removed."
+        else:
+            print "The link does not exist."
         c.close()
         self._conn.commit()
             
@@ -259,6 +320,7 @@ class Database:
 
     def getTimeSinceLastPlayed(self, track):
         return self._getLastPlayed("datetime('now') - datetime", track=track)
+##        return self._getLastPlayed("strftime('%J days, %H hrs, %M mins, %S secs ago', (datetime('now') - datetime))", track=track)
 
     def getSecondsSinceLastPlayedFromID(self, trackID):
         return self._getLastPlayed(
