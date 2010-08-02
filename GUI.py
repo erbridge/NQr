@@ -22,8 +22,10 @@
 ## TODO: remember playlist contents for when NQr is toggled off.
 ## TODO: leftmost column of track list no longer needed
 
+from collections import deque
 ##from Database import Database
 ##from iTunesMacOS import iTunesMacOS
+import os
 ##from Randomizer import Randomizer
 from threading import *
 import time
@@ -70,7 +72,8 @@ class TrackChangeThread(Thread):
 
 ## poss should use position rather than filename?
 ## FIXME: sometimes gets the wrong track if skipped too fast: should return the
-##        path with the event (poss fixed)
+##        path with the event (poss fixed). Also happens if track changes while
+##        scoring
     def run(self):
         currentTrack = self.player.getCurrentTrackPath()
 ##        changeCount = 3
@@ -226,6 +229,13 @@ class MainWindow(wx.Frame):
             -1, "&Remove Directory...",
             " Remove a directory from the watch list")
         self.fileMenu.AppendSeparator()
+        menuLinkTracks = self.fileMenu.Append(
+            -1, "&Link Tracks...",
+            " Link two tracks so they always play together")
+        menuRemoveLink = self.fileMenu.Append(
+            -1, "Remo&ve Link...",
+            " Remove the link between two tracks")
+        self.fileMenu.AppendSeparator()
         menuExit = self.fileMenu.Append(wx.ID_EXIT, "E&xit", " Terminate NQr")
 
         self.Bind(wx.EVT_MENU, self.onAbout, menuAbout)
@@ -233,6 +243,8 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onAddDirectory, menuAddDirectory)
         self.Bind(wx.EVT_MENU, self.onAddDirectoryOnce, menuAddDirectoryOnce)
         self.Bind(wx.EVT_MENU, self.onRemoveDirectory, menuRemoveDirectory)
+        self.Bind(wx.EVT_MENU, self.onLinkTracks, menuLinkTracks)
+        self.Bind(wx.EVT_MENU, self.onRemoveLink, menuRemoveLink)
         self.Bind(wx.EVT_MENU, self.onExit, menuExit)
 
     ## TODO: change up in "Rate Up" to an arrow
@@ -571,6 +583,57 @@ class MainWindow(wx.Frame):
             self.db.removeDirectory(path)
         dialog.Destroy()
 
+    def onLinkTracks(self, e):
+        defaultDirectory = ''
+        firstDialog = wx.FileDialog(
+            self, "Choose the first file", defaultDirectory, "",
+            "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
+            wx.FD_OPEN|wx.FD_CHANGE_DIR
+            )
+        if firstDialog.ShowModal() == wx.ID_OK:
+            firstPath = firstDialog.GetPath()
+            firstTrack = self.trackFactory.getTrackFromPath(self.db, firstPath)
+            directory = os.path.dirname(firstPath)
+            secondDialog = wx.FileDialog(
+                self, "Choose the second file", directory, "",
+                "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
+                wx.FD_OPEN|wx.FD_CHANGE_DIR
+                )
+            if secondDialog.ShowModal() == wx.ID_OK:
+                secondPath = secondDialog.GetPath()
+                secondTrack = self.trackFactory.getTrackFromPath(self.db,
+                                                                 secondPath)
+                self.db.addLink(firstTrack, secondTrack)
+            secondDialog.Destroy()
+        firstDialog.Destroy()
+
+    def onRemoveLink(self, e):
+        defaultDirectory = ''
+        firstDialog = wx.FileDialog(
+            self, "Choose the first file", defaultDirectory, "",
+            "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
+            wx.FD_OPEN|wx.FD_CHANGE_DIR
+            )
+        if firstDialog.ShowModal() == wx.ID_OK:
+            firstPath = firstDialog.GetPath()
+            firstTrack = self.trackFactory.getTrackFromPath(self.db, firstPath)
+            directory = os.path.dirname(firstPath)
+            secondDialog = wx.FileDialog(
+                self, "Choose the second file", directory, "",
+                "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
+                wx.FD_OPEN|wx.FD_CHANGE_DIR
+                )
+            if secondDialog.ShowModal() == wx.ID_OK:
+                secondPath = secondDialog.GetPath()
+                secondTrack = self.trackFactory.getTrackFromPath(self.db,
+                                                                 secondPath)
+                if self.db.getLinkID(firstTrack, secondTrack) != None:
+                    self.db.removeLink(firstTrack, secondTrack)
+                else:
+                    self.db.removeLink(secondTrack, firstTrack)
+            secondDialog.Destroy()
+        firstDialog.Destroy()
+
     def onExit(self, e):
         self.Close(True)
 
@@ -660,8 +723,7 @@ class MainWindow(wx.Frame):
     def onExitPlayer(self, e):
         self.player.close()
 
-## should always be monitoring track changes, but toggle should turn on/off
-## auto queueing
+## FIXME: toggle should be turned off when NQr is closed
     def onToggleNQr(self, e=None):
         if self.menuToggleNQr.IsChecked() == False:
             self.toggleNQr = False
@@ -800,7 +862,71 @@ class MainWindow(wx.Frame):
     def enqueueRandomTracks(self, number):
         for n in range(number):
             track = self.randomizer.chooseTrack()
-            self.enqueueTrack(track)
+##            self.enqueueTrack(track)
+## FIXME: untested!!
+            linkIDs = self.db.getLinkIDs(track)
+            if linkIDs == None:
+                self.enqueueTrack(track)
+            else:
+                originalLinkID = linkIDs[0]
+                (firstTrackID,
+                 secondTrackID) = self.db.getLinkedTrackIDs(originalLinkID)
+                firstTrack = self.trackFactory.getTrackFromID(self.db,
+                                                              firstTrackID)
+                secondTrack = self.trackFactory.getTrackFromID(self.db,
+                                                               secondTrackID)
+                trackQueue = deque([firstTrack, secondTrack])
+##                self.enqueueTrack(firstTrack)
+##                self.enqueueTrack(secondTrack)
+                linkIDs = self.db.getLinkIDs(firstTrack)
+                oldLinkIDs = originalLinkID
+                ## finds earlier tracks
+                while:
+                    for linkID in linkIDs:
+                        if linkID not in oldLinkIDs:
+                            (newTrackID,
+                             trackID) = self.db.getLinkedTrackIDs(linkID)
+                            track = self.trackFactory.getTrackFromID(self.db,
+                                                                     newTrackID)
+                            trackQueue.appendleft(track)
+                            oldLinkIDs = linkIDs
+                            linkIDs = self.db.getLinkIDs(track)
+                    if oldLinkIDs == linkIDs:
+                            break
+                linkIDs = self.db.getLinkIDs(secondTrack)
+                oldLinkIDs = originalLinkID
+                ## finds later tracks
+                while:
+                    for linkID in linkIDs:
+                        if linkID not in oldLinkIDs:
+                            (trackID,
+                             newTrackID) = self.db.getLinkedTrackIDs(linkID)
+                            track = self.trackFactory.getTrackFromID(self.db,
+                                                                     newTrackID)
+                            trackQueue.append(track)
+                            oldLinkIDs = linkIDs
+                            linkIDs = self.db.getLinkIDs(track)
+                    if oldLinkIDs == linkIDs:
+                            break
+##                oldTrackID = firstTrackID
+##                while linkIDs != None:
+##                    for linkID in linkIDs:
+##                        (trackID,
+##                         newTrackID) = self.db.getLinkedTrackIDs(linkID)
+##                        if trackID != oldTrackID:
+##                            track = self.trackFactory.getTrackFromID(self.db,
+##                                                                     newTrackID)
+##                            trackQueue.append(track)
+##                            oldTrackID = trackID
+##                    linkIDs = self.db.getLinkIDs(track)
+                for track in trackQueue:
+                    self.enqueueTrack(track)
+##                if secondLinkID != None:
+##                    (secondTrackID,
+##                     thirdTrackID) = self.db.getLinkedTrackIDs(secondLinkID)
+##                    thirdTrack = self.trackFactory.getTrackFromID(self.db,
+##                                                                  thirdTrackID)
+##                    self.enqueueTrack(thirdTrack)
 
     def setScoreSliderPosition(self, score):
         self.scoreSlider.SetValue(score)

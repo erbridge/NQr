@@ -30,7 +30,8 @@ class Randomizer:
 
     def chooseTrack(self):
         trackID = self.chooseTrackID()
-        return self.trackFactory.getTrackFromID(self.db, trackID)
+        track = self.trackFactory.getTrackFromID(self.db, trackID)
+        return track
 
     def createLists(self):
         rawTrackIDList = self.db.getAllTrackIDs()

@@ -17,7 +17,7 @@ class Database:
         self._trackFactory = trackFactory
         self._databasePath = databasePath
         self._defaultScore = defaultScore
-        self._conn = sqlite3.connect(self._databasePath)        
+        self._conn = sqlite3.connect(self._databasePath)
         self._initCreateTrackTable()
         self._initCreateDirectoryTable()
         self._initCreatePlaysTable()
@@ -124,7 +124,7 @@ class Database:
             trackID = c.lastrowid
             print "\'"+path+"\' has been added to the library."
         else:
-            print "\'"+path+"\' is already in the library."                
+            print "\'"+path+"\' is already in the library."
         c.close()
         self._conn.commit()
         track.setID(self._trackFactory, trackID)
@@ -183,6 +183,7 @@ class Database:
         c.close()
         self._conn.commit()
 
+## FIXME: needs to deal with two links using the same first or second track
     def addLink(self, firstTrack, secondTrack):
         c = self._conn.cursor()
         firstTrackID = firstTrack.getID()
@@ -193,13 +194,26 @@ class Database:
         if secondTrackID == None:
             print "\'"+self.getPath(secondTrack)+"\' is not in the library."
             return
-        c.execute("""insert into links (firsttrackid, secondtrackid) values
-                  (?, ?)""", (firstTrackID, secondTrackID))
+        linkID = self.getLinkID(firstTrack, secondTrack)
+        if linkID == None:
+            c.execute("""insert into links (firsttrackid, secondtrackid) values
+                      (?, ?)""", (firstTrackID, secondTrackID))
+            print "The link has been added."
+        else:
+            print "The link already exists."
         c.close()
         self._conn.commit()
 
-    def getLink(self, firstTrack, secondTrack):
+    def getLinkID(self, firstTrack, secondTrack):
         c = self._conn.cursor()
+        firstTrackID = firstTrack.getID()
+        secondTrackID = secondTrack.getID()
+        if firstTrackID == None:
+            print "\'"+self.getPath(firstTrack)+"\' is not in the library."
+            return
+        if secondTrackID == None:
+            print "\'"+self.getPath(secondTrack)+"\' is not in the library."
+            return
         c.execute("""select linkid from links where firsttrackid = ? and
                   secondtrackid = ?""", (firstTrackID, secondTrackID))
         result = c.fetchone()
@@ -208,6 +222,43 @@ class Database:
             return None
         else:
             return result[0]
+
+## if there are two links for a track, returns the link with track as second
+## track first for queueing ease
+    def getLinkIDs(self, track):
+        c = self._conn.cursor()
+        trackID = track.getID()
+        if trackID == None:
+            print "\'"+self.getPath(track)+"\' is not in the library."
+            return
+        c.execute("select linkid from links where secondtrackid = ?",
+                  (trackID, ))
+        firstResult = c.fetchone()
+        c.execute("select linkid from links where firsttrackid = ?",
+                  (trackID, ))
+        secondResult = c.fetchone()
+        c.close()
+        if firstResult == None:
+            if secondResult == None:
+                return None
+            else:
+                return secondResult[0]
+        else:
+            if secondResult == None:
+                return firstResult[0]
+            else:
+                return firstResult[0], secondResult[0]
+
+    def getLinkedTrackIDs(self, linkID):
+        c = self._conn.cursor()
+        c.execute("""select firsttrackid, secondtrackid from links where
+                  linkid = ?""", (linkID, ))
+        result = c.fetchone()
+        c.close()
+        if result == None:
+            return None
+        else:
+            return result
 
     def removeLink(self, firstTrack, secondTrack):
         c = self._conn.cursor()
@@ -219,7 +270,7 @@ class Database:
         if secondTrackID == None:
             print "\'"+self.getPath(secondTrack)+"\' is not in the library."
             return
-        linkID = self.getLink(firstTrackID, secondTrackID)
+        linkID = self.getLinkID(firstTrack, secondTrack)
         if linkID != None:
             c.execute("""delete from links where firsttrackid = ? and
                       secondtrackid = ?""", (firstTrackID, secondTrackID))
@@ -228,7 +279,7 @@ class Database:
             print "The link does not exist."
         c.close()
         self._conn.commit()
-            
+
     ## poss add track if track not in library
     def setScore(self, track, score):
         c = self._conn.cursor()
@@ -313,7 +364,7 @@ class Database:
 
     def getLastPlayed(self, track):
         return self._getLastPlayed("datetime", track=track)
-        
+
     def getLastPlayedLocalTime(self, track):
         return self._getLastPlayed("datetime(datetime, 'localtime')",
                                    track=track)
