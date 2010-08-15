@@ -22,3 +22,6 @@ class XMMS(MediaPlayer):
     def getTrackPathAtPos(self, trackPosition):
         return xmms.control.get_playlist_file(trackPosition)
 
+    def getCurrentTrackPos(self):
+        return xmms.control.get_playlist_pos()
+
