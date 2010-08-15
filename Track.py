@@ -50,11 +50,18 @@ class Factory:
         return track
 
     def getTrackFromCache(self, trackID):
-        try:
-            return self._trackCache[trackID]
-        except KeyError as err:
-            ## FIXME: should only except errors where err is integer
-            return None
+        if type(trackID) is not int:
+            raise TypeError(trackID+" is not a valid track ID")
+        return self._trackCache.get(trackID, None)
+##        try:
+##            return self._trackCache[trackID]
+##        except KeyError as err:
+##            ## FIXME: should only except errors where err is integer (fixed?)
+##            try:
+##                int(err)
+##            except ValueError:
+##                raise err
+##            return None
 
     def getTrackFromID(self, db, trackID):
         track = self.getTrackFromCache(trackID)
