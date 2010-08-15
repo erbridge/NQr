@@ -15,3 +15,10 @@ class XMMS(MediaPlayer):
     def setShuffle(self, status):
         if not status is self.getShuffle():
             xmms.control.toggle_shuffle()
+
+    def getPlaylistLength(self):
+        return xmms.control.get_playlist_length()
+
+    def getTrackPathAtPos(self, trackPosition):
+        return xmms.control.get_playlist_file(trackPosition)
+
