@@ -325,7 +325,7 @@ class Database:
 
     def _getLastPlayed(self, track=None, trackID=None):
         (self.basicLastPlayedIndex, self.localLastPlayedIndex,
-        self.secondSinceLastPlayedIndex) = range(3)
+        self.secondsSinceLastPlayedIndex) = range(3)
         if trackID == None:
             if track == None:
                 raise NoTrackError
