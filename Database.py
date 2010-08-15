@@ -171,18 +171,6 @@ class Database:
             self.addDirectoryNoWatch(n[0])
         self._conn.commit()
 
-    ## poss add track if track not in library
-    def addPlay(self, track):
-        c = self._conn.cursor()
-        trackID = track.getID()
-        if trackID == None:
-            print "\'"+self.getPath(track)+"\' is not in the library."
-            return
-        c.execute("""insert into plays (trackid, datetime) values
-                  (?, datetime('now'))""", (trackID, ))
-        c.close()
-        self._conn.commit()
-
 ## FIXME: needs to deal with two links using the same first or second track
     def addLink(self, firstTrack, secondTrack):
         c = self._conn.cursor()
@@ -277,6 +265,18 @@ class Database:
             print "The link has been removed."
         else:
             print "The link does not exist."
+        c.close()
+        self._conn.commit()
+
+    ## poss add track if track not in library
+    def addPlay(self, track):
+        c = self._conn.cursor()
+        trackID = track.getID()
+        if trackID == None:
+            print "\'"+self.getPath(track)+"\' is not in the library."
+            return
+        c.execute("""insert into plays (trackid, datetime) values
+                  (?, datetime('now'))""", (trackID, ))
         c.close()
         self._conn.commit()
 

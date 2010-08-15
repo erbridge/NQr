@@ -1,4 +1,6 @@
 ## Windows, Winamp interface
+##
+## Tested on Winamp 5+
 
 import ctypes
 import os

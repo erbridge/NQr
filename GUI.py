@@ -859,11 +859,13 @@ class MainWindow(wx.Frame):
     def enqueueTrack(self, track):
         self.player.addTrack(track.getPath())
 
+## TODO: would be better for NQr to create a queue during idle time and pop from
+##       it when enqueuing        
     def enqueueRandomTracks(self, number):
         for n in range(number):
             track = self.randomizer.chooseTrack()
 ##            self.enqueueTrack(track)
-## FIXME: untested!!
+## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
             linkIDs = self.db.getLinkIDs(track)
             if linkIDs == None:
                 self.enqueueTrack(track)
@@ -881,7 +883,7 @@ class MainWindow(wx.Frame):
                 linkIDs = self.db.getLinkIDs(firstTrack)
                 oldLinkIDs = originalLinkID
                 ## finds earlier tracks
-                while true:
+                while True:
                     for linkID in linkIDs:
                         if linkID not in oldLinkIDs:
                             (newTrackID,
@@ -896,7 +898,7 @@ class MainWindow(wx.Frame):
                 linkIDs = self.db.getLinkIDs(secondTrack)
                 oldLinkIDs = originalLinkID
                 ## finds later tracks
-                while true:
+                while True:
                     for linkID in linkIDs:
                         if linkID not in oldLinkIDs:
                             (trackID,

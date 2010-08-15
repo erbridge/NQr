@@ -2,9 +2,9 @@
 ## TODO: sort out ' in filenames
 ## TODO: allow use of bpm for music queueing (from ID3)
 ## TODO: allow user to choose default rating of unheard tracks
-## TODO: allow user to change track from media player and have the NQr update
 ## TODO: on startup rescan directories for new files or make an option
 ## TODO: allow import of directories with a score
+## TODO: ORGANIZE CODE
 ##
 ## FIXME: sometimes when changing the score of a track which was selected a
 ##        while ago, the track replaces the current track in the track list
