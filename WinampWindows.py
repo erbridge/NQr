@@ -10,6 +10,8 @@ import win32con
 import win32process
 import winamp as winampImport
 
+from MediaPlayer import MediaPlayer
+
 WM_USER = 0x400
 WM_WA_IPC = WM_USER
 IPC_GETWND_PE = 1
@@ -18,7 +20,7 @@ IPC_PE_DELETEINDEX = 104
 IPC_GETLISTLENGTH = 124
 IPC_GETPLAYLISTFILE = 211
 
-class WinampWindows:
+class WinampWindows(MediaPlayer):
 ## playlistname not used in winamp
     def __init__(self, playlistname=None):
         self.winamp = winampImport.Winamp()
@@ -143,12 +145,6 @@ class WinampWindows:
         winampProcess.Close()
         path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
         return path
-
-    def savePlaylist(self):
-        playlist = []
-        for trackPosition in range(self.getPlaylistLength()):
-            playlist.append(self.getTrackPathAtPos(trackPosition))
-        return playlist
 
 ## FIXME: sets currently playing track to first track in the list, but continues
 ##        to play the old track

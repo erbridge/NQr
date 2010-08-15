@@ -2,7 +2,9 @@
 
 import xmms.control
 
-class XMMS:
+from MediaPlayer import MediaPlayer
+
+class XMMS(MediaPlayer):
     def getCurrentTrackPath(self):
         return xmms.control.get_playlist_file(xmms.control.get_playlist_pos())
 
