@@ -6,3 +6,6 @@ class MediaPlayer:
         for trackPosition in range(self.getPlaylistLength()):
             playlist.append(self.getTrackPathAtPos(trackPosition))
         return playlist
+
+    def getCurrentTrackPath(self):
+        return self.getTrackPathAtPos(self.getCurrentTrackPos())

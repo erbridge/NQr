@@ -111,23 +111,6 @@ class WinampWindows(MediaPlayer):
 
 ## poss insecure: should always be checked for trackness
 ## os.path.abspath breaks with unicode poss use win32api.GetFullPathName
-    def getCurrentTrackPath(self):
-        trackPosition = self.getCurrentTrackPos()
-        winampWindow = self.winamp.hwnd
-        memoryPointer = self.winamp.doIpcCommand(IPC_GETPLAYLISTFILE,
-                                                 trackPosition)
-        (threadID,
-         processID) = win32process.GetWindowThreadProcessId(winampWindow)
-        winampProcess = win32api.OpenProcess(win32con.PROCESS_VM_READ, False,
-                                             processID)
-        memoryBuffer = ctypes.create_string_buffer(256)
-        ctypes.windll.kernel32.ReadProcessMemory(winampProcess.handle,
-                                                 memoryPointer, memoryBuffer,
-                                                 256, 0)
-        winampProcess.Close()
-        path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
-        return path
-
 ## gets track at a playlist position
     def getTrackPathAtPos(self, trackPosition):
 ##        trackPosition = self.getCurrentTrackPos()+relativePosition
