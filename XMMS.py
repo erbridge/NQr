@@ -1,8 +1,8 @@
 # XMMS interface
 
-import xmms
+import xmms.control
 
 class XMMS:
     def getCurrentTrackPath(self):
-        return xmms.get_playlist_file(xmms.get_playlist_pos())
+        return xmms.control.get_playlist_file(xmms.control.get_playlist_pos())
 
