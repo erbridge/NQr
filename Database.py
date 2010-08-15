@@ -324,8 +324,8 @@ class Database:
             return result[0]
 
     def _getLastPlayed(self, track=None, trackID=None):
-        self.basicLastPlayedIndex, self.localLastPlayedIndex,
-        self.secondSinceLastPlayedIndex = range(3)
+        (self.basicLastPlayedIndex, self.localLastPlayedIndex,
+        self.secondSinceLastPlayedIndex) = range(3)
         if trackID == None:
             if track == None:
                 raise NoTrackError
@@ -371,8 +371,8 @@ class Database:
 ##            "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
 
     def _getTrackDetails(self, track=None, trackID=None):
-        self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
-        self.trackNumberIndex, self.unscoredIndex = range(6)
+        (self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
+        self.trackNumberIndex, self.unscoredIndex) = range(6)
         if trackID == None:
             if track == None:
                 raise NoTrackError
