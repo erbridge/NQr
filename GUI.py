@@ -881,7 +881,7 @@ class MainWindow(wx.Frame):
                 linkIDs = self.db.getLinkIDs(firstTrack)
                 oldLinkIDs = originalLinkID
                 ## finds earlier tracks
-                while:
+                while true:
                     for linkID in linkIDs:
                         if linkID not in oldLinkIDs:
                             (newTrackID,
@@ -896,7 +896,7 @@ class MainWindow(wx.Frame):
                 linkIDs = self.db.getLinkIDs(secondTrack)
                 oldLinkIDs = originalLinkID
                 ## finds later tracks
-                while:
+                while true:
                     for linkID in linkIDs:
                         if linkID not in oldLinkIDs:
                             (trackID,
