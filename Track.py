@@ -1,5 +1,6 @@
 ## Track information
 ## TODO: check getPath gets Mac path in correct form for iTunes
+## TODO: create clearCache function for when user has changed metadata?
 
 import mutagen
 ##from mutagen.easyid3 import EasyID3 as id3
@@ -95,34 +96,48 @@ class AudioTrack(Track):
         Track.__init__(self, db, path)
         self.track = mutagen.File(self.getPath(), easy=True)
         ## returns None if the track is not a supported file type
+        self._initGetAttributes()
 
-    ## poss should call all attributes at once, and then read the ones required
     ## tags are of the form [u'artistName']
-    def getAttribute(self, attr):
+    def _initGetAttributes(self):
+##        attr = ['artist', 'album', 'title', 'tracknumber']
         try:
-            attribute = self.track[attr][0]
-##            attribute = unicode(self.track[attr])[3:-2]
-            return attribute
+##            attributes = self.track[attr]
+            self.artist = self.track['artist']
+            self.album = self.track['album']
+            self.title = self.track['title']
+            self.trackNumber = self.track['tracknumber']
+##            return attributes
         except KeyError as err:
             if "TRCK" not in err and "TALB" not in err:
                 raise err
             return "-"
+
+##    def getAttribute(self, attr):
+##        try:
+##            attribute = self.track[attr][0]
+####            attribute = unicode(self.track[attr])[3:-2]
+##            return attribute
+##        except KeyError as err:
+##            if "TRCK" not in err and "TALB" not in err:
+##                raise err
+##            return "-"
     
     def getArtist(self):
-        artist = self.getAttribute('artist')
-        return artist
+##        artist = self.getAttribute('artist')
+        return self.artist
     
     def getAlbum(self):
-        album = self.getAttribute('album')
-        return album
+##        album = self.getAttribute('album')
+        return self.album
 
     def getTitle(self):
-        title = self.getAttribute('title')
-        return title
+##        title = self.getAttribute('title')
+        return self.title
 
     def getTrackNumber(self):
-        trackNumber = self.getAttribute('tracknumber')
-        return trackNumber
+##        trackNumber = self.getAttribute('tracknumber')
+        return self.trackNumber
 
 ##class ID3Track(Track):
 ##    def __init__(self, db, path):
