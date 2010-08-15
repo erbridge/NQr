@@ -12,6 +12,13 @@
 import os
 import sqlite3
 
+class NoTrackError(Exception):
+    def __init__(self):
+        return
+
+    def __str__(self):
+        print "\nNo track has been identified"
+
 class Database:
     def __init__(self, trackFactory, databasePath="database", defaultScore=10):
         self._trackFactory = trackFactory
@@ -280,35 +287,6 @@ class Database:
         c.close()
         self._conn.commit()
 
-    ## poss add track if track not in library
-    def setScore(self, track, score):
-        c = self._conn.cursor()
-        trackID = track.getID()
-        if trackID == None:
-            print "\'"+self.getPath(track)+"\' is not in the library."
-            return
-        c.execute("update tracks set unscored = 0 where trackid = ?",
-                  (trackID, ))
-        c.execute("""insert into scores (trackid, score, datetime) values
-                  (?, ?, datetime('now'))""", (trackID, score, ))
-        c.close()
-        self._conn.commit()
-
-    ## poss should add a record to scores table
-    def setUnscored(self, track):
-        c = self._conn.cursor()
-        trackID = track.getID()
-        if trackID == None:
-            print "\'"+self.getPath(track)+"\' is not in the library."
-        else:
-##            c.execute("""insert into scores (trackid, score, datetime) values
-##                      (?, ?, datetime('now'))""", (trackID,
-##                                                   self._defaultScore, ))
-            c.execute("""update tracks set unscored = 1 where
-                      trackid = ?""", (trackID, ))
-        c.close()
-        self._conn.commit()
-
 ## returns a list of tuples of the form (trackID, )
     def getAllTrackIDs(self):
         c = self._conn.cursor()
@@ -345,43 +323,61 @@ class Database:
         else:
             return result[0]
 
-## poss should do similar thing to _getTrackDetails
-    def _getLastPlayed(self, queryString, track=None, trackID=None):
+    def _getLastPlayed(self, track=None, trackID=None):
+        self.basicLastPlayedIndex, self.localLastPlayedIndex,
+        self.secondSinceLastPlayedIndex = range(3)
         if trackID == None:
             if track == None:
-                print "No track has been identified."
-                return None
+                raise NoTrackError
+##                print "No track has been identified."
+##                return None
             trackID = track.getID()
         c = self._conn.cursor()
-        c.execute("select "+queryString+""" from plays where trackid = ? order
-                  by playid desc""", (trackID, ))
+        c.execute("""select datetime, datetime(datetime, 'localtime'),
+                  strftime('%s', 'now') - strftime('%s', datetime) from plays
+                  where trackid = ? order by playid desc""", (trackID, ))
         result = c.fetchone()
         c.close()
         if result != None:
-            return result[0]
+            return result
         else:
             return None
 
     def getLastPlayed(self, track):
-        return self._getLastPlayed("datetime", track=track)
+        details = self._getLastPlayed(track=track)
+        if details == None:
+            return None
+        return details[self.basicLastPlayedIndex]
+##        return self._getLastPlayed("datetime", track=track)
 
     def getLastPlayedLocalTime(self, track):
-        return self._getLastPlayed("datetime(datetime, 'localtime')",
-                                   track=track)
+        details = self._getLastPlayed(track=track)
+        if details == None:
+            return None
+        return details[self.localLastPlayedIndex]
+##        return self._getLastPlayed("datetime(datetime, 'localtime')",
+##                                   track=track)
 
-    def getTimeSinceLastPlayed(self, track):
-        return self._getLastPlayed("datetime('now') - datetime", track=track)
-##        return self._getLastPlayed("strftime('%J days, %H hrs, %M mins, %S secs ago', (datetime('now') - datetime))", track=track)
+##    def getTimeSinceLastPlayed(self, track):
+##        return self._getLastPlayed("datetime('now') - datetime", track=track)
+####        return self._getLastPlayed("strftime('%J days, %H hrs, %M mins, %S secs ago', (datetime('now') - datetime))", track=track)
 
     def getSecondsSinceLastPlayedFromID(self, trackID):
-        return self._getLastPlayed(
-            "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
+        details = self._getLastPlayed(trackID=trackID)
+        if details == None:
+            return None
+        return details[self.secondsSinceLastPlayedIndex]
+##        return self._getLastPlayed(
+##            "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
 
     def _getTrackDetails(self, track=None, trackID=None):
+        self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
+        self.trackNumberIndex, self.unscoredIndex = range(6)
         if trackID == None:
             if track == None:
-                print "No track has been identified."
-                return None
+                raise NoTrackError
+##                print "No track has been identified."
+##                return None
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select path, artist, album, title, tracknumber, unscored
@@ -397,37 +393,37 @@ class Database:
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[0]
+        return details[self.pathIndex]
 
     def getPathFromID(self, trackID):
         details = self._getTrackDetails(trackID=trackID)
         if details == None:
             return None
-        return details[0]
+        return details[self.pathIndex]
 
     def getArtist(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[1]
+        return details[self.artistIndex]
 
     def getAlbum(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[2]
+        return details[self.albumIndex]
 
     def getTitle(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[3]
+        return details[self.titleIndex]
 
     def getTrackNumber(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[4]
+        return details[self.trackNumberIndex]
 
     ## determines whether user has changed score for this track
     def _isScored(self, track=None, trackID=None):
@@ -437,9 +433,9 @@ class Database:
             details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        if details[5] == 1:
+        if details[self.unscoredIndex] == 1:
             return False
-        elif details[5] == 0:
+        elif details[self.unscoredIndex] == 0:
             return True
 
     def isScored(self, track):
@@ -448,11 +444,41 @@ class Database:
     def isScoredFromID(self, trackID):
         return self._isScored(trackID=trackID)
 
+    ## poss should add a record to scores table
+    def setUnscored(self, track):
+        c = self._conn.cursor()
+        trackID = track.getID()
+        if trackID == None:
+            print "\'"+self.getPath(track)+"\' is not in the library."
+        else:
+##            c.execute("""insert into scores (trackid, score, datetime) values
+##                      (?, ?, datetime('now'))""", (trackID,
+##                                                   self._defaultScore, ))
+            c.execute("""update tracks set unscored = 1 where
+                      trackid = ?""", (trackID, ))
+        c.close()
+        self._conn.commit()
+
+    ## poss add track if track not in library
+    def setScore(self, track, score):
+        c = self._conn.cursor()
+        trackID = track.getID()
+        if trackID == None:
+            print "\'"+self.getPath(track)+"\' is not in the library."
+            return
+        c.execute("update tracks set unscored = 0 where trackid = ?",
+                  (trackID, ))
+        c.execute("""insert into scores (trackid, score, datetime) values
+                  (?, ?, datetime('now'))""", (trackID, score, ))
+        c.close()
+        self._conn.commit()
+
     def _getScore(self, track=None, trackID=None):
         if trackID == None:
             if track == None:
-                print "No track has been identified."
-                return None
+                raise NoTrackError
+##                print "No track has been identified."
+##                return None
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select score from scores where trackid = ? order by
