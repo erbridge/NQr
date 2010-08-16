@@ -12,7 +12,6 @@
 
 import Database
 import GUI
-import iTunesMacOS
 import platform
 import Randomizer
 import Track
@@ -31,6 +30,9 @@ if __name__ == '__main__':
     elif system == 'FreeBSD':
         import XMMS
         player = XMMS.XMMS()
+    elif system == 'Mac OS X':
+        import iTunesMacOS
+        player = iTunesMacOS.iTunesMacOS()
     trackFactory = Track.Factory()
     db = Database.Database(trackFactory)
     randomizer = Randomizer.Randomizer(db, trackFactory)

@@ -1,6 +1,7 @@
 ## Track information
 ## TODO: check getPath gets Mac path in correct form for iTunes
 ## TODO: create clearCache function for when user has changed metadata?
+## TODO: make cache a limited size
 
 import mutagen
 ##from mutagen.easyid3 import EasyID3 as id3
