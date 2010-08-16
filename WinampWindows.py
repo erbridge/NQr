@@ -72,11 +72,14 @@ class WinampWindows(MediaPlayer):
 
     def cropPlaylist(self, number):
         for n in range(number):
-            playlistEditorHandle = self.winamp.doIpcCommand(IPC_GETWND,
-                                                            IPC_GETWND_PE)
-            ctypes.windll.user32.SendMessageA(playlistEditorHandle, WM_WA_IPC,
-                                              IPC_PE_DELETEINDEX, 0)
-            
+            self.deleteTrack(0)
+
+    def deleteTrack(self, position):
+        playlistEditorHandle = self.winamp.doIpcCommand(IPC_GETWND,
+                                                        IPC_GETWND_PE)
+        ctypes.windll.user32.SendMessageA(playlistEditorHandle, WM_WA_IPC,
+                                          IPC_PE_DELETEINDEX, position)
+
     def clearPlaylist(self):
         self.winamp.clearPlaylist()
 
