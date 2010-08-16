@@ -8,7 +8,6 @@
 ##       to create other tables (poss corruption)
 ## TODO: add more attributes to tracks
 
-##import Track
 import os
 import sqlite3
 
@@ -137,14 +136,30 @@ class Database:
         track.setID(self._trackFactory, trackID)
         return trackID
 
-    def addDirectoryNoWatch(self, directory):
-        contents = os.listdir(directory)
-        for n in range(0, len(contents)):
-            path = directory+'/'+contents[n]
-            if os.path.isdir(path):
-                self.addDirectoryNoWatch(path)
-            else: ## or: elif contents[n][-4:]=='.mp3':
-                self.addTrack(path)
+    ## returns a list of tuples of the form (trackID, )
+    def getAllTrackIDs(self):
+        c = self._conn.cursor()
+        c.execute("select trackid from tracks")
+        result = c.fetchall()
+        c.close()
+        return result
+
+    def _getTrackID(self, track):
+        c = self._conn.cursor()
+        c.execute("select trackid from tracks where path = ?",
+                  (track.getPath(), ))
+        result = c.fetchone()
+        c.close()
+        if result == None:
+            return None
+        else:
+            return result[0]
+
+    def getTrackID(self, track):
+        trackID = self._getTrackID(track)
+        if trackID == None:
+            return self.addTrack(track.getPath(), hasTrackID=False)
+        return trackID
 
     def addDirectory(self, directory):
         c = self._conn.cursor()
@@ -158,6 +173,26 @@ class Database:
         c.close()
         self._conn.commit()
         self.addDirectoryNoWatch(directory)
+
+    def getDirectoryID(self, path):
+        c = self._conn.cursor()
+        c.execute("select directoryid from directories where path = ?",
+                  (path, ))
+        result = c.fetchone()
+        c.close()
+        if result == None:
+            return None
+        else:
+            return result[0]
+
+    def addDirectoryNoWatch(self, directory):
+        contents = os.listdir(directory)
+        for n in range(0, len(contents)):
+            path = directory+'/'+contents[n]
+            if os.path.isdir(path):
+                self.addDirectoryNoWatch(path)
+            else: ## or: elif contents[n][-4:]=='.mp3':
+                self.addTrack(path)
 
     def removeDirectory(self, directory):
         c = self._conn.cursor()
@@ -174,8 +209,8 @@ class Database:
         c = self._conn.cursor()
         c.execute("select path from directories")
         result = c.fetchall()
-        for n in result:
-            self.addDirectoryNoWatch(n[0])
+        for (directory, ) in result:
+            self.addDirectoryNoWatch(directory)
         self._conn.commit()
 
 ## FIXME: needs to deal with two links using the same first or second track
@@ -218,8 +253,8 @@ class Database:
         else:
             return result[0]
 
-## if there are two links for a track, returns the link with track as second
-## track first for queueing ease
+    ## if there are two links for a track, returns the link with track as second
+    ## track first for queueing ease
     def getLinkIDs(self, track):
         c = self._conn.cursor()
         trackID = track.getID()
@@ -275,7 +310,6 @@ class Database:
         c.close()
         self._conn.commit()
 
-    ## poss add track if track not in library
     def addPlay(self, track):
         c = self._conn.cursor()
         trackID = track.getID()
@@ -286,42 +320,6 @@ class Database:
                   (?, datetime('now'))""", (trackID, ))
         c.close()
         self._conn.commit()
-
-## returns a list of tuples of the form (trackID, )
-    def getAllTrackIDs(self):
-        c = self._conn.cursor()
-        c.execute("select trackid from tracks")
-        result = c.fetchall()
-        c.close()
-        return result
-
-    def _getTrackID(self, track):
-        c = self._conn.cursor()
-        c.execute("select trackid from tracks where path = ?",
-                  (track.getPath(), ))
-        result = c.fetchone()
-        c.close()
-        if result == None:
-            return None
-        else:
-            return result[0]
-
-    def getTrackID(self, track):
-        trackID = self._getTrackID(track)
-        if trackID == None:
-            return self.addTrack(track.getPath(), hasTrackID=False)
-        return trackID
-
-    def getDirectoryID(self, path):
-        c = self._conn.cursor()
-        c.execute("select directoryid from directories where path = ?",
-                  (path, ))
-        result = c.fetchone()
-        c.close()
-        if result == None:
-            return None
-        else:
-            return result[0]
 
     def _getLastPlayed(self, track=None, trackID=None):
         (self.basicLastPlayedIndex, self.localLastPlayedIndex,
