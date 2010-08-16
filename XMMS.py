@@ -28,3 +28,9 @@ class XMMS(MediaPlayer):
     def clearPlaylist(self):
         xmms.control.playlist_clear()
 
+    def play(self):
+        xmms.control.play()
+        
+    def pause(self):
+        xmms.control.pause()
+        
