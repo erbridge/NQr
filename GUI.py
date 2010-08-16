@@ -23,14 +23,9 @@
 ## TODO: leftmost column of track list no longer needed
 
 from collections import deque
-##from Database import Database
-##from iTunesMacOS import iTunesMacOS
 import os
-##from Randomizer import Randomizer
 from threading import *
 import time
-##import Track
-##from WinampWindows import WinampWindows
 import wx
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
@@ -182,11 +177,6 @@ class MainWindow(wx.Frame):
         if self.enqueueOnStartup == True:
             self.optionsMenu.Check(self.ID_TOGGLENQR, True)
             self.onToggleNQr()
-##        elif self.enqueueOnStartup == False:
-##            self.optionsMenu.Check(self.ID_TOGGLENQR, False)
-####            self.onToggleNQr()
-##            self.toggleNQr = False
-##            print "Enqueueing turned off."
 
         if self.rescanOnStartup == True:
             self.onRescan()
@@ -752,8 +742,10 @@ class MainWindow(wx.Frame):
             self.toggleNQr = True
             self.oldShuffleStatus = self.player.getShuffle()
             self.player.setShuffle(False)
+            ## poss shouldn't restore the playlist ever?
             if self.restorePlaylist == True:
                 self.oldPlaylist = self.player.savePlaylist()
+            self.maintainPlaylist()
             print "Enqueueing turned on."
 ##        if not self.trackChangeThread:
 ##            self.trackChangeThread = TrackChangeThread(self, self.player)
@@ -821,6 +813,9 @@ class MainWindow(wx.Frame):
         track = e.getTrack()
         self.db.addPlay(track)
         self.addTrack(track)
+        self.maintainPlaylist()
+
+    def maintainPlaylist(self):
         if self.toggleNQr == True:
             trackPosition = self.player.getCurrentTrackPos()
             if trackPosition > self.defaultTrackPosition:
