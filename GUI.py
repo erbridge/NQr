@@ -523,7 +523,7 @@ class MainWindow(wx.Frame):
 
     def initScoreSlider(self):
         self.scoreSlider = wx.Slider(self, self.ID_SCORESLIDER, 0, -10, 10,
-                                     style=wx.SL_RIGHT|wx.SL_LABELS|
+                                     style=wx.SL_VERTICAL|wx.SL_LABELS|
                                      wx.SL_INVERSE)
 
         self.Bind(wx.EVT_SCROLL_CHANGED, self.onScoreSliderMove,
