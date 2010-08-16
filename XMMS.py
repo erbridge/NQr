@@ -25,6 +25,9 @@ class XMMS(MediaPlayer):
     def addTrack(self, filepath):
         xmms.control.playlist_add([filepath])
 
+    def deleteTrack(self, position):
+        xmms.control.playlist_delete(position)
+
     def clearPlaylist(self):
         xmms.control.playlist_clear()
 
