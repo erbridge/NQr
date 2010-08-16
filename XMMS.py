@@ -22,3 +22,9 @@ class XMMS(MediaPlayer):
     def getCurrentTrackPos(self):
         return xmms.control.get_playlist_pos()
 
+    def addTrack(self, filepath):
+        xmms.control.playlist_add([filepath])
+
+    def clearPlaylist(self):
+        xmms.control.playlist_clear()
+

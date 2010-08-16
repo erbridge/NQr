@@ -76,6 +76,9 @@ class WinampWindows(MediaPlayer):
                                                             IPC_GETWND_PE)
             ctypes.windll.user32.SendMessageA(playlistEditorHandle, WM_WA_IPC,
                                               IPC_PE_DELETEINDEX, 0)
+            
+    def clearPlaylist(self):
+        self.winamp.clearPlaylist()
 
     def nextTrack(self):
         if self.winamp.getRunning() == False:
@@ -144,12 +147,3 @@ class WinampWindows(MediaPlayer):
         winampProcess.Close()
         path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
         return path
-
-## FIXME: sets currently playing track to first track in the list, but continues
-##        to play the old track
-    def loadPlaylist(self, playlist):
-        if self.winamp.getRunning() == False:
-            self.launchBackground()
-        self.winamp.clearPlaylist()
-        for filepath in playlist:
-            self.winamp.enqueue(filepath)
