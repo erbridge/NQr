@@ -824,22 +824,25 @@ class MainWindow(wx.Frame):
 ##        self.enqueueTrack(track)
 
     def addTrack(self, track):
-        self.addTrackAtPos(0)
+        self.addTrackAtPos(track, 0)
 
     def addTrackAtPos(self, track, index):
 ##        if IsCurrentTrack()==False:
-        if self.db.isScored(track) == False:
+        isScored = self.db.isScored(track)
+        if isScored == False:
+            score = "("+str(self.db.getScoreValue(track))+")"
             isScored = "+"
         else:
+            score = str(self.db.getScore(track))
             isScored = ""
-        if self.db.getLastPlayedLocalTime(track) == None:
+        lastPlayed = self.db.getLastPlayedLocalTime(track)
+        ## should be time from last play?
+        if lastPlayed == None:
             lastPlayed = "-"
-        else:
-            lastPlayed = self.db.getLastPlayedLocalTime(track) ## should be time from last play
         self.trackList.InsertStringItem(index, isScored)
         self.trackList.SetStringItem(index, 1, self.db.getArtist(track))
         self.trackList.SetStringItem(index, 2, self.db.getTitle(track))
-        self.trackList.SetStringItem(index, 3, str(self.db.getScore(track)))
+        self.trackList.SetStringItem(index, 3, score)
         self.trackList.SetStringItem(index, 4, lastPlayed)
         self.trackList.SetItemData(index, self.db.getTrackID(track))
         if self.index > index:
@@ -931,10 +934,10 @@ class MainWindow(wx.Frame):
 ## calls in Mac OS
 ## TODO: should focus on the top of the details
     def populateDetails(self, track):
-        if self.db.getLastPlayedLocalTime(track) == None:
+        lastPlayed = self.db.getLastPlayedLocalTime(track)
+        ## should be time from last play?
+        if lastPlayed == None:
             lastPlayed = "-"
-        else:
-            lastPlayed = self.db.getLastPlayedLocalTime(track) ## should be time from last play
         self.clearDetails()
         self.addDetail("Artist:   "+self.db.getArtist(track))
         self.addDetail("Title:   "+self.db.getTitle(track))
