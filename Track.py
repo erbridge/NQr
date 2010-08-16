@@ -103,10 +103,10 @@ class AudioTrack(Track):
 ##        attr = ['artist', 'album', 'title', 'tracknumber']
         try:
 ##            attributes = self.track[attr]
-            self.artist = self.track['artist']
-            self.album = self.track['album']
-            self.title = self.track['title']
-            self.trackNumber = self.track['tracknumber']
+            self.artist = self.track['artist'][0]
+            self.album = self.track['album'][0]
+            self.title = self.track['title'][0]
+            self.trackNumber = self.track['tracknumber'][0]
 ##            return attributes
         except KeyError as err:
             if "TRCK" not in err and "TALB" not in err:

@@ -124,6 +124,7 @@ class Database:
             trackID = self._getTrackID(track)
         path = track.getPath()
         if hasTrackID == False or trackID == None:
+            print track.getArtist()
             c.execute("""insert into tracks (path, artist, album, title,
                       tracknumber, unscored) values (?, ?, ?, ?, ?, 1)""",
                       (path, track.getArtist(), track.getAlbum(),
