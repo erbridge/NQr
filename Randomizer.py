@@ -5,7 +5,6 @@
 ## TODO: getWeights from a text option (convert into python code) allowing
 ##       length of list etc.
 
-##from Database import Database
 import random
 import time
 
@@ -17,7 +16,12 @@ class Randomizer:
         self.trackFactory = trackFactory
         self.scoreThreshold = scoreThreshold
 
-## will throw exception if databse is empty?
+    def chooseTrack(self):
+        trackID = self.chooseTrackID()
+        track = self.trackFactory.getTrackFromID(self.db, trackID)
+        return track
+
+## will throw exception if database is empty?
     def chooseTrackID(self):
 ##        print time.time()
         (trackWeightList, totalWeight) = self.createLists()
@@ -28,11 +32,6 @@ class Randomizer:
 ##                print time.time()
                 return trackID
 
-    def chooseTrack(self):
-        trackID = self.chooseTrackID()
-        track = self.trackFactory.getTrackFromID(self.db, trackID)
-        return track
-
     def createLists(self):
         rawTrackIDList = self.db.getAllTrackIDs()
         if rawTrackIDList == None:
@@ -42,7 +41,8 @@ class Randomizer:
         totalWeight = 0
         for (trackID, ) in rawTrackIDList:
             time = self.db.getSecondsSinceLastPlayedFromID(trackID)
-            score = self.db.getScoreValueFromID(trackID) + 11 ## creates a positive score
+            score = self.db.getScoreValueFromID(trackID) + 11
+            ## creates a positive score
             if time == None:
                 time = 5 * (len(trackWeightList) + 1)
             if score < self.scoreThreshold + 11:
@@ -51,6 +51,11 @@ class Randomizer:
             trackWeightList.append([trackID, weight])
             totalWeight += weight
         return trackWeightList, totalWeight
+
+    def getWeight(self, score, time):
+        weight = time^(score/50)
+##        weight = score * time
+        return weight
 
 #### poss "reverse(sorted(" makes operation slower, not faster
 ##    def chooseTrackID(self):
@@ -84,12 +89,3 @@ class Randomizer:
 ##            weightList.append(weight)
 ####            totalWeight += weight
 ##        return trackIDList, weightList##, totalWeight
-
-    def getWeight(self, score, time):
-        weight = time^(score/50)
-##        weight = score * time
-        return weight
-
-##d = Database(None)
-##r = Randomizer(d, None)
-##r.chooseTrackID()
