@@ -518,7 +518,8 @@ class MainWindow(wx.Frame):
                                     format=wx.LIST_FORMAT_CENTER, width=120)
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.onSelectTrack, self.trackList)
-##        self.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.onDeselectTrack, self.trackList)
+        self.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.onDeselectTrack,
+                  self.trackList)
         self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self.onTrackRightClick,
                   self.trackList)
 
@@ -774,7 +775,8 @@ class MainWindow(wx.Frame):
         self.populateDetails(self.track)
         self.setScoreSliderPosition(self.db.getScoreValue(self.track))
 
-##    def onDeselectTrack(self, e):
+    def onDeselectTrack(self, e):
+        self.clearDetails()
 ##        path = currentTrack()
 ##        self.populateDetails(path)
 
