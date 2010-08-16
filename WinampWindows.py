@@ -70,10 +70,6 @@ class WinampWindows(MediaPlayer):
 
 ##    def playTrack(self, filepath):
 
-    def cropPlaylist(self, number):
-        for n in range(number):
-            self.deleteTrack(0)
-
     def deleteTrack(self, position):
         playlistEditorHandle = self.winamp.doIpcCommand(IPC_GETWND,
                                                         IPC_GETWND_PE)

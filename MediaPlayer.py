@@ -14,5 +14,9 @@ class MediaPlayer:
         for filepath in playlist:
             self.addTrack(filepath)
 
+    def cropPlaylist(self, number):
+        for n in range(number):
+            self.deleteTrack(0)
+
     def getCurrentTrackPath(self):
         return self.getTrackPathAtPos(self.getCurrentTrackPos())
