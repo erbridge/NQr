@@ -181,8 +181,6 @@ class MainWindow(wx.Frame):
         if self.rescanOnStartup == True:
             self.onRescan()
 
-## TODO: if current track is None or there is only one track, NQr should queue
-##       a load of tracks
         self.addTrack(
             self.trackFactory.getTrackFromPath(
                 self.db, self.player.getCurrentTrackPath())
@@ -528,10 +526,30 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_SCROLL_THUMBRELEASE, self.onScoreSliderMove,
                   self.scoreSlider)
 
-    def onClose(self, e):
-        if self.trackChangeThread:
-            self.trackChangeThread.abort()
-        self.Destroy()
+    def onTrackRightClick(self, e):
+        point = e.GetPoint()
+        self.initRateMenu()
+        trackRightClickMenu = wx.Menu()
+        menuTrackRightClickRateUp = trackRightClickMenu.Append(
+            -1, "Rate &Up", " Increase the score of the current track by one")
+        menuTrackRightClickRateDown = trackRightClickMenu.Append(
+            -1, "Rate &Down", " Decrease the score of the current track by one")
+        rateRightClickMenu = trackRightClickMenu.AppendMenu(
+            -1, "&Rate", self.rateMenu)
+        trackRightClickMenu.AppendSeparator()
+        menuTrackRightClickRequeue = trackRightClickMenu.Append(
+            -1, "Re&queue Track", " Add the selected track to the playlist")
+##        menuTrackRightClickResetScore = trackRightClickMenu.Append(
+##            -1, "Reset Sc&ore", " Reset the score of the current track")
+
+        self.Bind(wx.EVT_MENU, self.onRateUp, menuTrackRightClickRateUp)
+        self.Bind(wx.EVT_MENU, self.onRateDown, menuTrackRightClickRateDown)
+        self.Bind(wx.EVT_MENU, self.onRequeue, menuTrackRightClickRequeue)
+##        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
+
+        self.PopupMenu(trackRightClickMenu, point)
+        rateRightClickMenu.Destroy()
+        trackRightClickMenu.Destroy()
 
     def onAbout(self, e):
         dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr",
@@ -590,6 +608,9 @@ class MainWindow(wx.Frame):
             self.db.removeDirectory(path)
         dialog.Destroy()
 
+    def onRescan(self, e=None):
+        self.db.rescanDirectories()
+
     def onLinkTracks(self, e):
         defaultDirectory = ''
         firstDialog = wx.FileDialog(
@@ -641,23 +662,20 @@ class MainWindow(wx.Frame):
             secondDialog.Destroy()
         firstDialog.Destroy()
 
-    def onExit(self, e):
-        self.Close(True)
+    def onScoreSliderMove(self, e):
+        try:
+            score = self.scoreSlider.GetValue()
+            self.db.setScore(self.track, score)
+            self.refreshSelectedTrack()
+            self.populateDetails(self.track) ## poss superfluous
+        except AttributeError as err:
+            if str(err) != "'MainWindow' object has no attribute 'track'":
+                raise err
+            print "No track selected."
+            return
 
-    def onNext(self, e):
-        self.player.nextTrack()
-
-    def onPause(self, e):
-        self.player.pause()
-
-    def onPlay(self, e):
-        self.player.play()
-
-    def onPrevious(self, e):
-        self.player.previousTrack()
-
-    def onStop(self, e):
-        self.player.stop()
+    def setScoreSliderPosition(self, score):
+        self.scoreSlider.SetValue(score)
 
     def onRateUp(self, e):
         try:
@@ -704,15 +722,6 @@ class MainWindow(wx.Frame):
             print "No track selected."
             return
 
-    def onRequeue(self, e):
-        try:
-            self.player.addTrack(self.track.getPath())
-        except AttributeError as err:
-            if str(err) != "'MainWindow' object has no attribute 'track'":
-                raise err
-            print "No track selected."
-            return
-
     def onResetScore(self, e):
         try:
             self.db.setUnscored(self.track)
@@ -724,11 +733,43 @@ class MainWindow(wx.Frame):
             print "No track selected."
             return
 
+    def onExit(self, e):
+        self.Close(True)
+
+    def onClose(self, e):
+        if self.trackChangeThread:
+            self.trackChangeThread.abort()
+        self.Destroy()
+
     def onLaunchPlayer(self, e):
         self.player.launch()
 
     def onExitPlayer(self, e):
         self.player.close()
+
+    def onNext(self, e):
+        self.player.nextTrack()
+
+    def onPause(self, e):
+        self.player.pause()
+
+    def onPlay(self, e):
+        self.player.play()
+
+    def onPrevious(self, e):
+        self.player.previousTrack()
+
+    def onStop(self, e):
+        self.player.stop()
+
+    def onRequeue(self, e):
+        try:
+            self.player.addTrack(self.track.getPath())
+        except AttributeError as err:
+            if str(err) != "'MainWindow' object has no attribute 'track'":
+                raise err
+            print "No track selected."
+            return
 
 ## FIXME: toggle should be turned off when NQr is closed
     def onToggleNQr(self, e=None):
@@ -747,67 +788,6 @@ class MainWindow(wx.Frame):
                 self.oldPlaylist = self.player.savePlaylist()
             self.maintainPlaylist()
             print "Enqueueing turned on."
-##        if not self.trackChangeThread:
-##            self.trackChangeThread = TrackChangeThread(self, self.player)
-##            print "Enqueueing turned on."
-##        else:
-##            self.trackChangeThread.abort()
-##            self.trackChangeThread = None
-##            print "Enqueueing turned off."
-
-##    def onPrefs(self, e):
-
-    def onRescan(self, e=None):
-        self.db.rescanDirectories()
-
-    def onSelectTrack(self, e):
-        self.trackID = e.GetData()
-        self.index = e.GetIndex()
-        self.track = self.trackFactory.getTrackFromID(self.db, self.trackID)
-        self.populateDetails(self.track)
-        self.setScoreSliderPosition(self.db.getScoreValue(self.track))
-
-    def onDeselectTrack(self, e):
-        self.clearDetails()
-##        path = currentTrack()
-##        self.populateDetails(path)
-
-    def onTrackRightClick(self, e):
-        point = e.GetPoint()
-        self.initRateMenu()
-        trackRightClickMenu = wx.Menu()
-        menuTrackRightClickRateUp = trackRightClickMenu.Append(
-            -1, "Rate &Up", " Increase the score of the current track by one")
-        menuTrackRightClickRateDown = trackRightClickMenu.Append(
-            -1, "Rate &Down", " Decrease the score of the current track by one")
-        rateRightClickMenu = trackRightClickMenu.AppendMenu(
-            -1, "&Rate", self.rateMenu)
-        trackRightClickMenu.AppendSeparator()
-        menuTrackRightClickRequeue = trackRightClickMenu.Append(
-            -1, "Re&queue Track", " Add the selected track to the playlist")
-##        menuTrackRightClickResetScore = trackRightClickMenu.Append(
-##            -1, "Reset Sc&ore", " Reset the score of the current track")
-
-        self.Bind(wx.EVT_MENU, self.onRateUp, menuTrackRightClickRateUp)
-        self.Bind(wx.EVT_MENU, self.onRateDown, menuTrackRightClickRateDown)
-        self.Bind(wx.EVT_MENU, self.onRequeue, menuTrackRightClickRequeue)
-##        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
-
-        self.PopupMenu(trackRightClickMenu, point)
-        rateRightClickMenu.Destroy()
-        trackRightClickMenu.Destroy()
-
-    def onScoreSliderMove(self, e):
-        try:
-            score = self.scoreSlider.GetValue()
-            self.db.setScore(self.track, score)
-            self.refreshSelectedTrack()
-            self.populateDetails(self.track) ## poss superfluous
-        except AttributeError as err:
-            if str(err) != "'MainWindow' object has no attribute 'track'":
-                raise err
-            print "No track selected."
-            return
 
     def onTrackChange(self, e):
         track = e.getTrack()
@@ -825,6 +805,18 @@ class MainWindow(wx.Frame):
             if playlistLength < self.defaultPlaylistLength:
                 self.enqueueRandomTracks(
                     self.defaultPlaylistLength - playlistLength)
+
+    def onSelectTrack(self, e):
+        self.trackID = e.GetData()
+        self.index = e.GetIndex()
+        self.track = self.trackFactory.getTrackFromID(self.db, self.trackID)
+        self.populateDetails(self.track)
+        self.setScoreSliderPosition(self.db.getScoreValue(self.track))
+
+    def onDeselectTrack(self, e):
+        self.clearDetails()
+##        path = currentTrack()
+##        self.populateDetails(path)
 
 #### should queue the correct number of tracks
 ##    def onEnqueueTracks(self, e=None):
@@ -942,9 +934,6 @@ class MainWindow(wx.Frame):
 ##                    thirdTrack = self.trackFactory.getTrackFromID(self.db,
 ##                                                                  thirdTrackID)
 ##                    self.enqueueTrack(thirdTrack)
-
-    def setScoreSliderPosition(self, score):
-        self.scoreSlider.SetValue(score)
 
     def refreshSelectedTrack(self):
         self.trackList.DeleteItem(self.index)
