@@ -148,7 +148,7 @@ class MainWindow(wx.Frame):
     ID_PREFS = wx.NewId()
     ID_TOGGLENQR = wx.NewId()
 
-    def __init__(self, parent, db, randomizer, player, trackFactory,
+    def __init__(self, parent, db, randomizer, player, trackFactory, system,
                  title="NQr", restorePlaylist=True, enqueueOnStartup=True,
                  rescanOnStartup=False, defaultPlaylistLength=11):
 ##        self.db = DatabaseThread(db).database
@@ -156,6 +156,7 @@ class MainWindow(wx.Frame):
         self.randomizer = randomizer
         self.player = player
         self.trackFactory = trackFactory
+        self.system = system
         self.restorePlaylist = restorePlaylist
         self.enqueueOnStartup = enqueueOnStartup
         self.rescanOnStartup = rescanOnStartup
@@ -522,9 +523,14 @@ class MainWindow(wx.Frame):
                   self.trackList)
 
     def initScoreSlider(self):
-        self.scoreSlider = wx.Slider(self, self.ID_SCORESLIDER, 0, -10, 10,
-                                     style=wx.SL_VERTICAL|wx.SL_LABELS|
-                                     wx.SL_INVERSE)
+        if self.system == 'FreeBSD':
+            self.scoreSlider = wx.Slider(self, self.ID_SCORESLIDER, 0, -10, 10,
+                                         style=wx.SL_VERTICAL|wx.SL_LABELS|
+                                         wx.SL_INVERSE)
+        else:
+            self.scoreSlider = wx.Slider(self, self.ID_SCORESLIDER, 0, -10, 10,
+                                         style=wx.SL_RIGHT|wx.SL_LABELS|
+                                         wx.SL_INVERSE)
 
         self.Bind(wx.EVT_SCROLL_CHANGED, self.onScoreSliderMove,
                   self.scoreSlider)
@@ -558,8 +564,11 @@ class MainWindow(wx.Frame):
 
     def onAddDirectory(self, e):
         defaultDirectory = ''
-        dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory,
-                              wx.DD_DIR_MUST_EXIST)
+        if self.system == 'FreeBSD':
+            dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory)
+        else:
+            dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory,
+                                  wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
             self.db.addDirectory(path)
@@ -567,8 +576,11 @@ class MainWindow(wx.Frame):
 
     def onAddDirectoryOnce(self, e):
         defaultDirectory = ''
-        dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory,
-                              wx.DD_DIR_MUST_EXIST)
+        if self.system == 'FreeBSD':
+            dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory)
+        else:
+            dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory,
+                                  wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
             self.db.addDirectoryNoWatch(path)
@@ -576,8 +588,12 @@ class MainWindow(wx.Frame):
 
     def onRemoveDirectory(self, e):
         defaultDirectory = ''
-        dialog = wx.DirDialog(self, "Choose a directory to remove",
-                              defaultDirectory, wx.DD_DIR_MUST_EXIST)
+        if self.system == 'FreeBSD':
+            dialog = wx.DirDialog(self, "Choose a directory to remove",
+                                  defaultDirectory)
+        else:
+            dialog = wx.DirDialog(self, "Choose a directory to remove",
+                                  defaultDirectory, wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
             self.db.removeDirectory(path)

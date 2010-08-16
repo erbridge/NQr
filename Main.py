@@ -36,7 +36,7 @@ if __name__ == '__main__':
     randomizer = Randomizer.Randomizer(db, trackFactory)
     app = wx.App(False)
     frame = GUI.MainWindow(None, db=db, randomizer=randomizer, player=player,
-                           trackFactory=trackFactory)
+                           trackFactory=trackFactory, system=system)
 
     frame.Center()
 
