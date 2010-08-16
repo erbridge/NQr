@@ -824,23 +824,7 @@ class MainWindow(wx.Frame):
 ##        self.enqueueTrack(track)
 
     def addTrack(self, track):
-##        if IsCurrentTrack()==False:
-        if self.db.isScored(track) == False:
-            isScored = "+"
-        else:
-            isScored = ""
-        if self.db.getLastPlayedLocalTime(track) == None:
-            lastPlayed = "-"
-        else:
-            lastPlayed = self.db.getLastPlayedLocalTime(track) ## should be time from last play
-        index = self.trackList.InsertStringItem(0, isScored)
-        self.trackList.SetStringItem(index, 1, self.db.getArtist(track))
-        self.trackList.SetStringItem(index, 2, self.db.getTitle(track))
-        self.trackList.SetStringItem(index, 3, str(self.db.getScore(track)))
-        self.trackList.SetStringItem(index, 4, lastPlayed)
-        self.trackList.SetItemData(index, self.db.getTrackID(track))
-        if self.index:
-            self.index += 1
+        self.addTrackAtPos(0)
 
     def addTrackAtPos(self, track, index):
 ##        if IsCurrentTrack()==False:
