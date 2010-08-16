@@ -16,11 +16,25 @@ from MediaPlayer import MediaPlayer
 
 WM_USER = 0x400
 WM_WA_IPC = WM_USER
-IPC_GETWND_PE = 1
-IPC_GETWND = 260
+
 IPC_PE_DELETEINDEX = 104
+
 IPC_GETLISTLENGTH = 124
+## (requires Winamp 2.0+)
+## int length = SendMessage(hwnd_winamp,WM_WA_IPC,0,IPC_GETLISTLENGTH);
+## IPC_GETLISTLENGTH returns the length of the current playlist, in tracks.
+
 IPC_GETPLAYLISTFILE = 211
+## (requires Winamp 2.04+, only usable from plug-ins (not external apps))
+## char *name=SendMessage(hwnd_winamp,WM_WA_IPC,index,IPC_GETPLAYLISTFILE);
+## IPC_GETPLAYLISTFILE gets the filename of the playlist entry [index].
+## returns a pointer to it. returns NULL on error.
+
+IPC_GETWND = 260
+## (requires Winamp 2.9+)
+## HWND h=SendMessage(hwnd_winamp,WM_WA_IPC,IPC_GETWND_xxx,IPC_GETWND);
+## returns the HWND of the window specified.
+IPC_GETWND_PE = 1
 
 class WinampWindows(MediaPlayer):
 ## playlistname not used in winamp
