@@ -9,9 +9,14 @@ import os
 
 ##print mutagen.easyid3.EasyID3.valid_keys.keys()
 
-class Factory:
+class TrackFactory:
     def __init__(self):
         self._trackCache = {}
+
+    def getTrackFromPath(self, db, path):
+        track = self.getTrackFromPathNoID(db, path)
+        self.addTrackToCache(track)
+        return track
 
     def getTrackFromPathNoID(self, db, path):
         track = AudioTrack(db, path)
@@ -43,14 +48,6 @@ class Factory:
 ##            return None
 ##        return track
 
-    def addTrackToCache(self, track):
-        self._trackCache[track.getID()] = track
-
-    def getTrackFromPath(self, db, path):
-        track = self.getTrackFromPathNoID(db, path)
-        self.addTrackToCache(track)
-        return track
-
     def getTrackFromCache(self, trackID):
         if type(trackID) is not int:
             raise TypeError(trackID+" is not a valid track ID")
@@ -71,6 +68,9 @@ class Factory:
             path = db.getPathFromID(trackID)
             track = self.getTrackFromPath(db, path)
         return track
+
+    def addTrackToCache(self, track):
+        self._trackCache[track.getID()] = track
 
 class Track:
     def __init__(self, db, path):

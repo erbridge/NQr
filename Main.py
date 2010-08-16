@@ -33,7 +33,7 @@ if __name__ == '__main__':
     elif system == 'Mac OS X':
         import iTunesMacOS
         player = iTunesMacOS.iTunesMacOS()
-    trackFactory = Track.Factory()
+    trackFactory = Track.TrackFactory()
     db = Database.Database(trackFactory)
     randomizer = Randomizer.Randomizer(db, trackFactory)
     app = wx.App(False)
