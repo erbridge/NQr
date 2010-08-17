@@ -3,7 +3,6 @@
 ## Tested on Winamp 5+
 
 import ctypes
-import logging
 import os
 import string
 import subprocess
@@ -40,94 +39,94 @@ IPC_GETWND_PE = 1
 class WinampWindows(MediaPlayer):
 ## playlistname not used in winamp
     def __init__(self, loggerFactory, playlistname=None):
-        self.logger = loggerFactory.getLogger("NQr.Winamp", "debug")
-        self.winamp = winampImport.Winamp()
+        self._logger = loggerFactory.getLogger("NQr.Winamp", "debug")
+        self._winamp = winampImport.Winamp()
         self.launchBackground()
         
     def launch(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             PIPE = subprocess.PIPE
             subprocess.Popen("start winamp", stdout=PIPE, shell=True)
         else:
-            self.winamp.focus()
+            self._winamp.focus()
 
     def launchBackground(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             PIPE = subprocess.PIPE
             subprocess.Popen("start winamp", stdout=PIPE, shell=True)
             while True:
                 time.sleep(.25)
-                if self.winamp.getRunning() == True:
-                    self.logger.debug("Launching Winamp")
+                if self._winamp.getRunning() == True:
+                    self._logger.debug("Winamp has been launched.")
 ##                    print "Winamp has been launched."
                     return
 
     def close(self):
-        if self.winamp.getRunning() == True:
-            self.winamp.close()
+        if self._winamp.getRunning() == True:
+            self._winamp.close()
 
     def addTrack(self, filepath):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             self.launchBackground()
-        self.winamp.enqueue(filepath)
+        self._winamp.enqueue(filepath)
 
 ##    def playTrack(self, filepath):
 
     def deleteTrack(self, position):
-        playlistEditorHandle = self.winamp.doIpcCommand(IPC_GETWND,
-                                                        IPC_GETWND_PE)
+        playlistEditorHandle = self._winamp.doIpcCommand(IPC_GETWND,
+                                                         IPC_GETWND_PE)
         ctypes.windll.user32.SendMessageA(playlistEditorHandle, WM_WA_IPC,
                                           IPC_PE_DELETEINDEX, position)
 
     def clearPlaylist(self):
-        self.winamp.clearPlaylist()
+        self._winamp.clearPlaylist()
 
     def nextTrack(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             self.launchBackground()
-        self.winamp.next()
+        self._winamp.next()
 
     def pause(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             self.launchBackground()
-        self.winamp.pause()
+        self._winamp.pause()
 
     def play(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             self.launchBackground()
-        self.winamp.play()
+        self._winamp.play()
 
     def previousTrack(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             self.launchBackground()
-        self.winamp.previous()
+        self._winamp.previous()
 
     def stop(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             self.launchBackground()
-        self.winamp.fadeStop()
+        self._winamp.fadeStop()
 
     def getShuffle(self):
-        return self.winamp.getShuffle()
+        return self._winamp.getShuffle()
 
     def setShuffle(self, status):
         if status == True:
-            self.winamp.setShuffle(1)
+            self._winamp.setShuffle(1)
         if status == False:
-            self.winamp.setShuffle(0)
+            self._winamp.setShuffle(0)
         else:
-            self.winamp.setShuffle(status)
+            self._winamp.setShuffle(status)
 
     def getPlaylistLength(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             self.launchBackground()
-        playlistLength = self.winamp.doIpcCommand(IPC_GETLISTLENGTH)
+        playlistLength = self._winamp.doIpcCommand(IPC_GETLISTLENGTH)
         return playlistLength
 
     def getCurrentTrackPos(self):
-        if self.winamp.getRunning() == False:
+        if self._winamp.getRunning() == False:
             self.launchBackground()
-        trackPosition = self.winamp.getCurrentTrack()
+        trackPosition = self._winamp.getCurrentTrack()
         return trackPosition
 
 ## poss insecure: should always be checked for trackness
@@ -135,9 +134,9 @@ class WinampWindows(MediaPlayer):
 ## gets track at a playlist position
     def getTrackPathAtPos(self, trackPosition):
 ##        trackPosition = self.getCurrentTrackPos()+relativePosition
-        winampWindow = self.winamp.hwnd
-        memoryPointer = self.winamp.doIpcCommand(IPC_GETPLAYLISTFILE,
-                                                 trackPosition)
+        winampWindow = self._winamp.hwnd
+        memoryPointer = self._winamp.doIpcCommand(IPC_GETPLAYLISTFILE,
+                                                  trackPosition)
         (threadID,
          processID) = win32process.GetWindowThreadProcessId(winampWindow)
         winampProcess = win32api.OpenProcess(win32con.PROCESS_VM_READ, False,
