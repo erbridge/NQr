@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # Do platform-dependent imports, and choose a player type. For
     # now, we just choose it based on the platform...
     system = platform.system()
-    logger.debug("Running on "+system)
+    logger.debug("Running on "+system+".") ## is this info?
 ##    print "Running on", system
     player = None
     if system == 'Windows':
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         import iTunesMacOS
         player = iTunesMacOS.iTunesMacOS()
     trackFactory = Track.TrackFactory()
-    db = Database.Database(trackFactory)
+    db = Database.Database(trackFactory, loggerFactory)
     randomizer = Randomizer.Randomizer(db, trackFactory)
     
     app = wx.App(False)
