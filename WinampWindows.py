@@ -3,6 +3,7 @@
 ## Tested on Winamp 5+
 
 import ctypes
+import logging
 import os
 import string
 import subprocess
@@ -38,7 +39,8 @@ IPC_GETWND_PE = 1
 
 class WinampWindows(MediaPlayer):
 ## playlistname not used in winamp
-    def __init__(self, playlistname=None):
+    def __init__(self, loggerFactory, playlistname=None):
+        self.logger = loggerFactory.getLogger("NQr.Winamp", "debug")
         self.winamp = winampImport.Winamp()
         self.launchBackground()
         
@@ -56,7 +58,8 @@ class WinampWindows(MediaPlayer):
             while True:
                 time.sleep(.25)
                 if self.winamp.getRunning() == True:
-                    print "Winamp has been launched."
+                    self.logger.debug("Launching Winamp")
+##                    print "Winamp has been launched."
                     return
 
     def close(self):

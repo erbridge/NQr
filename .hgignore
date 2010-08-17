@@ -1,3 +1,4 @@
 .*\.pyc
 glob:database
 .*~
+glob:logs/*
