@@ -119,6 +119,8 @@ class AudioTrack(Track):
 ##           attribute = unicode(self.track[attr])[3:-2]
             return attribute
         except KeyError as err:
+            # if 'artist' is thrown then the track doesn't have any ID3
+            # which is an error we should not accept - so for now, die
             if "TRCK" not in err and "TALB" not in err and "TPE1" not in err:
                 raise err
             return "-"
