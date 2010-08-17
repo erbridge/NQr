@@ -117,6 +117,7 @@ class Database:
         c.close()
 
     def addTrack(self, path, hasTrackID=True):
+        self._logger.debug("Adding \'"+path+"\' to the library.")
         track = self._trackFactory.getTrackFromPathNoID(self, path)
         if track == None:
             print "Invalid file."

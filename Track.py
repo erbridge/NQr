@@ -102,27 +102,20 @@ class AudioTrack(Track):
     ## tags are of the form [u'artistName']
     def _initGetAttributes(self):
 ##        attr = ['artist', 'album', 'title', 'tracknumber']
+        self.artist = self._getAttribute('artist')
+        self.album = self._getAttribute('album')
+        self.title = self._getAttribute('title')
+        self.trackNumber = self._getAttribute('tracknumber')
+
+    def _getAttribute(self, attr):
         try:
-##            attributes = self.track[attr]
-            self.artist = self.track['artist'][0]
-            self.album = self.track['album'][0]
-            self.title = self.track['title'][0]
-            self.trackNumber = self.track['tracknumber'][0]
-##            return attributes
+            attribute = self.track[attr][0]
+##           attribute = unicode(self.track[attr])[3:-2]
+            return attribute
         except KeyError as err:
-            if "TRCK" not in err and "TALB" not in err:
+            if "TRCK" not in err and "TALB" not in err and "TPE1" not in err:
                 raise err
             return "-"
-
-##    def getAttribute(self, attr):
-##        try:
-##            attribute = self.track[attr][0]
-####            attribute = unicode(self.track[attr])[3:-2]
-##            return attribute
-##        except KeyError as err:
-##            if "TRCK" not in err and "TALB" not in err:
-##                raise err
-##            return "-"
     
     def getArtist(self):
 ##        artist = self.getAttribute('artist')
