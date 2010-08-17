@@ -19,9 +19,11 @@ class TrackFactory:
         return track
 
     def getTrackFromPathNoID(self, db, path):
-        track = AudioTrack(db, path)
-        if track == None:
+        try:
+            track = AudioTrack(db, path)
+        except UnknownTrackType:
             print "File is not a supported audio file."
+            return None
 ##            track = VideoTrack()
 ##            if track == None:
 ##                return None
@@ -92,11 +94,15 @@ class Track:
         self.id = id
         factory.addTrackToCache(self)
 
+class UnknownTrackType(Exception):
+    pass
+
 class AudioTrack(Track):
     def __init__(self, db, path):
         Track.__init__(self, db, path)
         self.track = mutagen.File(self.getPath(), easy=True)
-        ## returns None if the track is not a supported file type
+        if self.track is None:
+            raise UnknownTrackType()
         self._initGetAttributes()
 
     ## tags are of the form [u'artistName']
