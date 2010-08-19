@@ -688,7 +688,6 @@ class MainWindow(wx.Frame):
             score = self.scoreSlider.GetValue()
             self.db.setScore(self.track, score)
             self.refreshSelectedTrack()
-            self.populateDetails(self.track) ## poss superfluous
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
@@ -704,7 +703,6 @@ class MainWindow(wx.Frame):
             if score != 10:
                 self.db.setScore(self.track, score+1)
                 self.refreshSelectedTrack()
-                self.populateDetails(self.track) ## poss superfluous
             else:
                 print "The track already has the maximum score!"
         except AttributeError as err:
@@ -719,7 +717,6 @@ class MainWindow(wx.Frame):
             if score != -10:
                 self.db.setScore(self.track, score-1)
                 self.refreshSelectedTrack()
-                self.populateDetails(self.track) ## poss superfluous
             else:
                 print "The track already has the minimum score!"
         except AttributeError as err:
@@ -734,7 +731,6 @@ class MainWindow(wx.Frame):
             if score != oldScore:
                 self.db.setScore(self.track, score)
                 self.refreshSelectedTrack()
-                self.populateDetails(self.track) ## poss superfluous
             else:
                 print "The track already has that score!"
         except AttributeError as err:
@@ -747,7 +743,6 @@ class MainWindow(wx.Frame):
         try:
             self.db.setUnscored(self.track)
             self.refreshSelectedTrack()
-            self.populateDetails(self.track) ## poss superfluous
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
@@ -866,7 +861,7 @@ class MainWindow(wx.Frame):
         self.trackList.SetStringItem(index, 3, score)
         self.trackList.SetStringItem(index, 4, lastPlayed)
         self.trackList.SetItemData(index, self.db.getTrackID(track))
-        if self.index > index:
+        if self.index >= index:
             self.index += 1
 
     def enqueueTrack(self, track):
@@ -944,9 +939,10 @@ class MainWindow(wx.Frame):
 ##                    self.enqueueTrack(thirdTrack)
 
     def refreshSelectedTrack(self):
-        self.trackList.DeleteItem(self.index)
-        self.addTrackAtPos(self.track, self.index)
-        self.selectTrack(self.index)
+        index = self.index
+        self.trackList.DeleteItem(index)
+        self.addTrackAtPos(self.track, index)
+        self.selectTrack(index)
 
     def selectTrack(self, index):
         self.trackList.SetItemState(index, wx.LIST_STATE_SELECTED, -1)
