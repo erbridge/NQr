@@ -35,7 +35,7 @@ class Randomizer:
 
     def createLists(self):
         rawTrackIDList = self.db.getAllTrackIDs()
-        if rawTrackIDList == None:
+        if rawTrackIDList == []:
             raise EmptyDatabaseError
         trackWeightList = []
         totalWeight = 0
