@@ -965,7 +965,8 @@ class MainWindow(wx.Frame):
         self.addDetail("Title:   "+self.db.getTitle(track))
         self.addDetail("Track:   "+self.db.getTrackNumber(track)\
                        +"       Album:   "+self.db.getAlbum(track))
-        self.addDetail("Score:   "+str(self.db.getScore(track))\
+        self.addDetail("Score:   "+str(self.db.getScore(track)))
+        self.addDetail("Play Count:   "+str(self.db.getPlayCount(track))\
                        +"       Last Played:   "+lastPlayed)
         self.addDetail("Filetrack:   "+self.db.getPath(track))
 

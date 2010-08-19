@@ -378,6 +378,23 @@ class Database:
 ##        return self._getLastPlayed(
 ##            "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
 
+    def getPlayCount(self, track=None, trackID=None):
+        if trackID == None:
+            if track == None:
+                raise NoTrackError
+##                print "No track has been identified."
+##                return None
+            trackID = track.getID()
+        c = self._conn.cursor()
+        c.execute("""select datetime from plays where trackid = ? order by
+                  playid desc""", (trackID, ))
+        result = c.fetchall()
+        c.close()
+        if result == None:
+            return 0
+        count = len(result)
+        return count
+
     def _getTrackDetails(self, track=None, trackID=None):
         (self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
         self.trackNumberIndex, self.unscoredIndex) = range(6)
