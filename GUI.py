@@ -23,6 +23,7 @@
 ## TODO: leftmost column of track list no longer needed
 
 from collections import deque
+from Errors import *
 import os
 from threading import *
 import time
@@ -802,8 +803,8 @@ class MainWindow(wx.Frame):
             ## poss shouldn't restore the playlist ever?
             if self.restorePlaylist == True:
                 self.oldPlaylist = self.player.savePlaylist()
-            self.maintainPlaylist()
             print "Enqueueing turned on."
+            self.maintainPlaylist()
 
     def onTrackChange(self, e):
         track = e.getTrack()
@@ -870,73 +871,77 @@ class MainWindow(wx.Frame):
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing        
     def enqueueRandomTracks(self, number):
-        for n in range(number):
-            track = self.randomizer.chooseTrack()
-##            self.enqueueTrack(track)
+        try:
+            for n in range(number):
+                track = self.randomizer.chooseTrack()
+##                self.enqueueTrack(track)
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
-            linkIDs = self.db.getLinkIDs(track)
-            if linkIDs == None:
-                self.enqueueTrack(track)
-            else:
-                originalLinkID = linkIDs[0]
-                (firstTrackID,
-                 secondTrackID) = self.db.getLinkedTrackIDs(originalLinkID)
-                firstTrack = self.trackFactory.getTrackFromID(self.db,
-                                                              firstTrackID)
-                secondTrack = self.trackFactory.getTrackFromID(self.db,
-                                                               secondTrackID)
-                trackQueue = deque([firstTrack, secondTrack])
-##                self.enqueueTrack(firstTrack)
-##                self.enqueueTrack(secondTrack)
-                linkIDs = self.db.getLinkIDs(firstTrack)
-                oldLinkIDs = originalLinkID
-                ## finds earlier tracks
-                while True:
-                    for linkID in linkIDs:
-                        if linkID not in oldLinkIDs:
-                            (newTrackID,
-                             trackID) = self.db.getLinkedTrackIDs(linkID)
-                            track = self.trackFactory.getTrackFromID(self.db,
-                                                                     newTrackID)
-                            trackQueue.appendleft(track)
-                            oldLinkIDs = linkIDs
-                            linkIDs = self.db.getLinkIDs(track)
-                    if oldLinkIDs == linkIDs:
-                            break
-                linkIDs = self.db.getLinkIDs(secondTrack)
-                oldLinkIDs = originalLinkID
-                ## finds later tracks
-                while True:
-                    for linkID in linkIDs:
-                        if linkID not in oldLinkIDs:
-                            (trackID,
-                             newTrackID) = self.db.getLinkedTrackIDs(linkID)
-                            track = self.trackFactory.getTrackFromID(self.db,
-                                                                     newTrackID)
-                            trackQueue.append(track)
-                            oldLinkIDs = linkIDs
-                            linkIDs = self.db.getLinkIDs(track)
-                    if oldLinkIDs == linkIDs:
-                            break
-##                oldTrackID = firstTrackID
-##                while linkIDs != None:
-##                    for linkID in linkIDs:
-##                        (trackID,
-##                         newTrackID) = self.db.getLinkedTrackIDs(linkID)
-##                        if trackID != oldTrackID:
-##                            track = self.trackFactory.getTrackFromID(self.db,
-##                                                                     newTrackID)
-##                            trackQueue.append(track)
-##                            oldTrackID = trackID
-##                    linkIDs = self.db.getLinkIDs(track)
-                for track in trackQueue:
+                linkIDs = self.db.getLinkIDs(track)
+                if linkIDs == None:
                     self.enqueueTrack(track)
-##                if secondLinkID != None:
-##                    (secondTrackID,
-##                     thirdTrackID) = self.db.getLinkedTrackIDs(secondLinkID)
-##                    thirdTrack = self.trackFactory.getTrackFromID(self.db,
-##                                                                  thirdTrackID)
-##                    self.enqueueTrack(thirdTrack)
+                else:
+                    originalLinkID = linkIDs[0]
+                    (firstTrackID,
+                     secondTrackID) = self.db.getLinkedTrackIDs(originalLinkID)
+                    firstTrack = self.trackFactory.getTrackFromID(self.db,
+                                                                  firstTrackID)
+                    secondTrack = self.trackFactory.getTrackFromID(
+                        self.db, secondTrackID)
+                    trackQueue = deque([firstTrack, secondTrack])
+##                    self.enqueueTrack(firstTrack)
+##                    self.enqueueTrack(secondTrack)
+                    linkIDs = self.db.getLinkIDs(firstTrack)
+                    oldLinkIDs = originalLinkID
+                    ## finds earlier tracks
+                    while True:
+                        for linkID in linkIDs:
+                            if linkID not in oldLinkIDs:
+                                (newTrackID,
+                                 trackID) = self.db.getLinkedTrackIDs(linkID)
+                                track = self.trackFactory.getTrackFromID(
+                                    self.db, newTrackID)
+                                trackQueue.appendleft(track)
+                                oldLinkIDs = linkIDs
+                                linkIDs = self.db.getLinkIDs(track)
+                        if oldLinkIDs == linkIDs:
+                                break
+                    linkIDs = self.db.getLinkIDs(secondTrack)
+                    oldLinkIDs = originalLinkID
+                    ## finds later tracks
+                    while True:
+                        for linkID in linkIDs:
+                            if linkID not in oldLinkIDs:
+                                (trackID,
+                                 newTrackID) = self.db.getLinkedTrackIDs(linkID)
+                                track = self.trackFactory.getTrackFromID(
+                                    self.db, newTrackID)
+                                trackQueue.append(track)
+                                oldLinkIDs = linkIDs
+                                linkIDs = self.db.getLinkIDs(track)
+                        if oldLinkIDs == linkIDs:
+                                break
+##                    oldTrackID = firstTrackID
+##                    while linkIDs != None:
+##                        for linkID in linkIDs:
+##                            (trackID,
+##                             newTrackID) = self.db.getLinkedTrackIDs(linkID)
+##                            if trackID != oldTrackID:
+##                                track = self.trackFactory.getTrackFromID(self.db,
+##                                                                         newTrackID)
+##                                trackQueue.append(track)
+##                                oldTrackID = trackID
+##                        linkIDs = self.db.getLinkIDs(track)
+                    for track in trackQueue:
+                        self.enqueueTrack(track)
+##                    if secondLinkID != None:
+##                        (secondTrackID,
+##                         thirdTrackID) = self.db.getLinkedTrackIDs(secondLinkID)
+##                        thirdTrack = self.trackFactory.getTrackFromID(self.db,
+##                                                                      thirdTrackID)
+##                        self.enqueueTrack(thirdTrack)
+        except EmptyDatabaseError:
+            print "The database is empty."
+            return
 
     def refreshSelectedTrack(self):
         index = self.index

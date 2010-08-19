@@ -52,7 +52,7 @@ class TrackFactory:
 
     def getTrackFromCache(self, trackID):
         if type(trackID) is not int:
-            raise TypeError(trackID+" is not a valid track ID")
+            raise TypeError(str(trackID)+" is not a valid track ID")
         return self._trackCache.get(trackID, None)
 ##        try:
 ##            return self._trackCache[trackID]
@@ -121,6 +121,8 @@ class AudioTrack(Track):
         except KeyError as err:
             # if 'artist' is thrown then the track doesn't have any ID3
             # which is an error we should not accept - so for now, die
+            ## poss should die on no title not no artist?
+            ## what is key for artist?
             if "TRCK" not in err and "TALB" not in err and "TPE1" not in err:
                 raise err
             return "-"

@@ -8,15 +8,9 @@
 ##       to create other tables (poss corruption)
 ## TODO: add more attributes to tracks
 
+from Errors import *
 import os
 import sqlite3
-
-class NoTrackError(Exception):
-    def __init__(self):
-        return
-
-    def __str__(self):
-        print "\nNo track has been identified"
 
 class Database:
     def __init__(self, trackFactory, loggerFactory, databasePath="database",
@@ -439,6 +433,7 @@ class Database:
             return None
         return details[self.trackNumberIndex]
 
+## FIXME: should be _getIsScored()?
     ## determines whether user has changed score for this track
     def _isScored(self, track=None, trackID=None):
         if trackID != None:

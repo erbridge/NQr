@@ -5,6 +5,7 @@
 ## TODO: getWeights from a text option (convert into python code) allowing
 ##       length of list etc.
 
+from Errors import *
 import random
 import time
 
@@ -35,8 +36,7 @@ class Randomizer:
     def createLists(self):
         rawTrackIDList = self.db.getAllTrackIDs()
         if rawTrackIDList == None:
-            print "The database is empty."
-            return None
+            raise EmptyDatabaseError
         trackWeightList = []
         totalWeight = 0
         for (trackID, ) in rawTrackIDList:
