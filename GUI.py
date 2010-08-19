@@ -165,6 +165,7 @@ class MainWindow(wx.Frame):
         wx.Frame.__init__(self, parent, title=title)
         self.CreateStatusBar()
         self.initMenuBar()
+        self.initTrackRightClickMenu()
         self.initMainSizer()
 
         EVT_TRACK_CHANGE(self, self.onTrackChange)
@@ -188,8 +189,10 @@ class MainWindow(wx.Frame):
 
         self.Show(True)
 
+## FIXME: should be _initCreateMenuBar()?
     def initMenuBar(self):
         self.initFileMenu()
+        self.initRateMenu()
         self.initPlayerMenu()
         self.initOptionsMenu()
 
@@ -235,51 +238,6 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onLinkTracks, menuLinkTracks)
         self.Bind(wx.EVT_MENU, self.onRemoveLink, menuRemoveLink)
         self.Bind(wx.EVT_MENU, self.onExit, menuExit)
-
-    ## TODO: change up in "Rate Up" to an arrow
-    def initPlayerMenu(self):
-        self.initRateMenu()
-
-        self.playerMenu = wx.Menu()
-        menuPlay = self.playerMenu.Append(-1, "&Play",
-                                          " Play or restart the current track")
-        menuPause = self.playerMenu.Append(-1, "P&ause",
-                                           " Pause or resume the current track")
-        menuNext = self.playerMenu.Append(-1, "&Next Track",
-                                          " Play the next track")
-        menuPrevious = self.playerMenu.Append(-1, "Pre&vious Track",
-                                              " Play the previous track")
-        menuStop = self.playerMenu.Append(-1, "&Stop",
-                                          " Stop the current track")
-        self.playerMenu.AppendSeparator()
-        menuRateUp = self.playerMenu.Append(
-            -1, "Rate &Up", " Increase the score of the selected track by one")
-        menuRateDown = self.playerMenu.Append(
-            -1, "Rate &Down",
-            " Decrease the score of the selected track by one")
-        self.playerMenu.AppendMenu(-1, "&Rate", self.rateMenu)
-        self.playerMenu.AppendSeparator()
-        menuRequeue = self.playerMenu.Append(
-            -1, "Re&queue Track", " Add the selected track to the playlist")
-        menuResetScore = self.playerMenu.Append(
-            -1, "Reset Sc&ore", " Reset the score of the selected track")
-        self.playerMenu.AppendSeparator()
-        menuLaunchPlayer = self.playerMenu.Append(
-            -1, "&Launch Player", " Launch the selected media player")
-        menuExitPlayer = self.playerMenu.Append(
-            -1, "E&xit Player", " Terminate the selected media player")
-
-        self.Bind(wx.EVT_MENU, self.onPlay, menuPlay)
-        self.Bind(wx.EVT_MENU, self.onPause, menuPause)
-        self.Bind(wx.EVT_MENU, self.onStop, menuStop)
-        self.Bind(wx.EVT_MENU, self.onPrevious, menuPrevious)
-        self.Bind(wx.EVT_MENU, self.onNext, menuNext)
-        self.Bind(wx.EVT_MENU, self.onRateUp, menuRateUp)
-        self.Bind(wx.EVT_MENU, self.onRateDown, menuRateDown)
-        self.Bind(wx.EVT_MENU, self.onRequeue, menuRequeue)
-        self.Bind(wx.EVT_MENU, self.onResetScore, menuResetScore)
-        self.Bind(wx.EVT_MENU, self.onLaunchPlayer, menuLaunchPlayer)
-        self.Bind(wx.EVT_MENU, self.onExitPlayer, menuExitPlayer)
 
 ## could be better with a for loop?
     def initRateMenu(self):
@@ -421,6 +379,49 @@ class MainWindow(wx.Frame):
 ##            print "No track selected."
 ##            return
 
+    ## TODO: change up in "Rate Up" to an arrow
+    def initPlayerMenu(self):
+        self.playerMenu = wx.Menu()
+        menuPlay = self.playerMenu.Append(-1, "&Play",
+                                          " Play or restart the current track")
+        menuPause = self.playerMenu.Append(-1, "P&ause",
+                                           " Pause or resume the current track")
+        menuNext = self.playerMenu.Append(-1, "&Next Track",
+                                          " Play the next track")
+        menuPrevious = self.playerMenu.Append(-1, "Pre&vious Track",
+                                              " Play the previous track")
+        menuStop = self.playerMenu.Append(-1, "&Stop",
+                                          " Stop the current track")
+        self.playerMenu.AppendSeparator()
+        menuRateUp = self.playerMenu.Append(
+            -1, "Rate &Up", " Increase the score of the selected track by one")
+        menuRateDown = self.playerMenu.Append(
+            -1, "Rate &Down",
+            " Decrease the score of the selected track by one")
+        self.playerMenu.AppendMenu(-1, "&Rate", self.rateMenu)
+        self.playerMenu.AppendSeparator()
+        menuRequeue = self.playerMenu.Append(
+            -1, "Re&queue Track", " Add the selected track to the playlist")
+        menuResetScore = self.playerMenu.Append(
+            -1, "Reset Sc&ore", " Reset the score of the selected track")
+        self.playerMenu.AppendSeparator()
+        menuLaunchPlayer = self.playerMenu.Append(
+            -1, "&Launch Player", " Launch the selected media player")
+        menuExitPlayer = self.playerMenu.Append(
+            -1, "E&xit Player", " Terminate the selected media player")
+
+        self.Bind(wx.EVT_MENU, self.onPlay, menuPlay)
+        self.Bind(wx.EVT_MENU, self.onPause, menuPause)
+        self.Bind(wx.EVT_MENU, self.onStop, menuStop)
+        self.Bind(wx.EVT_MENU, self.onPrevious, menuPrevious)
+        self.Bind(wx.EVT_MENU, self.onNext, menuNext)
+        self.Bind(wx.EVT_MENU, self.onRateUp, menuRateUp)
+        self.Bind(wx.EVT_MENU, self.onRateDown, menuRateDown)
+        self.Bind(wx.EVT_MENU, self.onRequeue, menuRequeue)
+        self.Bind(wx.EVT_MENU, self.onResetScore, menuResetScore)
+        self.Bind(wx.EVT_MENU, self.onLaunchPlayer, menuLaunchPlayer)
+        self.Bind(wx.EVT_MENU, self.onExitPlayer, menuExitPlayer)
+
     def initOptionsMenu(self):
         self.optionsMenu = wx.Menu()
         menuPrefs = self.optionsMenu.Append(self.ID_PREFS, "&Preferences...",
@@ -435,6 +436,26 @@ class MainWindow(wx.Frame):
 ##        self.Bind(wx.EVT_MENU, self.onPrefs, menuPrefs)
         self.Bind(wx.EVT_MENU, self.onRescan, menuRescan)
         self.Bind(wx.EVT_MENU, self.onToggleNQr, self.menuToggleNQr)
+
+    def initTrackRightClickMenu(self):
+        self.trackRightClickMenu = wx.Menu()
+        menuTrackRightClickRateUp = self.trackRightClickMenu.Append(
+            -1, "Rate &Up", " Increase the score of the current track by one")
+        menuTrackRightClickRateDown = self.trackRightClickMenu.Append(
+            -1, "Rate &Down", " Decrease the score of the current track by one")
+        rateRightClickMenu = self.trackRightClickMenu.AppendMenu(
+            -1, "&Rate", self.rateMenu)
+        self.trackRightClickMenu.AppendSeparator()
+        menuTrackRightClickRequeue = self.trackRightClickMenu.Append(
+            -1, "Re&queue Track", " Add the selected track to the playlist")
+        self.trackRightClickMenu.AppendSeparator()
+        menuTrackRightClickResetScore = self.trackRightClickMenu.Append(
+            -1, "Reset Sc&ore", " Reset the score of the current track")
+
+        self.Bind(wx.EVT_MENU, self.onRateUp, menuTrackRightClickRateUp)
+        self.Bind(wx.EVT_MENU, self.onRateDown, menuTrackRightClickRateDown)
+        self.Bind(wx.EVT_MENU, self.onRequeue, menuTrackRightClickRequeue)
+        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
 
     def initMainSizer(self):
         self.initPlayerControls()
@@ -528,28 +549,28 @@ class MainWindow(wx.Frame):
 
     def onTrackRightClick(self, e):
         point = e.GetPoint()
-        self.initRateMenu()
-        trackRightClickMenu = wx.Menu()
-        menuTrackRightClickRateUp = trackRightClickMenu.Append(
-            -1, "Rate &Up", " Increase the score of the current track by one")
-        menuTrackRightClickRateDown = trackRightClickMenu.Append(
-            -1, "Rate &Down", " Decrease the score of the current track by one")
-        rateRightClickMenu = trackRightClickMenu.AppendMenu(
-            -1, "&Rate", self.rateMenu)
-        trackRightClickMenu.AppendSeparator()
-        menuTrackRightClickRequeue = trackRightClickMenu.Append(
-            -1, "Re&queue Track", " Add the selected track to the playlist")
-##        menuTrackRightClickResetScore = trackRightClickMenu.Append(
-##            -1, "Reset Sc&ore", " Reset the score of the current track")
+##        self.initRateMenu()
+##        trackRightClickMenu = wx.Menu()
+##        menuTrackRightClickRateUp = trackRightClickMenu.Append(
+##            -1, "Rate &Up", " Increase the score of the current track by one")
+##        menuTrackRightClickRateDown = trackRightClickMenu.Append(
+##            -1, "Rate &Down", " Decrease the score of the current track by one")
+##        rateRightClickMenu = trackRightClickMenu.AppendMenu(
+##            -1, "&Rate", self.rateMenu)
+##        trackRightClickMenu.AppendSeparator()
+##        menuTrackRightClickRequeue = trackRightClickMenu.Append(
+##            -1, "Re&queue Track", " Add the selected track to the playlist")
+####        menuTrackRightClickResetScore = trackRightClickMenu.Append(
+####            -1, "Reset Sc&ore", " Reset the score of the current track")
+##
+##        self.Bind(wx.EVT_MENU, self.onRateUp, menuTrackRightClickRateUp)
+##        self.Bind(wx.EVT_MENU, self.onRateDown, menuTrackRightClickRateDown)
+##        self.Bind(wx.EVT_MENU, self.onRequeue, menuTrackRightClickRequeue)
+####        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
 
-        self.Bind(wx.EVT_MENU, self.onRateUp, menuTrackRightClickRateUp)
-        self.Bind(wx.EVT_MENU, self.onRateDown, menuTrackRightClickRateDown)
-        self.Bind(wx.EVT_MENU, self.onRequeue, menuTrackRightClickRequeue)
-##        self.Bind(wx.EVT_MENU, self.onResetScore, menuTrackRightClickResetScore)
-
-        self.PopupMenu(trackRightClickMenu, point)
-        rateRightClickMenu.Destroy()
-        trackRightClickMenu.Destroy()
+        self.PopupMenu(self.trackRightClickMenu, point)
+##        rateRightClickMenu.Destroy()
+##        trackRightClickMenu.Destroy()
 
     def onAbout(self, e):
         dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr",
@@ -952,13 +973,3 @@ class MainWindow(wx.Frame):
 
     def clearDetails(self):
         self.details.Clear()
-
-##app = wx.App(False)
-##frame = MainWindow()
-##
-##frame.Center()
-##frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/01 - Arctic Monkeys - Brianstorm.mp3"))
-##frame.addTrack(Track.getTrackFromPath(frame.db, "C:/Users/Felix/Documents/Projects/TestDir/02 - Arctic Monkeys - Teddy Picker.mp3"))
-##frame.addTrack(Track.getTrackFromPath(frame.db, frame.player.getCurrentTrackPath()))
-##
-##app.MainLoop()
