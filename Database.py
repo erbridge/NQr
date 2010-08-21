@@ -175,10 +175,10 @@ class Database:
         self._conn.commit()
         self.addDirectoryNoWatch(directory)
 
-    def getDirectoryID(self, path):
+    def getDirectoryID(self, directory):
         c = self._conn.cursor()
         c.execute("select directoryid from directories where path = ?",
-                  (path, ))
+                  (directory, ))
         result = c.fetchone()
         c.close()
         if result == None:
@@ -189,7 +189,7 @@ class Database:
     def addDirectoryNoWatch(self, directory):
         contents = os.listdir(directory)
         for n in range(0, len(contents)):
-            path = directory+'/'+contents[n]
+            path = directory+'/'+contents[n] ## poss should use abspath
             if os.path.isdir(path):
                 self.addDirectoryNoWatch(path)
             else: ## or: elif contents[n][-4:]=='.mp3':
