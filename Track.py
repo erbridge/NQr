@@ -3,6 +3,7 @@
 ## TODO: create clearCache function for when user has changed metadata?
 ## TODO: make cache a limited size
 
+from Errors import *
 import mutagen
 ##from mutagen.easyid3 import EasyID3 as id3
 import os
@@ -23,6 +24,9 @@ class TrackFactory:
             track = AudioTrack(db, path)
         except UnknownTrackType:
             print "File is not a supported audio file."
+            return None
+        except NoMetadataError:
+            print "File has no metadata."
             return None
 ##            track = VideoTrack()
 ##            if track == None:
@@ -94,13 +98,13 @@ class Track:
         self.id = id
         factory.addTrackToCache(self)
 
-class UnknownTrackType(Exception):
-    pass
-
 class AudioTrack(Track):
     def __init__(self, db, path):
         Track.__init__(self, db, path)
-        self.track = mutagen.File(self.getPath(), easy=True)
+        try:
+            self.track = mutagen.File(self.getPath(), easy=True)
+        except mutagen.mp3.HeaderNotFoundError:
+            raise NoMetadataError()
         if self.track is None:
             raise UnknownTrackType()
         self._initGetAttributes()

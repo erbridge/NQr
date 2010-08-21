@@ -9,3 +9,9 @@ class NoTrackError(Exception):
 
     def __str__(self):
         print "\nNo track has been identified"
+
+class UnknownTrackType(Exception):
+    pass
+
+class NoMetadataError(Exception):
+    pass
