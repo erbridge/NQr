@@ -145,7 +145,7 @@ class MainWindow(wx.Frame):
     ID_TOGGLENQR = wx.NewId()
 
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
-                 title="NQr", restorePlaylist=True, enqueueOnStartup=True,
+                 title="NQr", restorePlaylist=False, enqueueOnStartup=True,
                  rescanOnStartup=False, defaultPlaylistLength=11):
 ##        self.db = DatabaseThread(db).database
         self.db = db
