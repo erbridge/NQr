@@ -3,6 +3,7 @@
 ## Tested on Winamp 5+
 
 import ctypes
+from Errors import *
 import subprocess
 import time
 import win32api
@@ -147,7 +148,15 @@ class WinampWindows(MediaPlayer):
         for n in range(256):
             hexlist.append(hex(n))
 ##        path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
-        rawPath = win32api.GetFullPathName(memoryBuffer.raw.split("\x00")[0])
+        try:
+            rawPath = win32api.GetFullPathName(
+                memoryBuffer.raw.split("\x00")[0])
+        except win32api.error as err:
+            (winerror, funcname, strerror) = err
+            if winerror != 299:
+                raise err
+            print "Playlist is empty."
+            raise NoTrackError
         path = u""
         try:
             path = unicode(rawPath)

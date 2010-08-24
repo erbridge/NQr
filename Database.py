@@ -336,8 +336,8 @@ class Database:
         self.secondsSinceLastPlayedIndex) = range(3)
         if trackID == None:
             if track == None:
+                print "No track has been identified."
                 raise NoTrackError
-##                print "No track has been identified."
 ##                return None
             trackID = track.getID()
         c = self._conn.cursor()
@@ -381,8 +381,8 @@ class Database:
     def getPlayCount(self, track=None, trackID=None):
         if trackID == None:
             if track == None:
+                print "No track has been identified."
                 raise NoTrackError
-##                print "No track has been identified."
 ##                return None
             trackID = track.getID()
         c = self._conn.cursor()
@@ -400,8 +400,8 @@ class Database:
         self.trackNumberIndex, self.unscoredIndex) = range(6)
         if trackID == None:
             if track == None:
+                print "No track has been identified."
                 raise NoTrackError
-##                print "No track has been identified."
 ##                return None
             trackID = track.getID()
         c = self._conn.cursor()
@@ -504,8 +504,8 @@ class Database:
     def _getScore(self, track=None, trackID=None):
         if trackID == None:
             if track == None:
+                print "No track has been identified."
                 raise NoTrackError
-##                print "No track has been identified."
 ##                return None
             trackID = track.getID()
         c = self._conn.cursor()
