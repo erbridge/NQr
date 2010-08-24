@@ -870,6 +870,7 @@ class MainWindow(wx.Frame):
 
     def enqueueTrack(self, track):
         self.player.addTrack(track.getPath())
+        self.db.addEnqueue(track)
 
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing        

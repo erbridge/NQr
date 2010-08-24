@@ -40,7 +40,12 @@ class Randomizer:
         trackWeightList = []
         totalWeight = 0
         for (trackID, ) in rawTrackIDList:
-            time = self.db.getSecondsSinceLastPlayedFromID(trackID)
+            timeSincePlayed = self.db.getSecondsSinceLastPlayedFromID(trackID)
+            timeSinceEnqueued = self.db.getSecondsSinceLastEnqueuedFromID(trackID)
+            if timeSinceEnqueued < timeSincePlayed:
+                time = timeSinceEnqueued
+            else:
+                time = timeSincePlayed
             score = self.db.getScoreValueFromID(trackID) + 11
             ## creates a positive score
             if time == None:

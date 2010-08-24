@@ -24,6 +24,7 @@ class Database:
         self._initCreateTrackTable()
         self._initCreateDirectoryTable()
         self._initCreatePlaysTable()
+        self._initCreateEnqueuesTable()
         self._initCreateScoresTable()
         self._initCreateLinksTable()
         self._initCreateIgnoreTable()
@@ -331,6 +332,34 @@ class Database:
             self._logger.debug("The link does not exist.")
         c.close()
         self._conn.commit()
+
+    def addEnqueue(self, track):
+        c = self._conn.cursor()
+        trackID = track.getID()
+        if trackID == None:
+            self._logger.debug("\'"+self.getPath(track)\
+                               +"\' is not in the library.")
+            return
+        c.execute("""insert into enqueues (trackid, datetime) values
+                  (?, datetime('now'))""", (trackID, ))
+        c.close()
+        self._conn.commit()
+
+    def getSecondsSinceLastEnqueuedFromID(self, trackID):
+        if trackID == None:
+            self._logger.error("No track has been identified.")
+            raise NoTrackError
+##            return None
+        c = self._conn.cursor()
+        c.execute("""select strftime('%s', 'now') - strftime('%s', datetime)
+                  from enqueues where trackid = ? order by enqueueid desc""",
+                  (trackID, ))
+        result = c.fetchone()
+        c.close()
+        if result != None:
+            return result[0]
+        else:
+            return None
 
     def addPlay(self, track):
         c = self._conn.cursor()
