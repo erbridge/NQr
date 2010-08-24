@@ -38,9 +38,9 @@ class Database:
                                               title text, tracknumber text,
                                               unscored integer)""")
             self._logger.debug("Tracks table created.")
-        except sqlite3.OperationalError as e:
-            if str(e) != "table tracks already exists":
-                raise e
+        except sqlite3.OperationalError as err:
+            if str(err) != "table tracks already exists":
+                raise err
             self._logger.debug("Tracks table found.")
 ##            print "Tracks table found."
         c.close()
@@ -52,9 +52,9 @@ class Database:
                                                    key autoincrement,
                                                    path text)""")
             self._logger.debug("Directories table created.")
-        except sqlite3.OperationalError as e:
-            if str(e) != "table directories already exists":
-                raise e
+        except sqlite3.OperationalError as err:
+            if str(err) != "table directories already exists":
+                raise err
             self._logger.debug("Directories table found.")
         c.close()
 
@@ -65,10 +65,23 @@ class Database:
                                              autoincrement, trackid integer,
                                              datetime text)""")
             self._logger.debug("Plays table created.")
-        except sqlite3.OperationalError as e:
-            if str(e) != "table plays already exists":
-                raise e
+        except sqlite3.OperationalError as err:
+            if str(err) != "table plays already exists":
+                raise err
             self._logger.debug("Plays table found.")
+        c.close()
+
+    def _initCreateEnqueuesTable(self):
+        c = self._conn.cursor()
+        try:
+            c.execute("""create table enqueues (enqueueid integer primary key
+                                                autoincrement, trackid integer,
+                                                datetime text)""")
+            self._logger.debug("Enqueues table created.")
+        except sqlite3.OperationalError as err:
+            if str(err) != "table enqueues already exists":
+                raise err
+            self._logger.debug("Enqueues table found.")
         c.close()
 
     def _initCreateScoresTable(self):
@@ -78,9 +91,9 @@ class Database:
                                               autoincrement, trackid integer,
                                               score integer, datetime text)""")
             self._logger.debug("Scores table created.")
-        except sqlite3.OperationalError as e:
-            if str(e) != "table scores already exists":
-                raise e
+        except sqlite3.OperationalError as err:
+            if str(err) != "table scores already exists":
+                raise err
             self._logger.debug("Scores table found.")
         c.close()
 
@@ -91,9 +104,9 @@ class Database:
                                              autoincrement, firsttrackid
                                              integer, secondtrackid integer)""")
             self._logger.debug("Track links table created.")
-        except sqlite3.OperationalError as e:
-            if str(e) != "table links already exists":
-                raise e
+        except sqlite3.OperationalError as err:
+            if str(err) != "table links already exists":
+                raise err
             self._logger.debug("Track links table found.")
         c.close()
 
@@ -104,9 +117,9 @@ class Database:
                                               autoincrement, trackid
                                               integer)""")
             self._logger.debug("Ignore table created.")
-        except sqlite3.OperationalError as e:
-            if str(e) != "table ignore already exists":
-                raise e
+        except sqlite3.OperationalError as err:
+            if str(err) != "table ignore already exists":
+                raise err
             self._logger.debug("Ignore table found.")
         c.close()
 
