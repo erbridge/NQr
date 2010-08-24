@@ -4,12 +4,15 @@ import logging
 import datetime
 
 class LoggerFactory:
-    def __init__(self):
+    def __init__(self, debugMode):
+        self.debugMode = debugMode
+        
         dateString = str(
             datetime.datetime.strftime(datetime.datetime.utcnow(),
                                        '%Y%m%d_%H%M%S'))
 
         debugLogFilename = "logs/debug_"+dateString+".log"
+        infoLogFilename = "logs/info_"+dateString+".log"
         errorLogFilename = "logs/error_"+dateString+".log"
 
         formatter = logging.Formatter(
@@ -19,29 +22,52 @@ class LoggerFactory:
         commandLineHandler = logging.StreamHandler()
         commandLineHandler.setLevel(logging.DEBUG)
         commandLineHandler.setFormatter(formatter)
+        logging.getLogger("NQr").addHandler(commandLineHandler)
 
-        debugFileHandler = logging.FileHandler(debugLogFilename, delay=True)
-        debugFileHandler.setLevel(logging.DEBUG)
-        debugFileHandler.setFormatter(formatter)
+        if self.debugMode == True:
+            debugFileHandler = logging.FileHandler(debugLogFilename, delay=True)
+            debugFileHandler.setLevel(logging.DEBUG)
+            debugFileHandler.setFormatter(formatter)
+            logging.getLogger("NQr").addHandler(debugFileHandler)
+
+        infoFileHandler = logging.FileHandler(infoLogFilename, delay=True)
+        infoFileHandler.setLevel(logging.INFO)
+        infoFileHandler.setFormatter(formatter)
+        logging.getLogger("NQr").addHandler(infoFileHandler)
 
         errorFileHandler = logging.FileHandler(errorLogFilename, delay=True)
         errorFileHandler.setLevel(logging.ERROR)
         errorFileHandler.setFormatter(formatter)
-
-        logging.getLogger("NQr").addHandler(commandLineHandler)
-        logging.getLogger("NQr").addHandler(debugFileHandler)
         logging.getLogger("NQr").addHandler(errorFileHandler)
 
-        self._logger = logging.getLogger("NQr.Logger")
-        self._logger.setLevel(logging.DEBUG)
+        self._logger = self.getLogger("NQr.Logger", "debug")
+
+##        self._logger = logging.getLogger("NQr.Logger")
+##        if self.debugMode == True:
+##            self._logger.setLevel(logging.DEBUG)
+##        elif self.debugMode == False:
+##            self._logger.setLevel(logging.INFO)
+##        else:
+##            self._logger.error(str(self.debugMode)\
+##                               +" is an invalid debug mode.")
+##            raise ValueError(str(self.debugMode)\
+##                             +" is an invalid debug mode.")
 
     def getLogger(self, name, level):
         logger = logging.getLogger(name)
         if level == "debug":
-            logger.setLevel(logging.DEBUG)
+            if self.debugMode == True:
+                logger.setLevel(logging.DEBUG)
+            elif self.debugMode == False:
+                logger.setLevel(logging.INFO)
+            else:
+                self._logger.error(str(self.debugMode)\
+                                   +" is an invalid debug mode.")
+                raise ValueError(str(self.debugMode)\
+                                 +" is an invalid debug mode.")
         elif level == "error":
             logger.setLevel(logging.ERROR)
         else:
-            self._logger.error("Invalid level set for logger.")
+            self._logger.error(str(level)+" is an invalid level for logger.")
             raise ValueError(str(level)+" is an invalid level for logger.")
         return logger
