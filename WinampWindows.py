@@ -3,8 +3,6 @@
 ## Tested on Winamp 5+
 
 import ctypes
-import os
-import string
 import subprocess
 import time
 import win32api
@@ -130,7 +128,6 @@ class WinampWindows(MediaPlayer):
         return trackPosition
 
 ## poss insecure: should always be checked for trackness
-## os.path.abspath breaks with unicode poss use win32api.GetFullPathName
 ## gets track at a playlist position
     def getTrackPathAtPos(self, trackPosition):
 ##        trackPosition = self.getCurrentTrackPos()+relativePosition
@@ -146,5 +143,24 @@ class WinampWindows(MediaPlayer):
                                                  memoryPointer, memoryBuffer,
                                                  256, 0)
         winampProcess.Close()
-        path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
+        hexlist = []
+        for n in range(256):
+            hexlist.append(hex(n))
+##        path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
+        rawPath = win32api.GetFullPathName(memoryBuffer.raw.split("\x00")[0])
+        path = u""
+        try:
+            path = unicode(rawPath)
+        except UnicodeDecodeError:
+            for s in rawPath:
+                try:
+                    path += unicode(s)
+                except UnicodeDecodeError as err:
+                    errStr = str(err)
+                    startIndex = errStr.index("0x")
+                    endIndex = errStr.index(" ", startIndex)
+                    hexStr = ""
+                    for i in range(startIndex, endIndex):
+                        hexStr += errStr[i]
+                    path += unichr(int(hexStr, 16))
         return path
