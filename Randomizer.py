@@ -18,20 +18,30 @@ class Randomizer:
         self.scoreThreshold = scoreThreshold
 
     def chooseTrack(self):
-        trackID = self.chooseTrackID()
-        track = self.trackFactory.getTrackFromID(self.db, trackID)
+        track = self.chooseTracks(1)[0]
         return track
 
+    def chooseTracks(self, number):
+        trackIDs = self.chooseTrackIDs(number)
+        tracks = []
+        for trackID in trackIDs:
+            tracks.append(self.trackFactory.getTrackFromID(self.db, trackID))
+        return tracks
+
 ## will throw exception if database is empty?
-    def chooseTrackID(self):
+    def chooseTrackIDs(self, number):
 ##        print time.time()
         (trackWeightList, totalWeight) = self.createLists()
-        selector = random.random() * totalWeight
-        for [trackID, weight] in trackWeightList:
-            selector -= weight
-            if selector < 0:
-##                print time.time()
-                return trackID
+        trackIDs = []
+        for n in range(number):
+            selector = random.random() * totalWeight
+            for [trackID, weight] in trackWeightList:
+                selector -= weight
+                if selector < 0:
+##                    print time.time()
+                    trackIDs.append(trackID)
+                    break
+        return trackIDs
 
     def createLists(self):
         rawTrackIDList = self.db.getAllTrackIDs()

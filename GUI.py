@@ -876,10 +876,10 @@ class MainWindow(wx.Frame):
 ##       it when enqueuing        
     def enqueueRandomTracks(self, number):
         try:
-            for n in range(number):
-                track = self.randomizer.chooseTrack()
-##                self.enqueueTrack(track)
+            tracks = self.randomizer.chooseTracks(number)
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
+            for track in tracks:
+##                self.enqueueTrack(track)
                 linkIDs = self.db.getLinkIDs(track)
                 if linkIDs == None:
                     self.enqueueTrack(track)
