@@ -8,9 +8,11 @@ class MediaPlayer:
         return playlist
 
 ## FIXME: sets currently playing track to first track in the list, but continues
-##        to play the old track
+##        to play the old track (fixed with work-around)
     def loadPlaylist(self, playlist):
+        currentTrackPath = self.getCurrentTrackPath()
         self.clearPlaylist()
+        self.addTrack(currentTrackPath)
         for filepath in playlist:
             self.addTrack(filepath)
 
@@ -18,5 +20,8 @@ class MediaPlayer:
         for n in range(number):
             self.deleteTrack(0)
 
+## FIXME: gets confused if the playlist is empty (in winamp): sets currently
+##        playing track to first track in the list, but continues to play the
+##        old track
     def getCurrentTrackPath(self):
         return self.getTrackPathAtPos(self.getCurrentTrackPos())
