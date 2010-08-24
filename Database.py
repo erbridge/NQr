@@ -331,12 +331,23 @@ class Database:
         c.close()
         self._conn.commit()
 
+    def getLastPlayedTrackID(self):
+        c = self._conn.cursor()
+        c.execute("""select trackid from plays order by playid desc""")
+        result = c.fetchone()
+        c.close()
+        if result != None:
+            return result[0]
+        else:
+            self._logger.error("No plays recorded.")
+            raise EmptyDatabseError
+
     def _getLastPlayed(self, track=None, trackID=None):
         (self.basicLastPlayedIndex, self.localLastPlayedIndex,
         self.secondsSinceLastPlayedIndex) = range(3)
         if trackID == None:
             if track == None:
-                print "No track has been identified."
+                self._logger.error("No track has been identified.")
                 raise NoTrackError
 ##                return None
             trackID = track.getID()
@@ -381,7 +392,7 @@ class Database:
     def getPlayCount(self, track=None, trackID=None):
         if trackID == None:
             if track == None:
-                print "No track has been identified."
+                self._logger.error("No track has been identified.")
                 raise NoTrackError
 ##                return None
             trackID = track.getID()
@@ -400,7 +411,7 @@ class Database:
         self.trackNumberIndex, self.unscoredIndex) = range(6)
         if trackID == None:
             if track == None:
-                print "No track has been identified."
+                self._logger.error("No track has been identified.")
                 raise NoTrackError
 ##                return None
             trackID = track.getID()
@@ -504,7 +515,7 @@ class Database:
     def _getScore(self, track=None, trackID=None):
         if trackID == None:
             if track == None:
-                print "No track has been identified."
+                self._logger.error("No track has been identified.")
                 raise NoTrackError
 ##                return None
             trackID = track.getID()

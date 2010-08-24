@@ -183,11 +183,6 @@ class MainWindow(wx.Frame):
         if self.rescanOnStartup == True:
             self.onRescan()
 
-        self.addTrack(
-            self.trackFactory.getTrackFromPath(
-                self.db, self.player.getCurrentTrackPath())
-            )
-
         self.Show(True)
 
 ## FIXME: should be _initCreateMenuBar()?
@@ -526,6 +521,14 @@ class MainWindow(wx.Frame):
                                     format=wx.LIST_FORMAT_CENTER, width=45)
         self.trackList.InsertColumn(self.ID_LASTPLAYED, "Last Played",
                                     format=wx.LIST_FORMAT_CENTER, width=120)
+
+        currentTrackPath = self.player.getCurrentTrackPath()
+        currentTrack = self.trackFactory.getTrackFromPath(self.db,
+                                                          currentTrackPath)
+        currentTrackID = currentTrack.getID()
+        if currentTrackID != self.db.getLastPlayedTrackID():
+            self.db.addPlay(currentTrack)
+        self.addTrack(currentTrack)
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.onSelectTrack, self.trackList)
         self.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.onDeselectTrack,
