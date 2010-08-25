@@ -850,7 +850,7 @@ class MainWindow(wx.Frame):
 
     def addTrackAtPos(self, track, index):
 ##        if IsCurrentTrack()==False:
-        isScored = self.db.isScored(track)
+        isScored = self.db.getIsScored(track)
         if isScored == False:
             score = "("+str(self.db.getScoreValue(track))+")"
             isScored = "+"

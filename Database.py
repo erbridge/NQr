@@ -23,16 +23,16 @@ class Database:
         self._logger.debug("Opening connection to database at "\
                            +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
-        self._initCreateTrackTable()
-        self._initCreateDirectoryTable()
-        self._initCreatePlaysTable()
-        self._initCreateEnqueuesTable()
-        self._initCreateScoresTable()
-        self._initCreateLinksTable()
-        self._initCreateIgnoreTable()
+        self._initMaybeCreateTrackTable()
+        self._initMaybeCreateDirectoryTable()
+        self._initMaybeCreatePlaysTable()
+        self._initMaybeCreateEnqueuesTable()
+        self._initMaybeCreateScoresTable()
+        self._initMaybeCreateLinksTable()
+        self._initMaybeCreateIgnoreTable()
         self._conn.commit()
 
-    def _initCreateTrackTable(self):
+    def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
         c = self._conn.cursor()
         try:
@@ -49,7 +49,7 @@ class Database:
 ##            print "Tracks table found."
         c.close()
 
-    def _initCreateDirectoryTable(self):
+    def _initMaybeCreateDirectoryTable(self):
         self._logger.debug("Looking for directory table.")
         c = self._conn.cursor()
         try:
@@ -63,7 +63,7 @@ class Database:
             self._logger.debug("Directory table found.")
         c.close()
 
-    def _initCreatePlaysTable(self):
+    def _initMaybeCreatePlaysTable(self):
         self._logger.debug("Looking for play table.")
         c = self._conn.cursor()
         try:
@@ -77,7 +77,7 @@ class Database:
             self._logger.debug("Play table found.")
         c.close()
 
-    def _initCreateEnqueuesTable(self):
+    def _initMaybeCreateEnqueuesTable(self):
         self._logger.debug("Looking for enqueue table.")
         c = self._conn.cursor()
         try:
@@ -91,7 +91,7 @@ class Database:
             self._logger.debug("Enqueue table found.")
         c.close()
 
-    def _initCreateScoresTable(self):
+    def _initMaybeCreateScoresTable(self):
         self._logger.debug("Looking for score table.")
         c = self._conn.cursor()
         try:
@@ -105,7 +105,7 @@ class Database:
             self._logger.debug("Score table found.")
         c.close()
 
-    def _initCreateLinksTable(self):
+    def _initMaybeCreateLinksTable(self):
         self._logger.debug("Looking for track link table.")
         c = self._conn.cursor()
         try:
@@ -119,7 +119,7 @@ class Database:
             self._logger.debug("Track link table found.")
         c.close()
 
-    def _initCreateIgnoreTable(self):
+    def _initMaybeCreateIgnoreTable(self):
         self._logger.debug("Looking for ignore table.")
         c = self._conn.cursor()
         try:
@@ -561,9 +561,8 @@ class Database:
             return None
         return details[self.trackNumberIndex]
 
-## FIXME: should be _getIsScored()?
     ## determines whether user has changed score for this track
-    def _isScored(self, track=None, trackID=None):
+    def _getIsScored(self, track=None, trackID=None):
         self._logger.debug("Retrieving track's unscored status.")
         if trackID != None:
             details = self._getTrackDetails(trackID=trackID)
@@ -576,11 +575,11 @@ class Database:
         elif details[self.unscoredIndex] == 0:
             return True
 
-    def isScored(self, track):
-        return self._isScored(track=track)
+    def getIsScored(self, track):
+        return self._getIsScored(track=track)
 
-    def isScoredFromID(self, trackID):
-        return self._isScored(trackID=trackID)
+    def getIsScoredFromID(self, trackID):
+        return self._getIsScored(trackID=trackID)
 
     ## poss should add a record to scores table
     def setUnscored(self, track):
@@ -633,16 +632,16 @@ class Database:
 ##            print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
 
     def getScore(self, track):
-        if self.isScored(track) == False:
+        if self.getIsScored(track) == False:
             return "-"
         return self._getScore(track=track)
 
     def getScoreValue(self, track):
-        if self.isScored(track) == False:
+        if self.getIsScored(track) == False:
             return self._defaultScore
         return self._getScore(track=track)
 
     def getScoreValueFromID(self, trackID):
-        if self.isScoredFromID(trackID) == False:
+        if self.getIsScoredFromID(trackID) == False:
             return self._defaultScore
         return self._getScore(trackID=trackID)
