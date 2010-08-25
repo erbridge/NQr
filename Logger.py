@@ -4,7 +4,7 @@ import logging
 import datetime
 
 class LoggerFactory:
-    def __init__(self, debugMode):
+    def __init__(self, debugMode=False):
         self.debugMode = debugMode
         
         dateString = str(

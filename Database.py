@@ -13,11 +13,12 @@ import os
 import sqlite3
 
 class Database:
-    def __init__(self, trackFactory, loggerFactory, databasePath="database",
-                 defaultScore=10):
+    def __init__(self, trackFactory, loggerFactory, debugMode=False,
+                 databasePath="database", defaultScore=10):
         self._trackFactory = trackFactory
         self._loggerFactory = loggerFactory
         self._logger = self._loggerFactory.getLogger("NQr.Database", "debug")
+        self._debugMode = debugMode
         self._databasePath = databasePath
         self._defaultScore = defaultScore
         self._logger.debug("Opening connection to database at "\
@@ -254,8 +255,8 @@ class Database:
         c = self._conn.cursor()
         firstTrackID = firstTrack.getID()
         secondTrackID = secondTrack.getID()
-        firstTrackPath = self.getPathFromID(firstTrackID)
-        secondTrackPath = self.getPathFromID(secondTrackID)
+        firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
+        secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
 ##        if firstTrackID == None:
 ##            self._logger.debug("\'"+self.getPath(firstTrack)\
 ##                               +"\' is not in the library.")
@@ -281,8 +282,8 @@ class Database:
         c = self._conn.cursor()
         firstTrackID = firstTrack.getID()
         secondTrackID = secondTrack.getID()
-        firstTrackPath = self.getPathFromID(firstTrackID)
-        secondTrackPath = self.getPathFromID(secondTrackID)
+        firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
+        secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
 ##        if firstTrackID == None:
 ##            self._logger.debug("\'"+self.getPath(firstTrack)\
 ##                               +"\' is not in the library.")
@@ -308,7 +309,7 @@ class Database:
         self._logger.debug("Retrieving link IDs.")
         c = self._conn.cursor()
         trackID = track.getID()
-        path = self.getPathFromID(trackID)
+        path = self.getPathFromIDNoDebug(trackID)
 ##        if trackID == None:
 ##            self._logger.debug("\'"+self.getPath(track)\
 ##                               +"\' is not in the library.")
@@ -351,8 +352,8 @@ class Database:
         c = self._conn.cursor()
         firstTrackID = firstTrack.getID()
         secondTrackID = secondTrack.getID()
-        firstTrackPath = self.getPathFromID(firstTrackID)
-        secondTrackPath = self.getPathFromID(secondTrackID)
+        firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
+        secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
 ##        if firstTrackID == None:
 ##            self._logger.debug("\'"+self.getPath(firstTrack)\
 ##                               +"\' is not in the library.")
@@ -388,7 +389,8 @@ class Database:
         self._conn.commit()
 
     def getSecondsSinceLastEnqueuedFromID(self, trackID):
-        self._logger.debug("Calculating time since last enqueued.")
+##        if self._debugMode == True:
+##            self._logger.debug("Calculating time since last enqueued.")
         if trackID == None:
             self._logger.error("No track has been identified.")
             raise NoTrackError
@@ -402,8 +404,9 @@ class Database:
         if result != None:
             return result[0]
         else:
-            self._logger.debug("\'"+self.getPath(trackID)\
-                               +"\'has never been enqueued.")
+##            if self._debugMode == True:
+##                self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
+##                                   +"\' has never been enqueued.")
             return None
 
     def addPlay(self, track):
@@ -448,8 +451,9 @@ class Database:
         if result != None:
             return result
         else:
-            self._logger.debug("\'"+self.getPath(trackID)\
-                               +"\'has never been played.")
+            if self._debugMode == True:
+                self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
+                               +"\' has never been played.")
             return None
 
     def getLastPlayed(self, track):
@@ -474,7 +478,8 @@ class Database:
 ####        return self._getLastPlayed("strftime('%J days, %H hrs, %M mins, %S secs ago', (datetime('now') - datetime))", track=track)
 
     def getSecondsSinceLastPlayedFromID(self, trackID):
-        self._logger.debug("Calculating time since last played.")
+        if self._debugMode == True:
+            self._logger.debug("Calculating time since last played.")
         details = self._getLastPlayed(trackID=trackID)
         if details == None:
             return None
@@ -521,6 +526,13 @@ class Database:
 
     def getPath(self, track):
         self._logger.debug("Retrieving track's path.")
+        return self.getPathNoDebug(track)
+##        details = self._getTrackDetails(track=track)
+##        if details == None:
+##            return None
+##        return details[self.pathIndex]
+
+    def getPathNoDebug(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
@@ -528,6 +540,13 @@ class Database:
 
     def getPathFromID(self, trackID):
         self._logger.debug("Retrieving track's path.")
+        return self.getPathFromIDNoDebug(trackID)
+##        details = self._getTrackDetails(trackID=trackID)
+##        if details == None:
+##            return None
+##        return details[self.pathIndex]
+
+    def getPathFromIDNoDebug(self, trackID):
         details = self._getTrackDetails(trackID=trackID)
         if details == None:
             return None
@@ -563,7 +582,8 @@ class Database:
 
     ## determines whether user has changed score for this track
     def _getIsScored(self, track=None, trackID=None):
-        self._logger.debug("Retrieving track's unscored status.")
+        if self._debugMode == True:
+            self._logger.debug("Retrieving track's unscored status.")
         if trackID != None:
             details = self._getTrackDetails(trackID=trackID)
         else:
