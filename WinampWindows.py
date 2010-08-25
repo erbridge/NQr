@@ -152,7 +152,7 @@ class WinampWindows(MediaPlayer):
 
 ## poss insecure: should always be checked for trackness
 ## gets track at a playlist position
-    def getTrackPathAtPos(self, trackPosition):
+    def getTrackPathAtPos(self, trackPosition, warnings=True):
 ##        trackPosition = self.getCurrentTrackPos()+relativePosition
         self._logger.debug("Retrieving path of track at position "\
                            +str(trackPosition)+".")
@@ -188,7 +188,9 @@ class WinampWindows(MediaPlayer):
         try:
             path = unicode(rawPath)
         except UnicodeDecodeError:
-            self._logger.warning("Found bad characters. Attempting to resolve.")
+            if warnings == True:
+                self._logger.warning(
+                    "Found bad characters. Attempting to resolve.")
             for char in rawPath:
                 try:
                     path += unicode(char)
@@ -200,5 +202,6 @@ class WinampWindows(MediaPlayer):
                     for i in range(startIndex, endIndex):
                         hexStr += errStr[i]
                     path += unichr(int(hexStr, 16))
-            self._logger.warning("Bad characters resolved.")
+            if warnings == True:
+                self._logger.warning("Bad characters resolved.")
         return path

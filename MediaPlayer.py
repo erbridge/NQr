@@ -23,5 +23,5 @@ class MediaPlayer:
 ## FIXME: gets confused if the playlist is empty (in winamp): sets currently
 ##        playing track to first track in the list, but continues to play the
 ##        old track
-    def getCurrentTrackPath(self):
-        return self.getTrackPathAtPos(self.getCurrentTrackPos())
+    def getCurrentTrackPath(self, warnings=True):
+        return self.getTrackPathAtPos(self.getCurrentTrackPos(), warnings)
