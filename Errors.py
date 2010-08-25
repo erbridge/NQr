@@ -1,9 +1,12 @@
 ## Errors
 
-class EmptyDatabaseError(Exception):
+class Error(Exception):
     pass
 
-class NoTrackError(Exception):
+class EmptyDatabaseError(Error):
+    pass
+
+class NoTrackError(Error):
     pass
 ##    def __init__(self):
 ##        return
@@ -11,8 +14,8 @@ class NoTrackError(Exception):
 ##    def __str__(self):
 ##        print "\nNo track has been identified"
 
-class UnknownTrackType(Exception):
+class UnknownTrackType(Error):
     pass
 
-class NoMetadataError(Exception):
+class NoMetadataError(Error):
     pass
