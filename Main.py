@@ -53,8 +53,8 @@ if __name__ == '__main__':
     
     app = wx.App(False)
     logger.debug("Initializing GUI.")
-    frame = GUI.MainWindow(None, db=db, randomizer=randomizer, player=player,
-                           trackFactory=trackFactory, system=system)
+    frame = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
+                           loggerFactory)
     frame.Center()
     logger.info("Initialization complete.")
     logger.info("Starting main loop.")
