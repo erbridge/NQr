@@ -45,7 +45,7 @@ if __name__ == '__main__':
         import iTunesMacOS
         player = iTunesMacOS.iTunesMacOS()
     logger.debug("Initializing track factory.")
-    trackFactory = Track.TrackFactory()
+    trackFactory = Track.TrackFactory(loggerFactory, debugMode=debugMode)
     logger.debug("Initializing database.")
     db = Database.Database(trackFactory, loggerFactory, debugMode=debugMode)
     logger.debug("Initializing randomizer.")

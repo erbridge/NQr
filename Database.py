@@ -16,8 +16,7 @@ class Database:
     def __init__(self, trackFactory, loggerFactory, debugMode=False,
                  databasePath="database", defaultScore=10):
         self._trackFactory = trackFactory
-        self._loggerFactory = loggerFactory
-        self._logger = self._loggerFactory.getLogger("NQr.Database", "debug")
+        self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._debugMode = debugMode
         self._databasePath = databasePath
         self._defaultScore = defaultScore

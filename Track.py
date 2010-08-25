@@ -11,7 +11,10 @@ import os
 ##print mutagen.easyid3.EasyID3.valid_keys.keys()
 
 class TrackFactory:
-    def __init__(self):
+    def __init__(self, loggerFactory, debugMode=False):
+        self._logger = loggerFactory.getLogger("NQr.Track", "debug")
+        self._debugMode = debugMode
+        self._logger.debug("Creating track cache.")
         self._trackCache = {}
 
     def getTrackFromPath(self, db, path):
@@ -23,10 +26,8 @@ class TrackFactory:
         try:
             track = AudioTrack(db, path)
         except UnknownTrackType:
-            print "File is not a supported audio file."
             return None
         except NoMetadataError:
-            print "File has no metadata."
             return None
 ##            track = VideoTrack()
 ##            if track == None:
@@ -54,8 +55,10 @@ class TrackFactory:
 ##            return None
 ##        return track
 
-    def getTrackFromCache(self, trackID):
+    def _getTrackFromCache(self, trackID):
+        self._logger.debug("Retrieveing track from cache.")
         if type(trackID) is not int:
+            self._logger.error(str(trackID)+" is not a valid track ID")
             raise TypeError(str(trackID)+" is not a valid track ID")
         return self._trackCache.get(trackID, None)
 ##        try:
@@ -69,13 +72,15 @@ class TrackFactory:
 ##            return None
 
     def getTrackFromID(self, db, trackID):
-        track = self.getTrackFromCache(trackID)
+        track = self._getTrackFromCache(trackID)
         if track == None:
+            self._logger.debug("Track not in cache.")
             path = db.getPathFromID(trackID)
             track = self.getTrackFromPath(db, path)
         return track
 
     def addTrackToCache(self, track):
+        self._logger.debug("Adding track to cache.")
         self._trackCache[track.getID()] = track
 
 class Track:
@@ -89,29 +94,37 @@ class Track:
 
 ## poss should add to cache?
     def getID(self):
-        if self.id != None:
-            return self.id
-        else:
+        if self.id == None:
             return self.db.getTrackID(self)
+        return self.id
 
     def setID(self, factory, id):
+        self._logger.debug("Setting track's ID to "+str(id)+".")
         self.id = id
         factory.addTrackToCache(self)
 
 class AudioTrack(Track):
     def __init__(self, db, path):
         Track.__init__(self, db, path)
+        path = self.getPath()
         try:
-            self.track = mutagen.File(self.getPath(), easy=True)
+            if self._debugMode == True:
+                self._logger.debug("Creating track from \'"+path+"\'.")
+            self.track = mutagen.File(path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
+            self._logger.error("File has no metadata.")
             raise NoMetadataError
         if self.track is None:
+            self._logger.error("File is not a supported audio file.")
             raise UnknownTrackType
+        if self._debugMode == True:
+            self._logger.debug("Track created.")
         self._initGetAttributes()
 
     ## tags are of the form [u'artistName']
     def _initGetAttributes(self):
 ##        attr = ['artist', 'album', 'title', 'tracknumber']
+        self._logger.debug("Getting basic track details.")
         self.artist = self._getAttribute('artist')
         self.album = self._getAttribute('album')
         self.title = self._getAttribute('title')
