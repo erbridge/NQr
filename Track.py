@@ -24,7 +24,7 @@ class TrackFactory:
 
     def getTrackFromPathNoID(self, db, path):
         try:
-            track = AudioTrack(db, path)
+            track = AudioTrack(db, path, self._logger)
         except UnknownTrackType:
             return None
         except NoMetadataError:
@@ -84,9 +84,10 @@ class TrackFactory:
         self._trackCache[track.getID()] = track
 
 class Track:
-    def __init__(self, db, path):
+    def __init__(self, db, path, logger):
         self.path = os.path.abspath(path)
         self.db = db
+        self._logger = logger
         self.id = None
 
     def getPath(self):
@@ -104,12 +105,11 @@ class Track:
         factory.addTrackToCache(self)
 
 class AudioTrack(Track):
-    def __init__(self, db, path):
-        Track.__init__(self, db, path)
+    def __init__(self, db, path, logger):
+        Track.__init__(self, db, path, logger)
         path = self.getPath()
         try:
-            if self._debugMode == True:
-                self._logger.debug("Creating track from \'"+path+"\'.")
+            self._logger.debug("Creating track from \'"+path+"\'.")
             self.track = mutagen.File(path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
             self._logger.error("File has no metadata.")
@@ -117,8 +117,7 @@ class AudioTrack(Track):
         if self.track is None:
             self._logger.error("File is not a supported audio file.")
             raise UnknownTrackType
-        if self._debugMode == True:
-            self._logger.debug("Track created.")
+        self._logger.debug("Track created.")
         self._initGetAttributes()
 
     ## tags are of the form [u'artistName']
