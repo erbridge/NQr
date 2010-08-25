@@ -12,9 +12,10 @@ import time
 ## tracks with a score >= scoreThreshold get played
 ## by default, -10s are not played
 class Randomizer:
-    def __init__(self, db, trackFactory, scoreThreshold=-9):
+    def __init__(self, db, trackFactory, loggerFactory, scoreThreshold=-9):
         self.db = db
         self.trackFactory = trackFactory
+        self._logger = loggerFactory.getLogger("NQr.Randomizer", "debug")
         self.scoreThreshold = scoreThreshold
 
     def chooseTrack(self):
@@ -22,6 +23,10 @@ class Randomizer:
         return track
 
     def chooseTracks(self, number):
+        if number == 1:
+            self._logger.info("Selecting "+str(number)+" track.")
+        else:
+            self._logger.info("Selecting "+str(number)+" tracks.")
         trackIDs = self.chooseTrackIDs(number)
         tracks = []
         for trackID in trackIDs:
@@ -47,8 +52,10 @@ class Randomizer:
         return trackIDs
 
     def createLists(self):
+        self._logger.debug("Creating weighted list of tracks.")
         rawTrackIDList = self.db.getAllTrackIDs()
         if rawTrackIDList == []:
+            self._logger.error("No tracks in database.")
             raise EmptyDatabaseError
         trackWeightList = []
         totalWeight = 0

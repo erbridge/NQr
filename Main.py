@@ -49,7 +49,7 @@ if __name__ == '__main__':
     logger.debug("Initializing database.")
     db = Database.Database(trackFactory, loggerFactory, debugMode=debugMode)
     logger.debug("Initializing randomizer.")
-    randomizer = Randomizer.Randomizer(db, trackFactory)
+    randomizer = Randomizer.Randomizer(db, trackFactory, loggerFactory)
     
     app = wx.App(False)
     logger.debug("Initializing GUI.")
