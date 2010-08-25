@@ -104,9 +104,9 @@ class AudioTrack(Track):
         try:
             self.track = mutagen.File(self.getPath(), easy=True)
         except mutagen.mp3.HeaderNotFoundError:
-            raise NoMetadataError()
+            raise NoMetadataError
         if self.track is None:
-            raise UnknownTrackType()
+            raise UnknownTrackType
         self._initGetAttributes()
 
     ## tags are of the form [u'artistName']

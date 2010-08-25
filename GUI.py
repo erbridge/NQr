@@ -71,11 +71,17 @@ class TrackChangeThread(Thread):
 ##        path with the event (poss fixed). Also happens if track changes while
 ##        scoring
     def run(self):
-        currentTrack = self.player.getCurrentTrackPath()
+        try:
+            currentTrack = self.player.getCurrentTrackPath()
+        except NoTrackError:
+            currentTrack = None
 ##        changeCount = 3
         while True:
             time.sleep(.5)
-            newTrack = self.player.getCurrentTrackPath()
+            try:
+                newTrack = self.player.getCurrentTrackPath()
+            except NoTrackError:
+                newTrack = None
             if newTrack != currentTrack:
                 currentTrack = newTrack
                 wx.PostEvent(self.window, TrackChangeEvent(self.db,
@@ -522,13 +528,16 @@ class MainWindow(wx.Frame):
         self.trackList.InsertColumn(self.ID_LASTPLAYED, "Last Played",
                                     format=wx.LIST_FORMAT_CENTER, width=120)
 
-        currentTrackPath = self.player.getCurrentTrackPath()
-        currentTrack = self.trackFactory.getTrackFromPath(self.db,
-                                                          currentTrackPath)
-        currentTrackID = currentTrack.getID()
-        if currentTrackID != self.db.getLastPlayedTrackID():
-            self.db.addPlay(currentTrack)
-        self.addTrack(currentTrack)
+        try:
+            currentTrackPath = self.player.getCurrentTrackPath()
+            currentTrack = self.trackFactory.getTrackFromPath(self.db,
+                                                              currentTrackPath)
+            currentTrackID = currentTrack.getID()
+            if currentTrackID != self.db.getLastPlayedTrackID():
+                self.db.addPlay(currentTrack)
+            self.addTrack(currentTrack)
+        except NoTrackError:
+            pass
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.onSelectTrack, self.trackList)
         self.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.onDeselectTrack,

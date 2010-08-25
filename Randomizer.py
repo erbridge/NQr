@@ -34,6 +34,9 @@ class Randomizer:
         (trackWeightList, totalWeight) = self.createLists()
         trackIDs = []
         for n in range(number):
+##            poss should be here so tracks enqueued have times reset each time.
+##            would be much slower though.
+##            (trackWeightList, totalWeight) = self.createLists()
             selector = random.random() * totalWeight
             for [trackID, weight] in trackWeightList:
                 selector -= weight
@@ -50,8 +53,11 @@ class Randomizer:
         trackWeightList = []
         totalWeight = 0
         for (trackID, ) in rawTrackIDList:
+##            FIXME: should take into account tracks being enqueued but never
+##                   played
             timeSincePlayed = self.db.getSecondsSinceLastPlayedFromID(trackID)
-            timeSinceEnqueued = self.db.getSecondsSinceLastEnqueuedFromID(trackID)
+            timeSinceEnqueued = self.db.getSecondsSinceLastEnqueuedFromID(
+                trackID)
             if timeSinceEnqueued < timeSincePlayed:
                 time = timeSinceEnqueued
             else:
