@@ -85,23 +85,23 @@ class TrackFactory:
 
 class Track:
     def __init__(self, db, path, logger):
-        self.path = os.path.abspath(path)
-        self.db = db
+        self._path = os.path.abspath(path)
+        self._db = db
         self._logger = logger
-        self.id = None
+        self._id = None
 
     def getPath(self):
-        return self.path
+        return self._path
 
 ## poss should add to cache?
     def getID(self):
-        if self.id == None:
-            return self.db.getTrackID(self)
-        return self.id
+        if self._id == None:
+            return self._db.getTrackID(self)
+        return self._id
 
     def setID(self, factory, id):
         self._logger.debug("Setting track's ID to "+str(id)+".")
-        self.id = id
+        self._id = id
         factory.addTrackToCache(self)
 
 class AudioTrack(Track):
