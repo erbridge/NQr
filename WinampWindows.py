@@ -200,4 +200,5 @@ class WinampWindows(MediaPlayer):
                     for i in range(startIndex, endIndex):
                         hexStr += errStr[i]
                     path += unichr(int(hexStr, 16))
+            self._logger.warning("Bad characters resolved.")
         return path
