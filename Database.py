@@ -20,6 +20,8 @@ class Database:
         self._logger = self._loggerFactory.getLogger("NQr.Database", "debug")
         self._databasePath = databasePath
         self._defaultScore = defaultScore
+        self._logger.debug("Opening connection to database at "\
+                           +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
         self._initCreateTrackTable()
         self._initCreateDirectoryTable()
@@ -31,6 +33,7 @@ class Database:
         self._conn.commit()
 
     def _initCreateTrackTable(self):
+        self._logger.debug("Looking for track table.")
         c = self._conn.cursor()
         try:
             c.execute("""create table tracks (trackid integer primary key
@@ -38,86 +41,92 @@ class Database:
                                               artist text, album text,
                                               title text, tracknumber text,
                                               unscored integer)""")
-            self._logger.debug("Tracks table created.")
+            self._logger.info("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":
                 raise err
-            self._logger.debug("Tracks table found.")
+            self._logger.debug("Track table found.")
 ##            print "Tracks table found."
         c.close()
 
     def _initCreateDirectoryTable(self):
+        self._logger.debug("Looking for directory table.")
         c = self._conn.cursor()
         try:
             c.execute("""create table directories (directoryid integer primary
                                                    key autoincrement,
                                                    path text)""")
-            self._logger.debug("Directories table created.")
+            self._logger.info("Directory table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table directories already exists":
                 raise err
-            self._logger.debug("Directories table found.")
+            self._logger.debug("Directory table found.")
         c.close()
 
     def _initCreatePlaysTable(self):
+        self._logger.debug("Looking for play table.")
         c = self._conn.cursor()
         try:
             c.execute("""create table plays (playid integer primary key
                                              autoincrement, trackid integer,
                                              datetime text)""")
-            self._logger.debug("Plays table created.")
+            self._logger.info("Play table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table plays already exists":
                 raise err
-            self._logger.debug("Plays table found.")
+            self._logger.debug("Play table found.")
         c.close()
 
     def _initCreateEnqueuesTable(self):
+        self._logger.debug("Looking for enqueue table.")
         c = self._conn.cursor()
         try:
             c.execute("""create table enqueues (enqueueid integer primary key
                                                 autoincrement, trackid integer,
                                                 datetime text)""")
-            self._logger.debug("Enqueues table created.")
+            self._logger.info("Enqueue table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table enqueues already exists":
                 raise err
-            self._logger.debug("Enqueues table found.")
+            self._logger.debug("Enqueue table found.")
         c.close()
 
     def _initCreateScoresTable(self):
+        self._logger.debug("Looking for score table.")
         c = self._conn.cursor()
         try:
             c.execute("""create table scores (scoreid integer primary key
                                               autoincrement, trackid integer,
                                               score integer, datetime text)""")
-            self._logger.debug("Scores table created.")
+            self._logger.info("Score table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table scores already exists":
                 raise err
-            self._logger.debug("Scores table found.")
+            self._logger.debug("Score table found.")
         c.close()
 
     def _initCreateLinksTable(self):
+        self._logger.debug("Looking for track link table.")
         c = self._conn.cursor()
         try:
             c.execute("""create table links (linkid integer primary key
                                              autoincrement, firsttrackid
                                              integer, secondtrackid integer)""")
-            self._logger.debug("Track links table created.")
+            self._logger.info("Track link table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table links already exists":
                 raise err
-            self._logger.debug("Track links table found.")
+            self._logger.debug("Track link table found.")
         c.close()
 
     def _initCreateIgnoreTable(self):
+        self._logger.debug("Looking for ignore table.")
         c = self._conn.cursor()
         try:
             c.execute("""create table ignore (ignoreid integer primary key
                                               autoincrement, trackid
                                               integer)""")
-            self._logger.debug("Ignore table created.")
+            self._logger.info("Ignore table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table ignore already exists":
                 raise err
@@ -128,7 +137,7 @@ class Database:
         self._logger.debug("Adding \'"+path+"\' to the library.")
         track = self._trackFactory.getTrackFromPathNoID(self, path)
         if track == None:
-            print "Invalid file."
+            self._logger.debug("\'"+path+"\' is an invalid file.")
             return None
         c = self._conn.cursor()
         trackID = None
@@ -141,7 +150,7 @@ class Database:
                       (path, track.getArtist(), track.getAlbum(),
                        track.getTitle(), track.getTrackNumber()))
             trackID = c.lastrowid
-            self._logger.debug("\'"+path+"\' has been added to the library.")
+            self._logger.info("\'"+path+"\' has been added to the library.")
         else:
             self._logger.debug("\'"+path+"\' is already in the library.")
         c.close()
@@ -151,6 +160,7 @@ class Database:
 
     ## returns a list of tuples of the form (trackID, )
     def getAllTrackIDs(self):
+        self._logger.debug("Retrieving all track IDs.")
         c = self._conn.cursor()
         c.execute("select trackid from tracks")
         result = c.fetchall()
@@ -158,12 +168,15 @@ class Database:
         return result
 
     def _getTrackID(self, track):
+        path = track.getPath()
+        self._logger.debug("Retrieving track ID for \'"+path+"\'.")
         c = self._conn.cursor()
         c.execute("select trackid from tracks where path = ?",
-                  (track.getPath(), ))
+                  (path, ))
         result = c.fetchone()
         c.close()
         if result == None:
+            self._logger.debug("\'"+path+"\' is not in the library.")
             return None
         else:
             return result[0]
@@ -175,12 +188,13 @@ class Database:
         return trackID
 
     def addDirectory(self, directory):
+        self._logger.debug("Adding \'"+directory+"\' to the watch list.")
         c = self._conn.cursor()
         directoryID = self.getDirectoryID(directory)
         if directoryID == None:
             c.execute("insert into directories (path) values (?)",
                       (directory, ))
-            self._logger.debug("\'"+directory\
+            self._logger.info("\'"+directory\
                                +"\' has been added to the watch list.")
         else:
             self._logger.debug("\'"+directory\
@@ -190,31 +204,35 @@ class Database:
         self.addDirectoryNoWatch(directory)
 
     def getDirectoryID(self, directory):
+        self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
         c = self._conn.cursor()
         c.execute("select directoryid from directories where path = ?",
                   (directory, ))
         result = c.fetchone()
         c.close()
         if result == None:
+            self._logger.debug("\'"+directory+"\' is not in the watch list.")
             return None
         else:
             return result[0]
 
     def addDirectoryNoWatch(self, directory):
+        self._logger.debug("Adding files in \'"+directory+"\' to the library.")
         contents = os.listdir(directory)
         for n in range(0, len(contents)):
-            path = directory+'/'+contents[n] ## poss should use abspath
+            path = os.path.abspath(directory+'/'+contents[n])
             if os.path.isdir(path):
                 self.addDirectoryNoWatch(path)
             else: ## or: elif contents[n][-4:]=='.mp3':
                 self.addTrack(path)
 
     def removeDirectory(self, directory):
+        self._logger.debug("Removing \'"+directory+"\' from the watch list.")
         c = self._conn.cursor()
         directoryID = self.getDirectoryID(directory)
         if directoryID != None:
             c.execute("delete from directories where path = ?", (directory, ))
-            self._logger.debug("\'"+directory\
+            self._logger.info("\'"+directory\
                                +"\' has been removed from the watch list.")
         else:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
@@ -222,6 +240,7 @@ class Database:
         self._conn.commit()
 
     def rescanDirectories(self):
+        self._logger.debug("Rescanning the watch list for new files.")
         c = self._conn.cursor()
         c.execute("select path from directories")
         result = c.fetchall()
@@ -231,44 +250,54 @@ class Database:
 
 ## FIXME: needs to deal with two links using the same first or second track
     def addLink(self, firstTrack, secondTrack):
+        self._logger.debug("Creating track link.")
         c = self._conn.cursor()
         firstTrackID = firstTrack.getID()
         secondTrackID = secondTrack.getID()
-        if firstTrackID == None:
-            self._logger.debug("\'"+self.getPath(firstTrack)\
-                               +"\' is not in the library.")
-            return
-        if secondTrackID == None:
-            self._logger.debug("\'"+self.getPath(secondTrack)\
-                               +"\' is not in the library.")
-            return
+        firstTrackPath = self.getPathFromID(firstTrackID)
+        secondTrackPath = self.getPathFromID(secondTrackID)
+##        if firstTrackID == None:
+##            self._logger.debug("\'"+self.getPath(firstTrack)\
+##                               +"\' is not in the library.")
+##            return
+##        if secondTrackID == None:
+##            self._logger.debug("\'"+self.getPath(secondTrack)\
+##                               +"\' is not in the library.")
+##            return
         linkID = self.getLinkID(firstTrack, secondTrack)
         if linkID == None:
             c.execute("""insert into links (firsttrackid, secondtrackid) values
                       (?, ?)""", (firstTrackID, secondTrackID))
-            self._logger.debug("The link has been added.")
+            self._logger.info("\'"+firstTrackPath+"\' has been linked to \'"\
+                               +secondTrackPath+"\'.")
         else:
-            self._logger.debug("The link already exists.")
+            self._logger.debug("\'"+firstTrackPath+"\' is already linked to \'"\
+                               +secondTrackPath+"\'.")
         c.close()
         self._conn.commit()
 
     def getLinkID(self, firstTrack, secondTrack):
+        self._logger.debug("Retrieving link ID.")
         c = self._conn.cursor()
         firstTrackID = firstTrack.getID()
         secondTrackID = secondTrack.getID()
-        if firstTrackID == None:
-            self._logger.debug("\'"+self.getPath(firstTrack)\
-                               +"\' is not in the library.")
-            return
-        if secondTrackID == None:
-            self._logger.debug("\'"+self.getPath(secondTrack)\
-                               +"\' is not in the library.")
-            return
+        firstTrackPath = self.getPathFromID(firstTrackID)
+        secondTrackPath = self.getPathFromID(secondTrackID)
+##        if firstTrackID == None:
+##            self._logger.debug("\'"+self.getPath(firstTrack)\
+##                               +"\' is not in the library.")
+##            return
+##        if secondTrackID == None:
+##            self._logger.debug("\'"+self.getPath(secondTrack)\
+##                               +"\' is not in the library.")
+##            return
         c.execute("""select linkid from links where firsttrackid = ? and
                   secondtrackid = ?""", (firstTrackID, secondTrackID))
         result = c.fetchone()
         c.close()
         if result == None:
+            self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
+                               +secondTrackPath+"\'.")
             return None
         else:
             return result[0]
@@ -276,12 +305,14 @@ class Database:
     ## if there are two links for a track, returns the link with track as second
     ## track first for queueing ease
     def getLinkIDs(self, track):
+        self._logger.debug("Retrieving link IDs.")
         c = self._conn.cursor()
         trackID = track.getID()
-        if trackID == None:
-            self._logger.debug("\'"+self.getPath(track)\
-                               +"\' is not in the library.")
-            return
+        path = self.getPathFromID(trackID)
+##        if trackID == None:
+##            self._logger.debug("\'"+self.getPath(track)\
+##                               +"\' is not in the library.")
+##            return
         c.execute("select linkid from links where secondtrackid = ?",
                   (trackID, ))
         firstResult = c.fetchone()
@@ -291,6 +322,8 @@ class Database:
         c.close()
         if firstResult == None:
             if secondResult == None:
+                self._logger.debug("\'"+path\
+                                   +"\' is not linked to another track.")
                 return None
             else:
                 return secondResult[0]
@@ -301,51 +334,61 @@ class Database:
                 return firstResult[0], secondResult[0]
 
     def getLinkedTrackIDs(self, linkID):
+        self._logger.debug("Retrieving track IDs for linked tracks.")
         c = self._conn.cursor()
         c.execute("""select firsttrackid, secondtrackid from links where
                   linkid = ?""", (linkID, ))
         result = c.fetchone()
         c.close()
         if result == None:
+            self._logger.debug("No such link exists.")
             return None
         else:
             return result
 
     def removeLink(self, firstTrack, secondTrack):
+        self._logger.debug("Removing link.")
         c = self._conn.cursor()
         firstTrackID = firstTrack.getID()
         secondTrackID = secondTrack.getID()
-        if firstTrackID == None:
-            self._logger.debug("\'"+self.getPath(firstTrack)\
-                               +"\' is not in the library.")
-            return
-        if secondTrackID == None:
-            self._logger.debug("\'"+self.getPath(secondTrack)\
-                               +"\' is not in the library.")
-            return
+        firstTrackPath = self.getPathFromID(firstTrackID)
+        secondTrackPath = self.getPathFromID(secondTrackID)
+##        if firstTrackID == None:
+##            self._logger.debug("\'"+self.getPath(firstTrack)\
+##                               +"\' is not in the library.")
+##            return
+##        if secondTrackID == None:
+##            self._logger.debug("\'"+self.getPath(secondTrack)\
+##                               +"\' is not in the library.")
+##            return
         linkID = self.getLinkID(firstTrack, secondTrack)
         if linkID != None:
             c.execute("""delete from links where firsttrackid = ? and
                       secondtrackid = ?""", (firstTrackID, secondTrackID))
-            self._logger.debug("The link has been removed.")
+            self._logger.info("\'"+firstTrackPath\
+                              +"\' is no longer linked to \'"+secondTrackPath\
+                              +"\'.")
         else:
-            self._logger.debug("The link does not exist.")
+            self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
+                               +secondTrackPath+"\'.")
         c.close()
         self._conn.commit()
 
     def addEnqueue(self, track):
+        self._logger.debug("Adding enqueue.")
         c = self._conn.cursor()
         trackID = track.getID()
-        if trackID == None:
-            self._logger.debug("\'"+self.getPath(track)\
-                               +"\' is not in the library.")
-            return
+##        if trackID == None:
+##            self._logger.debug("\'"+self.getPath(track)\
+##                               +"\' is not in the library.")
+##            return
         c.execute("""insert into enqueues (trackid, datetime) values
                   (?, datetime('now'))""", (trackID, ))
         c.close()
         self._conn.commit()
 
     def getSecondsSinceLastEnqueuedFromID(self, trackID):
+        self._logger.debug("Calculating time since last enqueued.")
         if trackID == None:
             self._logger.error("No track has been identified.")
             raise NoTrackError
@@ -359,15 +402,18 @@ class Database:
         if result != None:
             return result[0]
         else:
+            self._logger.debug("\'"+self.getPath(trackID)\
+                               +"\'has never been enqueued.")
             return None
 
     def addPlay(self, track):
+        self._logger.debug("Adding play.")
         c = self._conn.cursor()
         trackID = track.getID()
-        if trackID == None:
-            self._logger.debug("\'"+self.getPath(track)\
-                               +"\' is not in the library.")
-            return
+##        if trackID == None:
+##            self._logger.debug("\'"+self.getPath(track)\
+##                               +"\' is not in the library.")
+##            return
         c.execute("""insert into plays (trackid, datetime) values
                   (?, datetime('now'))""", (trackID, ))
         c.close()
@@ -382,7 +428,7 @@ class Database:
             return result[0]
         else:
             self._logger.error("No plays recorded.")
-            raise EmptyDatabseError
+            raise EmptyDatabaseError
 
     def _getLastPlayed(self, track=None, trackID=None):
         (self.basicLastPlayedIndex, self.localLastPlayedIndex,
@@ -402,9 +448,12 @@ class Database:
         if result != None:
             return result
         else:
+            self._logger.debug("\'"+self.getPath(trackID)\
+                               +"\'has never been played.")
             return None
 
     def getLastPlayed(self, track):
+        self._logger.debug("Retrieving time of last play.")
         details = self._getLastPlayed(track=track)
         if details == None:
             return None
@@ -412,6 +461,7 @@ class Database:
 ##        return self._getLastPlayed("datetime", track=track)
 
     def getLastPlayedLocalTime(self, track):
+        self._logger.debug("Retrieving time of last play in localtime.")
         details = self._getLastPlayed(track=track)
         if details == None:
             return None
@@ -424,6 +474,7 @@ class Database:
 ####        return self._getLastPlayed("strftime('%J days, %H hrs, %M mins, %S secs ago', (datetime('now') - datetime))", track=track)
 
     def getSecondsSinceLastPlayedFromID(self, trackID):
+        self._logger.debug("Calculating time since last played.")
         details = self._getLastPlayed(trackID=trackID)
         if details == None:
             return None
@@ -432,6 +483,7 @@ class Database:
 ##            "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
 
     def getPlayCount(self, track=None, trackID=None):
+        self._logger.debug("Retrieving play count.")
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
@@ -462,42 +514,48 @@ class Database:
                   from tracks where trackid = ?""", (trackID, ))
         result = c.fetchone()
         c.close()
-        if result != None:
-            return result
-        else:
-            return None
+##        if result != None:
+        return result
+##        else:
+##            return None
 
     def getPath(self, track):
+        self._logger.debug("Retrieving track's path.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
         return details[self.pathIndex]
 
     def getPathFromID(self, trackID):
+        self._logger.debug("Retrieving track's path.")
         details = self._getTrackDetails(trackID=trackID)
         if details == None:
             return None
         return details[self.pathIndex]
 
     def getArtist(self, track):
+        self._logger.debug("Retrieving track's artist.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
         return details[self.artistIndex]
 
     def getAlbum(self, track):
+        self._logger.debug("Retrieving track's album.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
         return details[self.albumIndex]
 
     def getTitle(self, track):
+        self._logger.debug("Retrieving track's title.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
         return details[self.titleIndex]
 
     def getTrackNumber(self, track):
+        self._logger.debug("Retrieving track's number.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
@@ -506,6 +564,7 @@ class Database:
 ## FIXME: should be _getIsScored()?
     ## determines whether user has changed score for this track
     def _isScored(self, track=None, trackID=None):
+        self._logger.debug("Retrieving track's unscored status.")
         if trackID != None:
             details = self._getTrackDetails(trackID=trackID)
         else:
@@ -525,28 +584,29 @@ class Database:
 
     ## poss should add a record to scores table
     def setUnscored(self, track):
+        self._logger.debug("Setting track as unscored.")
         c = self._conn.cursor()
         trackID = track.getID()
-        if trackID == None:
-            self._logger.debug("\'"+self.getPath(track)\
-                               +"\' is not in the library.")
-        else:
+##        if trackID == None:
+##            self._logger.debug("\'"+self.getPath(track)\
+##                               +"\' is not in the library.")
 ##            c.execute("""insert into scores (trackid, score, datetime) values
 ##                      (?, ?, datetime('now'))""", (trackID,
 ##                                                   self._defaultScore, ))
-            c.execute("""update tracks set unscored = 1 where
-                      trackid = ?""", (trackID, ))
+        c.execute("""update tracks set unscored = 1 where trackid = ?""",
+                  (trackID, ))
         c.close()
         self._conn.commit()
 
     ## poss add track if track not in library
     def setScore(self, track, score):
+        self._logger.debug("Setting track's score.")
         c = self._conn.cursor()
         trackID = track.getID()
-        if trackID == None:
-            self._logger.debug("\'"+self.getPath(track)\
-                               +"\' is not in the library.")
-            return
+##        if trackID == None:
+##            self._logger.debug("\'"+self.getPath(track)\
+##                               +"\' is not in the library.")
+##            return
         c.execute("update tracks set unscored = 0 where trackid = ?",
                   (trackID, ))
         c.execute("""insert into scores (trackid, score, datetime) values
@@ -555,6 +615,7 @@ class Database:
         self._conn.commit()
 
     def _getScore(self, track=None, trackID=None):
+        self._logger.debug("Retrieving track's score.")
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
