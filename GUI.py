@@ -55,14 +55,15 @@ class TrackChangeEvent(wx.PyEvent):
 ##        self.SetEventType(ID_EVT_TRACK_QUEUE)
 
 ## must be aborted before closing!
-class TrackChangeThread(Thread):
-    def __init__(self, window, db, player, trackFactory):
+class TrackMonitor(Thread):
+    def __init__(self, window, db, player, trackFactory, loggerFactory):
         Thread.__init__(self)
 ##        self.setDaemon(True)
         self._window = window
         self._db = db
         self._player = player
         self._trackFactory = trackFactory
+        self._logger = loggerFactory.getLogger("NQr.TrackMonitor", "debug")
         self._abortFlag = False
         self.start()
 
@@ -169,9 +170,10 @@ class MainWindow(wx.Frame):
         self._rescanOnStartup = rescanOnStartup
         self._defaultPlaylistLength = defaultPlaylistLength
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
-        self._trackChangeThread = TrackChangeThread(self, self._db, self._player,
-                                                   self._trackFactory)
-##        self._trackChangeThread = None
+        self._trackMonitor = TrackMonitor(self, self._db, self._player,
+                                          self._trackFactory,
+                                          self._loggerFactory)
+##        self._trackMonitor = None
         self._index = None
 
         wx.Frame.__init__(self, parent, title=title)
@@ -774,8 +776,8 @@ class MainWindow(wx.Frame):
         self.Close(True)
 
     def _onClose(self, e):
-        if self._trackChangeThread:
-            self._trackChangeThread.abort()
+        if self._trackMonitor:
+            self._trackMonitor.abort()
         self.Destroy()
 
     def _onLaunchPlayer(self, e):
