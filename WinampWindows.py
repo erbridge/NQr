@@ -152,10 +152,11 @@ class WinampWindows(MediaPlayer):
 
 ## poss insecure: should always be checked for trackness
 ## gets track at a playlist position
-    def getTrackPathAtPos(self, trackPosition, warnings=True):
+    def getTrackPathAtPos(self, trackPosition, logging=True):
 ##        trackPosition = self.getCurrentTrackPos()+relativePosition
-        self._logger.debug("Retrieving path of track at position "\
-                           +str(trackPosition)+".")
+        if logging == True:
+            self._logger.debug("Retrieving path of track at position "\
+                               +str(trackPosition)+".")
         winampWindow = self._winamp.hwnd
         memoryPointer = self._winamp.doIpcCommand(IPC_GETPLAYLISTFILE,
                                                   trackPosition)
@@ -164,12 +165,14 @@ class WinampWindows(MediaPlayer):
         winampProcess = win32api.OpenProcess(win32con.PROCESS_VM_READ, False,
                                              processID)
         memoryBuffer = ctypes.create_string_buffer(256)
-        self._logger.debug("Reading Winamp's memory.")
+        if logging == True:
+            self._logger.debug("Reading Winamp's memory.")
         ctypes.windll.kernel32.ReadProcessMemory(winampProcess.handle,
                                                  memoryPointer, memoryBuffer,
                                                  256, 0)
         winampProcess.Close()
-        self._logger.debug("Retrieving path from memory buffer.")
+        if logging == True:
+            self._logger.debug("Retrieving path from memory buffer.")
         hexlist = []
         for n in range(256):
             hexlist.append(hex(n))
@@ -183,12 +186,13 @@ class WinampWindows(MediaPlayer):
                 raise err
             self._logger.error("Playlist is empty.")
             raise NoTrackError
-        self._logger.debug("Converting path into unicode.")
+        if logging == True:
+            self._logger.debug("Converting path into unicode.")
         path = u""
         try:
             path = unicode(rawPath)
         except UnicodeDecodeError:
-            if warnings == True:
+            if logging == True:
                 self._logger.warning(
                     "Found bad characters. Attempting to resolve.")
             for char in rawPath:
@@ -202,6 +206,6 @@ class WinampWindows(MediaPlayer):
                     for i in range(startIndex, endIndex):
                         hexStr += errStr[i]
                     path += unichr(int(hexStr, 16))
-            if warnings == True:
+            if logging == True:
                 self._logger.warning("Bad characters resolved.")
         return path
