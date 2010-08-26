@@ -16,7 +16,7 @@ class LoggerFactory:
         errorLogFilename = "logs/error_"+dateString+".log"
 
         formatter = logging.Formatter(
-            "%(asctime)s   %(name)-15s %(levelname)-8s %(message)s",
+            "%(asctime)s   %(name)-17s %(levelname)-8s %(message)s",
             "%Y-%m-%d %H:%M:%S")
 
         commandLineHandler = logging.StreamHandler()

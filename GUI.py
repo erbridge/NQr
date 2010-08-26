@@ -54,11 +54,11 @@ class TrackChangeEvent(wx.PyEvent):
 ##        wx.PyEvent.__init__(self)
 ##        self.SetEventType(ID_EVT_TRACK_QUEUE)
 
-## must be aborted before closing!
+## must be aborted when closing!
 class TrackMonitor(Thread):
     def __init__(self, window, db, player, trackFactory, loggerFactory):
         Thread.__init__(self)
-##        self.setDaemon(True)
+        self.setDaemon(True)
         self._window = window
         self._db = db
         self._player = player
@@ -86,6 +86,7 @@ class TrackMonitor(Thread):
             except NoTrackError:
                 newTrack = None
             if newTrack != currentTrack:
+                self._logger.debug("Track has changed.")
                 currentTrack = newTrack
                 wx.PostEvent(self._window, TrackChangeEvent(self._db,
                                                            self._trackFactory,
@@ -96,6 +97,7 @@ class TrackMonitor(Thread):
 ##                wx.PostEvent(self._window, TrackQueueEvent())
 ##                changeCount = 0
             if self._abortFlag == True:
+                self._logger.info("Stopping track monitor.")
                 return
 
     def abort(self):
@@ -170,13 +172,11 @@ class MainWindow(wx.Frame):
         self._rescanOnStartup = rescanOnStartup
         self._defaultPlaylistLength = defaultPlaylistLength
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
-        self._trackMonitor = TrackMonitor(self, self._db, self._player,
-                                          self._trackFactory,
-                                          self._loggerFactory)
 ##        self._trackMonitor = None
         self._index = None
 
         wx.Frame.__init__(self, parent, title=title)
+        self._logger.debug("Creating status bar.")
         self.CreateStatusBar()
         self._initCreateMenuBar()
         self._initCreateTrackRightClickMenu()
@@ -196,7 +196,12 @@ class MainWindow(wx.Frame):
         if self._rescanOnStartup == True:
             self._onRescan()
 
+        self._logger.debug("Drawing main window.")
         self.Show(True)
+        
+        self._logger.info("Starting track monitor.")
+        self._trackMonitor = TrackMonitor(self, self._db, self._player,
+                                          self._trackFactory, loggerFactory)
 
 ## FIXME: should be _initCreateMenuBar()?
     def _initCreateMenuBar(self):
