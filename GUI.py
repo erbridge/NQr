@@ -72,26 +72,26 @@ class TrackMonitor(Thread):
 ##        path with the event (poss fixed). Also happens if track changes while
 ##        scoring
     def run(self):
-        warnings = True
+        logging = True
         try:
-            currentTrack = self._player.getCurrentTrackPath(warnings=warnings)
+            currentTrack = self._player.getCurrentTrackPath(logging=logging)
         except NoTrackError:
             currentTrack = None
 ##        changeCount = 3
         while True:
             time.sleep(.5)
             try:
-                newTrack = self._player.getCurrentTrackPath(warnings=warnings)
-                warnings = False
+                newTrack = self._player.getCurrentTrackPath(logging=logging)
+                logging = False
             except NoTrackError:
                 newTrack = None
             if newTrack != currentTrack:
                 self._logger.debug("Track has changed.")
                 currentTrack = newTrack
                 wx.PostEvent(self._window, TrackChangeEvent(self._db,
-                                                           self._trackFactory,
-                                                           currentTrack))
-                warnings = True
+                                                            self._trackFactory,
+                                                            currentTrack))
+                logging = True
 ##                changeCount += 1
 ##            if changeCount == 3:
 ##                wx.PostEvent(self._window, TrackQueueEvent())
@@ -203,8 +203,8 @@ class MainWindow(wx.Frame):
         self._trackMonitor = TrackMonitor(self, self._db, self._player,
                                           self._trackFactory, loggerFactory)
 
-## FIXME: should be _initCreateMenuBar()?
     def _initCreateMenuBar(self):
+        self._logger.debug("Creating menu bar.")
         self._initCreateFileMenu()
         self._initCreateRateMenu()
         self._initCreatePlayerMenu()
@@ -218,6 +218,7 @@ class MainWindow(wx.Frame):
         self.SetMenuBar(menuBar)
 
     def _initCreateFileMenu(self):
+        self._logger.debug("Creating file menu.")
         self._fileMenu = wx.Menu()
         menuAbout = self._fileMenu.Append(
             wx.ID_ABOUT, "&About NQr", " Information about NQr")
@@ -255,6 +256,7 @@ class MainWindow(wx.Frame):
 
 ## could be better with a for loop?
     def _initCreateRateMenu(self):
+        self._logger.debug("Creating rate menu.")
         self._rateMenu = wx.Menu()
         menuRatePos10 = self._rateMenu.Append(
             -1, "Rate as 10", " Set the score of the selected track to 10")
@@ -395,6 +397,7 @@ class MainWindow(wx.Frame):
 
     ## TODO: change up in "Rate Up" to an arrow
     def _initCreatePlayerMenu(self):
+        self._logger.debug("Creating player menu.")
         self._playerMenu = wx.Menu()
         menuPlay = self._playerMenu.Append(-1, "&Play",
                                           " Play or restart the current track")
@@ -437,6 +440,7 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onExitPlayer, menuExitPlayer)
 
     def _initCreateOptionsMenu(self):
+        self._logger.debug("Creating options menu.")
         self._optionsMenu = wx.Menu()
         menuPrefs = self._optionsMenu.Append(self._ID_PREFS, "&Preferences...",
                                             " Change NQr's settings")
@@ -447,11 +451,12 @@ class MainWindow(wx.Frame):
             self._ID_TOGGLENQR, "En&queue with NQr",
             " Use NQr to enqueue tracks")
 
-##        self.Bind(wx.EVT_MENU, self._onPrefs, menuPrefs)
+        self.Bind(wx.EVT_MENU, self._onPrefs, menuPrefs)
         self.Bind(wx.EVT_MENU, self._onRescan, menuRescan)
         self.Bind(wx.EVT_MENU, self._onToggleNQr, self.menuToggleNQr)
 
     def _initCreateTrackRightClickMenu(self):
+        self._logger.debug("Creating track right click menu.")
         self._trackRightClickMenu = wx.Menu()
         menuTrackRightClickRateUp = self._trackRightClickMenu.Append(
             -1, "Rate &Up", " Increase the score of the current track by one")
@@ -489,6 +494,7 @@ class MainWindow(wx.Frame):
 ## TODO: use svg or gd to create button images via wx.Bitmap and wx.BitmapButton
 ## TODO: add requeue button and "play this" button to play selected track
     def _initCreatePlayerControls(self):
+        self._logger.debug("Creating player controls.")
         self._playerControls = wx.Panel(self)
         previousButton = wx.Button(self._playerControls, wx.ID_ANY, "Prev")
         playButton = wx.Button(self._playerControls, wx.ID_ANY, "Play")
@@ -512,11 +518,13 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self._onNext, nextButton)
 
     def _initCreateDetails(self):
+        self._logger.debug("Creating details panel.")
         self._details = wx.TextCtrl(self, self._ID_DETAILS,
                                    style=wx.TE_READONLY|wx.TE_MULTILINE|
                                    wx.TE_DONTWRAP, size=(-1,140))
 
     def _initCreateTrackSizer(self):
+        self._logger.debug("Creating track panel.")
         self._initCreateTrackList()
         self._initCreateScoreSlider()
 
@@ -526,6 +534,7 @@ class MainWindow(wx.Frame):
 
     ## first column for displaying "Now Playing" or a "+"
     def _initCreateTrackList(self):
+        self._logger.debug("Creating track playlist.")
         self._trackList = wx.ListCtrl(self, self._ID_TRACKLIST,
                                      style=wx.LC_REPORT|wx.LC_VRULES,
                                      size=(476,-1))
@@ -541,11 +550,13 @@ class MainWindow(wx.Frame):
                                     format=wx.LIST_FORMAT_CENTER, width=120)
 
         try:
+            self._logger.debug("Adding current track to track playlist.")
             currentTrackPath = self._player.getCurrentTrackPath()
             currentTrack = self._trackFactory.getTrackFromPath(self._db,
                                                               currentTrackPath)
             currentTrackID = currentTrack.getID()
             if currentTrackID != self._db.getLastPlayedTrackID():
+                self._logger.debug("Adding play for current track.")
                 self._db.addPlay(currentTrack)
             self.addTrack(currentTrack)
         except NoTrackError:
@@ -559,6 +570,7 @@ class MainWindow(wx.Frame):
                   self._trackList)
 
     def _initCreateScoreSlider(self):
+        self._logger.debug("Creating score slider.")
         if self._system == 'FreeBSD':
             self._scoreSlider = wx.Slider(self, self._ID_SCORESLIDER, 0, -10,
                                           10, style=wx.SL_VERTICAL|wx.SL_LABELS|
@@ -574,6 +586,7 @@ class MainWindow(wx.Frame):
                   self._scoreSlider)
 
     def _onTrackRightClick(self, e):
+        self._logger.debug("Popping up track right click menu.")
         point = e.GetPoint()
 ##        self._initCreateRateMenu()
 ##        trackRightClickMenu = wx.Menu()
@@ -599,13 +612,19 @@ class MainWindow(wx.Frame):
 ##        trackRightClickMenu.Destroy()
 
     def _onAbout(self, e):
+        self._logger.debug("Opening about dialog.")
         dialog = wx.MessageDialog(self, "For all your NQing needs", "NQr",
                                   wx.OK)
         dialog.ShowModal()
         dialog.Destroy()
 
+    def _onPrefs(self, e):
+        self._logger.debug("Opening preferences window.")
+        pass
+
 ## TODO: change buttons to say "import" rather than "open"/"choose"
     def _onAddFile(self, e):
+        self._logger.debug("Opening add file dialog.")
         defaultDirectory = ''
         dialog = wx.FileDialog(
             self, "Choose a file", defaultDirectory, "",
@@ -619,6 +638,7 @@ class MainWindow(wx.Frame):
         dialog.Destroy()
 
     def _onAddDirectory(self, e):
+        self._logger.debug("Opening add directory dialog.")
         defaultDirectory = ''
         if self._system == 'FreeBSD':
             dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory)
@@ -631,6 +651,7 @@ class MainWindow(wx.Frame):
         dialog.Destroy()
 
     def _onAddDirectoryOnce(self, e):
+        self._logger.debug("Opening add directory once dialog.")
         defaultDirectory = ''
         if self._system == 'FreeBSD':
             dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory)
@@ -643,6 +664,7 @@ class MainWindow(wx.Frame):
         dialog.Destroy()
 
     def _onRemoveDirectory(self, e):
+        self._logger.debug("Opening remove directory dialog.")
         defaultDirectory = ''
         if self._system == 'FreeBSD':
             dialog = wx.DirDialog(self, "Choose a directory to remove",
@@ -656,9 +678,12 @@ class MainWindow(wx.Frame):
         dialog.Destroy()
 
     def _onRescan(self, e=None):
+        self._logger.debug("Rescanning watch list for new files.")
         self._db.rescanDirectories()
 
     def _onLinkTracks(self, e):
+        self._logger.debug("Opening add link dialogs.")
+        self._logger.debug("Opening first file dialog.")
         defaultDirectory = ''
         firstDialog = wx.FileDialog(
             self, "Choose the first file", defaultDirectory, "",
@@ -669,6 +694,7 @@ class MainWindow(wx.Frame):
             firstPath = firstDialog.GetPath()
             firstTrack = self._trackFactory.getTrackFromPath(
                 self._db, os.path.abspath(firstPath))
+            self._logger.debug("Opening second file dialog.")
             directory = os.path.dirname(firstPath)
             secondDialog = wx.FileDialog(
                 self, "Choose the second file", directory, "",
@@ -684,6 +710,8 @@ class MainWindow(wx.Frame):
         firstDialog.Destroy()
 
     def _onRemoveLink(self, e):
+        self._logger.debug("Opening remove link dialog.")
+        self._logger.debug("Opening first file dialog.")
         defaultDirectory = ''
         firstDialog = wx.FileDialog(
             self, "Choose the first file", defaultDirectory, "",
@@ -694,6 +722,7 @@ class MainWindow(wx.Frame):
             firstPath = firstDialog.GetPath()
             firstTrack = self._trackFactory.getTrackFromPath(
                 self._db, os.path.abspath(firstPath))
+            self._logger.debug("Opening second file dialog.")
             directory = os.path.dirname(firstPath)
             secondDialog = wx.FileDialog(
                 self, "Choose the second file", directory, "",
@@ -713,71 +742,79 @@ class MainWindow(wx.Frame):
 
     def _onScoreSliderMove(self, e):
         try:
+            self._logger.debug("Score slider has been moved."\
+                               +" Retrieving new score.")
             score = self._scoreSlider.GetValue()
             self._db.setScore(self._track, score)
             self.refreshSelectedTrack()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
-            print "No track selected."
+            self._logger.error("No track selected.")
             return
 
     def setScoreSliderPosition(self, score):
+        self._logger.debug("Setting score slider to "+str(score)+".")
         self._scoreSlider.SetValue(score)
 
     def _onRateUp(self, e):
         try:
+            self._logger.debug("Increasing track's score by 1.")
             score = self._db.getScoreValue(self._track)
             if score != 10:
                 self._db.setScore(self._track, score+1)
                 self.refreshSelectedTrack()
             else:
-                print "The track already has the maximum score!"
+                self._logger.warning("Track already has maximum score.")
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
-            print "No track selected."
+            self._logger.error("No track selected.")
             return
 
     def _onRateDown(self, e):
         try:
+            self._logger.debug("Decreasing track's score by 1.")
             score = self._db.getScoreValue(self._track)
             if score != -10:
                 self._db.setScore(self._track, score-1)
                 self.refreshSelectedTrack()
             else:
-                print "The track already has the minimum score!"
+                self._logger.warning("Track already has minimum score.")
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
-            print "No track selected."
+            self._logger.error("No track selected.")
             return
 
     def _onRate(self, e, score):
         try:
+            self._logger.debug("Setting the track's score to "+str(score)+".")
             oldScore = self._db.getScoreValue(self._track)
             if score != oldScore:
                 self._db.setScore(self._track, score)
                 self.refreshSelectedTrack()
             else:
-                print "The track already has that score!"
+                self._logger.warning("Track already has that score!")
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
-            print "No track selected."
+            self._logger.error("No track selected.")
             return
 
     def _onResetScore(self, e):
         try:
+            self._logger.info("Resetting track's score.")
             self._db.setUnscored(self._track)
             self.refreshSelectedTrack()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
-            print "No track selected."
+            self._logger.error("No track selected.")
             return
 
     def _onExit(self, e):
+        self._logger.debug("Exiting NQr.")
         self.Close(True)
 
     def _onClose(self, e):
@@ -808,29 +845,33 @@ class MainWindow(wx.Frame):
 
     def _onRequeue(self, e):
         try:
+            self._logger.info("Requeueing track.")
             self._player.addTrack(self._track.getPath())
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute 'track'":
                 raise err
-            print "No track selected."
+            self._logger.error("No track selected.")
             return
 
 ## FIXME: toggle should be turned off when NQr is closed
     def _onToggleNQr(self, e=None):
+        self._logger.debug("Toggling NQr.")
         if self.menuToggleNQr.IsChecked() == False:
             self.toggleNQr = False
+            self._logger.info("Restoring shuffle status.")
             self._player.setShuffle(self._oldShuffleStatus)
             if self._oldPlaylist != None and self._restorePlaylist == True:
                 self._player.loadPlaylist(self._oldPlaylist)
-            print "Enqueueing turned off."
+            self._logger.info("Enqueueing turned off.")
         elif self.menuToggleNQr.IsChecked() == True:
             self.toggleNQr = True
+            self._logger.info("Storing shuffle status.")
             self._oldShuffleStatus = self._player.getShuffle()
             self._player.setShuffle(False)
             ## poss shouldn't restore the playlist ever?
             if self._restorePlaylist == True:
                 self._oldPlaylist = self._player.savePlaylist()
-            print "Enqueueing turned on."
+            self._logger.info("Enqueueing turned on.")
             self.maintainPlaylist()
 
     def _onTrackChange(self, e):
@@ -841,6 +882,7 @@ class MainWindow(wx.Frame):
 
     def maintainPlaylist(self):
         if self.toggleNQr == True:
+            self._logger.debug("Maintaining playlist.")
             trackPosition = self._player.getCurrentTrackPos()
             if trackPosition > self._defaultTrackPosition:
                 self._player.cropPlaylist(
@@ -851,6 +893,8 @@ class MainWindow(wx.Frame):
                     self._defaultPlaylistLength - playlistLength)
 
     def _onSelectTrack(self, e):
+        self._logger.debug("Track has been selected.")
+        self._logger.debug("Retrieving selected track's information.")
         self._trackID = e.GetData()
         self._index = e.GetIndex()
         self._track = self._trackFactory.getTrackFromID(self._db, self._trackID)
@@ -858,6 +902,7 @@ class MainWindow(wx.Frame):
         self.setScoreSliderPosition(self._db.getScoreValue(self._track))
 
     def _onDeselectTrack(self, e):
+        self._logger.debug("Track has been deselected.")
         self.clearDetails()
 ##        path = currentTrack()
 ##        self.populateDetails(path)
@@ -871,6 +916,7 @@ class MainWindow(wx.Frame):
         self.addTrackAtPos(track, 0)
 
     def addTrackAtPos(self, track, index):
+        self._logger.debug("Adding track to track playlist.")
 ##        if IsCurrentTrack()==False:
         isScored = self._db.getIsScored(track)
         if isScored == False:
@@ -893,15 +939,22 @@ class MainWindow(wx.Frame):
             self._index += 1
 
     def enqueueTrack(self, track):
-        self._player.addTrack(track.getPath())
+        path = track.getPath()
+        self._logger.debug("Enqueueing \'"+path+"\'.")
+        self._player.addTrack(path)
         self._db.addEnqueue(track)
 
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing        
     def enqueueRandomTracks(self, number):
         try:
+            if number == 1:
+                self._logger.info("Enqueueing "+str(number)+" random track.")
+            else:
+                self._logger.info("Enqueueing "+str(number)+" random tracks.")
             tracks = self._randomizer.chooseTracks(number)
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
+            self._logger.debug("Checking tracks for links.")
             for track in tracks:
 ##                self.enqueueTrack(track)
                 linkIDs = self._db.getLinkIDs(track)
@@ -969,22 +1022,25 @@ class MainWindow(wx.Frame):
 ##                                                                      thirdTrackID)
 ##                        self.enqueueTrack(thirdTrack)
         except EmptyDatabaseError:
-            print "The database is empty."
+            self._logging.error("The database is empty.")
             return
 
     def refreshSelectedTrack(self):
+        self._logger.debug("Refreshing selected track.")
         index = self._index
         self._trackList.DeleteItem(index)
         self.addTrackAtPos(self._track, index)
         self.selectTrack(index)
 
     def selectTrack(self, index):
+        self._logger.debug("Selecting track in position "+str(index)+".")
         self._trackList.SetItemState(index, wx.LIST_STATE_SELECTED, -1)
 
 ## the first populateDetails seems to produce a larger font than subsequent
 ## calls in Mac OS
 ## TODO: should focus on the top of the details
     def populateDetails(self, track):
+        self._logger.debug("Populating details panel.")
         lastPlayed = self._db.getLastPlayedLocalTime(track)
         ## should be time from last play?
         if lastPlayed == None:
@@ -1003,4 +1059,5 @@ class MainWindow(wx.Frame):
         self._details.AppendText(detail+"\n")
 
     def clearDetails(self):
+        self._logger.debug("Clearing details panel.")
         self._details.Clear()
