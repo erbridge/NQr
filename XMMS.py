@@ -37,3 +37,6 @@ class XMMS(MediaPlayer):
     def pause(self):
         xmms.control.pause()
         
+    def nextTrack(self):
+        xmms.control.playlist_next()
+        
