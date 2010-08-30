@@ -12,35 +12,63 @@ import time
 ## tracks with a score >= scoreThreshold get played
 ## by default, -10s are not played
 class Randomizer:
-    def __init__(self, db, trackFactory, scoreThreshold=-9):
+    def __init__(self, db, trackFactory, loggerFactory, scoreThreshold=-9):
         self.db = db
         self.trackFactory = trackFactory
+        self._logger = loggerFactory.getLogger("NQr.Randomizer", "debug")
         self.scoreThreshold = scoreThreshold
 
     def chooseTrack(self):
-        trackID = self.chooseTrackID()
-        track = self.trackFactory.getTrackFromID(self.db, trackID)
+        track = self.chooseTracks(1)[0]
         return track
 
+    def chooseTracks(self, number):
+        if number == 1:
+            self._logger.info("Selecting "+str(number)+" track.")
+        else:
+            self._logger.info("Selecting "+str(number)+" tracks.")
+        trackIDs = self.chooseTrackIDs(number)
+        tracks = []
+        for trackID in trackIDs:
+            tracks.append(self.trackFactory.getTrackFromID(self.db, trackID))
+        return tracks
+
 ## will throw exception if database is empty?
-    def chooseTrackID(self):
+    def chooseTrackIDs(self, number):
 ##        print time.time()
         (trackWeightList, totalWeight) = self.createLists()
-        selector = random.random() * totalWeight
-        for [trackID, weight] in trackWeightList:
-            selector -= weight
-            if selector < 0:
-##                print time.time()
-                return trackID
+        trackIDs = []
+        for n in range(number):
+##            poss should be here so tracks enqueued have times reset each time.
+##            would be much slower though.
+##            (trackWeightList, totalWeight) = self.createLists()
+            selector = random.random() * totalWeight
+            for [trackID, weight] in trackWeightList:
+                selector -= weight
+                if selector < 0:
+##                    print time.time()
+                    trackIDs.append(trackID)
+                    break
+        return trackIDs
 
     def createLists(self):
+        self._logger.debug("Creating weighted list of tracks.")
         rawTrackIDList = self.db.getAllTrackIDs()
         if rawTrackIDList == []:
+            self._logger.error("No tracks in database.")
             raise EmptyDatabaseError
         trackWeightList = []
         totalWeight = 0
         for (trackID, ) in rawTrackIDList:
-            time = self.db.getSecondsSinceLastPlayedFromID(trackID)
+##            FIXME: should take into account tracks being enqueued but never
+##                   played
+            timeSincePlayed = self.db.getSecondsSinceLastPlayedFromID(trackID)
+            timeSinceEnqueued = self.db.getSecondsSinceLastEnqueuedFromID(
+                trackID)
+            if timeSinceEnqueued < timeSincePlayed:
+                time = timeSinceEnqueued
+            else:
+                time = timeSincePlayed
             score = self.db.getScoreValueFromID(trackID) + 11
             ## creates a positive score
             if time == None:

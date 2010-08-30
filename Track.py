@@ -3,6 +3,7 @@
 ## TODO: create clearCache function for when user has changed metadata?
 ## TODO: make cache a limited size
 
+from Errors import *
 import mutagen
 ##from mutagen.easyid3 import EasyID3 as id3
 import os
@@ -10,7 +11,10 @@ import os
 ##print mutagen.easyid3.EasyID3.valid_keys.keys()
 
 class TrackFactory:
-    def __init__(self):
+    def __init__(self, loggerFactory, debugMode=False):
+        self._logger = loggerFactory.getLogger("NQr.Track", "debug")
+        self._debugMode = debugMode
+        self._logger.debug("Creating track cache.")
         self._trackCache = {}
 
     def getTrackFromPath(self, db, path):
@@ -20,9 +24,10 @@ class TrackFactory:
 
     def getTrackFromPathNoID(self, db, path):
         try:
-            track = AudioTrack(db, path)
+            track = AudioTrack(db, path, self._logger)
         except UnknownTrackType:
-            print "File is not a supported audio file."
+            return None
+        except NoMetadataError:
             return None
 ##            track = VideoTrack()
 ##            if track == None:
@@ -50,8 +55,10 @@ class TrackFactory:
 ##            return None
 ##        return track
 
-    def getTrackFromCache(self, trackID):
+    def _getTrackFromCache(self, trackID):
+        self._logger.debug("Retrieveing track from cache.")
         if type(trackID) is not int:
+            self._logger.error(str(trackID)+" is not a valid track ID")
             raise TypeError(str(trackID)+" is not a valid track ID")
         return self._trackCache.get(trackID, None)
 ##        try:
@@ -65,49 +72,58 @@ class TrackFactory:
 ##            return None
 
     def getTrackFromID(self, db, trackID):
-        track = self.getTrackFromCache(trackID)
+        track = self._getTrackFromCache(trackID)
         if track == None:
+            self._logger.debug("Track not in cache.")
             path = db.getPathFromID(trackID)
             track = self.getTrackFromPath(db, path)
         return track
 
     def addTrackToCache(self, track):
+        self._logger.debug("Adding track to cache.")
         self._trackCache[track.getID()] = track
 
 class Track:
-    def __init__(self, db, path):
-        self.path = os.path.abspath(path)
-        self.db = db
-        self.id = None
+    def __init__(self, db, path, logger):
+        self._path = os.path.abspath(path)
+        self._db = db
+        self._logger = logger
+        self._id = None
 
     def getPath(self):
-        return self.path
+        return self._path
 
 ## poss should add to cache?
     def getID(self):
-        if self.id != None:
-            return self.id
-        else:
-            return self.db.getTrackID(self)
+        if self._id == None:
+            return self._db.getTrackID(self)
+        return self._id
 
     def setID(self, factory, id):
-        self.id = id
+        self._logger.debug("Setting track's ID to "+str(id)+".")
+        self._id = id
         factory.addTrackToCache(self)
 
-class UnknownTrackType(Exception):
-    pass
-
 class AudioTrack(Track):
-    def __init__(self, db, path):
-        Track.__init__(self, db, path)
-        self.track = mutagen.File(self.getPath(), easy=True)
+    def __init__(self, db, path, logger):
+        Track.__init__(self, db, path, logger)
+        path = self.getPath()
+        try:
+            self._logger.debug("Creating track from \'"+path+"\'.")
+            self.track = mutagen.File(path, easy=True)
+        except mutagen.mp3.HeaderNotFoundError:
+            self._logger.error("File has no metadata.")
+            raise NoMetadataError
         if self.track is None:
-            raise UnknownTrackType()
+            self._logger.error("File is not a supported audio file.")
+            raise UnknownTrackType
+        self._logger.debug("Track created.")
         self._initGetAttributes()
 
     ## tags are of the form [u'artistName']
     def _initGetAttributes(self):
 ##        attr = ['artist', 'album', 'title', 'tracknumber']
+        self._logger.debug("Getting basic track details.")
         self.artist = self._getAttribute('artist')
         self.album = self._getAttribute('album')
         self.title = self._getAttribute('title')
