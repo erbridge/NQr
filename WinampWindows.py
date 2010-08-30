@@ -39,7 +39,7 @@ IPC_GETWND_PE = 1
 class WinampWindows(MediaPlayer):
 ## playlistname not used in winamp
     def __init__(self, loggerFactory, playlistname=None):
-        self._logger = loggerFactory.getLogger("NQr.Winamp", "debug")
+        MediaPlayer.__init__(self, loggerFactory, "NQr.Winamp")
         self._winamp = winampImport.Winamp()
         self.launchBackground()
         
@@ -152,6 +152,7 @@ class WinampWindows(MediaPlayer):
 
 ## poss insecure: should always be checked for trackness
 ## gets track at a playlist position
+    # FIXME: Why does this get told whether to log or not?
     def getTrackPathAtPos(self, trackPosition, logging=True):
 ##        trackPosition = self.getCurrentTrackPos()+relativePosition
         if logging == True:

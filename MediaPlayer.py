@@ -1,6 +1,9 @@
 ## Base class for media players
 
 class MediaPlayer:
+    def __init__(self, loggerFactory, name):
+        self._logger = loggerFactory.getLogger(name, "debug")
+
     def savePlaylist(self):
         self._logger.debug("Storing current playlist.")
         playlist = []

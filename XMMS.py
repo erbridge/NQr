@@ -5,6 +5,9 @@ import xmms.control
 from MediaPlayer import MediaPlayer
 
 class XMMS(MediaPlayer):
+    def __init__(self, loggerFactory):
+        MediaPlayer.__init__(self, loggerFactory, "NQr.XMMS")
+                    
     def getShuffle(self):
         # is_shuffle() returns 0 or 1 instead of true or false
         return not not xmms.control.is_shuffle()
@@ -16,7 +19,7 @@ class XMMS(MediaPlayer):
     def getPlaylistLength(self):
         return xmms.control.get_playlist_length()
 
-    def getTrackPathAtPos(self, trackPosition):
+    def getTrackPathAtPos(self, trackPosition, logging = True):
         return xmms.control.get_playlist_file(trackPosition)
 
     def getCurrentTrackPos(self):
