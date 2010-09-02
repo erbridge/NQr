@@ -31,7 +31,6 @@ import time
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
-
 import wx
 
 ID_EVT_TRACK_CHANGE = wx.NewId()

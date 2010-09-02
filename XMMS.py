@@ -42,4 +42,7 @@ class XMMS(MediaPlayer):
         
     def nextTrack(self):
         xmms.control.playlist_next()
-        
+
+    def previousTrack(self):
+        xmms.control.playlist_prev()
+
