@@ -47,6 +47,10 @@ class Randomizer:
                 selector -= weight
                 if selector < 0:
 ##                    print time.time()
+                    norm = float(weight) * len(trackWeightList) / totalWeight
+                    self._logger.info("Selected " + str(trackID) + " weight " \
+                                      + str(weight) + " total " \
+                                      + str(totalWeight) + " norm " + str(norm))
                     trackIDs.append(trackID)
                     break
         return trackIDs
