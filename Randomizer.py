@@ -76,7 +76,7 @@ class Randomizer:
             score = self.db.getScoreValueFromID(trackID) + 11
             ## creates a positive score
             if time == None:
-                time = 5 * (len(trackWeightList) + 1)
+                time = 5 * 60 * (len(rawTrackIDList) + 1)
             if score < self.scoreThreshold + 11:
                 score = 0
             weight = self.getWeight(score, time)
