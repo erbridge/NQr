@@ -678,3 +678,10 @@ class Database:
         if self.getIsScoredFromID(trackID) == False:
             return self._defaultScore
         return self._getScore(trackID=trackID)
+
+    def getIDFromPath(self, path):
+        c = self._conn.cursor()
+        c.execute("select trackid from tracks where path = ?", (path, ))
+        result = c.fetchone()
+        c.close()
+        return result[0]

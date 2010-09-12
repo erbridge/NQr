@@ -34,3 +34,11 @@ class MediaPlayer:
 ##        old track
     def getCurrentTrackPath(self, logging=True):
         return self.getTrackPathAtPos(self.getCurrentTrackPos(), logging)
+
+    def getUnplayedTrackIDs(self, db):
+        ids = []
+        for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
+            path = self.getTrackPathAtPos(pos)
+            id = db.getIDFromPath(path)
+            ids.append(id)
+        return ids

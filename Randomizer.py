@@ -23,21 +23,21 @@ class Randomizer:
         track = self.chooseTracks(1)[0]
         return track
 
-    def chooseTracks(self, number):
+    def chooseTracks(self, number, exclude):
         if number == 1:
             self._logger.info("Selecting "+str(number)+" track.")
         else:
             self._logger.info("Selecting "+str(number)+" tracks.")
-        trackIDs = self.chooseTrackIDs(number)
+        trackIDs = self.chooseTrackIDs(number, exclude)
         tracks = []
         for trackID in trackIDs:
             tracks.append(self.trackFactory.getTrackFromID(self.db, trackID))
         return tracks
 
 ## will throw exception if database is empty?
-    def chooseTrackIDs(self, number):
+    def chooseTrackIDs(self, number, exclude):
 ##        print time.time()
-        (trackWeightList, totalWeight) = self.createLists()
+        (trackWeightList, totalWeight) = self.createLists(exclude)
         trackIDs = []
         for n in range(number):
 ##            poss should be here so tracks enqueued have times reset each time.
@@ -56,7 +56,7 @@ class Randomizer:
                     break
         return trackIDs
 
-    def createLists(self):
+    def createLists(self, exclude):
         self._logger.debug("Creating weighted list of tracks.")
         oldest = self.db.getOldestLastPlayed()
         self._logger.info("Oldest is " + str(oldest) + " (" + RoughAge(oldest)
@@ -68,15 +68,11 @@ class Randomizer:
         trackWeightList = []
         totalWeight = 0
         for (trackID, ) in rawTrackIDList:
-##            FIXME: should take into account tracks being enqueued but never
-##                   played
-            timeSincePlayed = self.db.getSecondsSinceLastPlayedFromID(trackID)
-            timeSinceEnqueued = self.db.getSecondsSinceLastEnqueuedFromID(
-                trackID)
-            if timeSinceEnqueued < timeSincePlayed:
-                time = timeSinceEnqueued
-            else:
-                time = timeSincePlayed
+            # |exclude| is probably the list of currently enqueued but
+            # unplayed tracks.
+            if trackID in exclude:
+                continue
+            time = self.db.getSecondsSinceLastPlayedFromID(trackID)
             score = self.db.getScoreValueFromID(trackID) + 11
             ## creates a positive score
             if time == None:

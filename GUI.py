@@ -956,7 +956,8 @@ class MainWindow(wx.Frame):
                 self._logger.info("Enqueueing "+str(number)+" random track.")
             else:
                 self._logger.info("Enqueueing "+str(number)+" random tracks.")
-            tracks = self._randomizer.chooseTracks(number)
+            exclude = self._player.getUnplayedTrackIDs(self._db)
+            tracks = self._randomizer.chooseTracks(number, exclude)
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
             self._logger.debug("Checking tracks for links.")
             for track in tracks:
