@@ -486,6 +486,20 @@ class Database:
 ##        return self._getLastPlayed(
 ##            "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
 
+    # FIXME: as soon as a file is deleted or moved, so it can't get
+    # played again, this will get stuck. We need to keep track of
+    # whether entries are current or historical.
+    def getOldestLastPlayed(self):
+        c = self._conn.cursor()
+        c.execute("""
+                  select strftime('%s', 'now') - strftime('%s', min(datetime))
+                  from (select max(playid) as id from plays group by trackid)
+                    as maxplays,
+                  plays
+                  where maxplays.id = plays.playid""")
+        result = c.fetchone()
+        return result[0]
+
     def getPlayCount(self, track=None, trackID=None):
         self._logger.debug("Retrieving play count.")
         if trackID == None:

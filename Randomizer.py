@@ -6,6 +6,7 @@
 ##       length of list etc.
 
 from Errors import *
+from Time import RoughAge
 import random
 import time
 
@@ -57,6 +58,9 @@ class Randomizer:
 
     def createLists(self):
         self._logger.debug("Creating weighted list of tracks.")
+        oldest = self.db.getOldestLastPlayed()
+        self._logger.info("Oldest is " + str(oldest) + " (" + RoughAge(oldest)
+                          + ")")
         rawTrackIDList = self.db.getAllTrackIDs()
         if rawTrackIDList == []:
             self._logger.error("No tracks in database.")
@@ -76,7 +80,7 @@ class Randomizer:
             score = self.db.getScoreValueFromID(trackID) + 11
             ## creates a positive score
             if time == None:
-                time = 5 * 60 * (len(rawTrackIDList) + 1)
+                time = oldest
             if score < self.scoreThreshold + 11:
                 score = 0
             weight = self.getWeight(score, time)
