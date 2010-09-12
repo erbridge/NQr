@@ -159,6 +159,11 @@ class Database:
         return trackID
 
     ## returns a list of tuples of the form (trackID, )
+    ## FIXME: make faster by doing something like: select
+    ## tracks.trackid, score, plays.datetime from tracks left outer
+    ## join scores using (trackid) left outer join plays using
+    ## (trackid); with some select trackid, max(datetime) from plays
+    ## group by trackid; thrown in.
     def getAllTrackIDs(self):
         self._logger.debug("Retrieving all track IDs.")
         c = self._conn.cursor()
