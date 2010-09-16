@@ -85,7 +85,8 @@ class Randomizer:
         return trackWeightList, totalWeight
 
     def getWeight(self, score, time):
-        weight = time ** (score/50.)
+##        weight = time ** (score/50.)
+        weight = score**2 * time**2
 ##        weight = score * time
         return weight
 
