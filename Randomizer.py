@@ -24,10 +24,8 @@ class Randomizer:
         return track
 
     def chooseTracks(self, number, exclude):
-        if number == 1:
-            self._logger.info("Selecting "+str(number)+" track.")
-        else:
-            self._logger.info("Selecting "+str(number)+" tracks.")
+        self._logger.debug("Selecting "+str(number)+" track" + plural(number)
+                           + ".")
         trackIDs = self.chooseTrackIDs(number, exclude)
         tracks = []
         for trackID in trackIDs:

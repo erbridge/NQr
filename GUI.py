@@ -27,6 +27,7 @@ from Errors import *
 import os
 from threading import *
 import time
+from Util import plural
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -952,10 +953,8 @@ class MainWindow(wx.Frame):
 ##       it when enqueuing        
     def enqueueRandomTracks(self, number):
         try:
-            if number == 1:
-                self._logger.info("Enqueueing "+str(number)+" random track.")
-            else:
-                self._logger.info("Enqueueing "+str(number)+" random tracks.")
+            self._logger.debug("Enqueueing "+str(number)+" random track"
+                               + plural(number) + '.')
             exclude = self._player.getUnplayedTrackIDs(self._db)
             tracks = self._randomizer.chooseTracks(number, exclude)
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
