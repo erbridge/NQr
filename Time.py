@@ -1,5 +1,5 @@
 def _DoRough(time, big, bigname, little, littlename):
-    b = int(time / big / little)
+    b = int((time + little / 2) / little / big)
     l = int(((time + little / 2) / little) % big)
 #    print "b =", b, "l =", l, "time =", time, "/", b * big * little + l * little
     t = str(b) + " " + bigname
@@ -28,6 +28,9 @@ def RoughAge(time):
 if __name__ == '__main__':
     import random
 
+    text = RoughAge(2400685)
+    print text
+    assert text == "4 weeks"
     r = random.SystemRandom()
     for x in range(100):
         y = r.randrange(100000000)
