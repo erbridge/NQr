@@ -27,14 +27,16 @@ class Randomizer:
     def chooseTracks(self, number, exclude):
         self._logger.debug("Selecting "+str(number)+" track" + plural(number)
                            + ".")
-        trackIDs = self.chooseTrackIDs(number, exclude)
+        trackIDs = self._chooseTrackIDs(number, exclude)
         tracks = []
-        for trackID in trackIDs:
-            tracks.append(self.trackFactory.getTrackFromID(self.db, trackID))
+        for [trackID, weight] in trackIDs:
+            track = self.trackFactory.getTrackFromID(self.db, trackID)
+            track.setWeight(weight)
+            tracks.append(track)
         return tracks
 
 ## will throw exception if database is empty?
-    def chooseTrackIDs(self, number, exclude):
+    def _chooseTrackIDs(self, number, exclude):
 ##        print time.time()
         (trackWeightList, totalWeight) = self.createLists(exclude)
         trackIDs = []
@@ -51,7 +53,7 @@ class Randomizer:
                     self._logger.info("Selected " + str(trackID) + " weight " \
                                       + str(weight) + " total " \
                                       + str(totalWeight) + " norm " + str(norm))
-                    trackIDs.append(trackID)
+                    trackIDs.append([trackID, norm])
                     break
         return trackIDs
 

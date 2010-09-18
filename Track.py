@@ -16,6 +16,7 @@ class TrackFactory:
         self._debugMode = debugMode
         self._logger.debug("Creating track cache.")
         self._trackCache = {}
+        self._trackPathCache = {}
 
     def getTrackFromPath(self, db, path):
         track = self.getTrackFromPathNoID(db, path)
@@ -23,6 +24,9 @@ class TrackFactory:
         return track
 
     def getTrackFromPathNoID(self, db, path):
+        track = self._trackPathCache.get(path)
+        if track != None:
+            return track
         try:
             track = AudioTrack(db, path, self._logger)
         except UnknownTrackType:
@@ -82,6 +86,7 @@ class TrackFactory:
     def addTrackToCache(self, track):
         self._logger.debug("Adding track to cache.")
         self._trackCache[track.getID()] = track
+        self._trackPathCache[track.getPath()] = track
 
 class Track:
     def __init__(self, db, path, logger):
@@ -89,6 +94,7 @@ class Track:
         self._db = db
         self._logger = logger
         self._id = None
+        self._weight = None
 
     def getPath(self):
         return self._path
@@ -109,6 +115,12 @@ class Track:
 
     def getPreviousPlay(self):
         return self._previous
+
+    def setWeight(self, weight):
+        self._weight = weight
+
+    def getWeight(self):
+        return self._weight
 
 class AudioTrack(Track):
     def __init__(self, db, path, logger):

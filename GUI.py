@@ -158,6 +158,7 @@ class MainWindow(wx.Frame):
         self._ID_SCORE = wx.NewId()
         self._ID_LASTPLAYED = wx.NewId()
         self._ID_PREVIOUSPLAY = wx.NewId()
+        self._ID_WEIGHT = wx.NewId()
         self._ID_SCORESLIDER = wx.NewId()
         self._ID_TRACKLIST = wx.NewId()
         self._ID_DETAILS = wx.NewId()
@@ -557,6 +558,8 @@ class MainWindow(wx.Frame):
                                      format=wx.LIST_FORMAT_CENTER, width=120)
         self._trackList.InsertColumn(self._ID_PREVIOUSPLAY, "Last Played",
                                      format=wx.LIST_FORMAT_CENTER, width=120)
+        self._trackList.InsertColumn(self._ID_WEIGHT, "Weight",
+                                     format=wx.LIST_FORMAT_CENTER, width=120)
 
 
         try:
@@ -942,6 +945,7 @@ class MainWindow(wx.Frame):
         if lastPlayed == None:
             lastPlayed = "-"
         previous = track.getPreviousPlay()
+        weight = track.getWeight()
         self._trackList.InsertStringItem(index, isScored)
         self._trackList.SetStringItem(index, 1, self._db.getArtist(track))
         self._trackList.SetStringItem(index, 2, self._db.getTitle(track))
@@ -950,6 +954,8 @@ class MainWindow(wx.Frame):
         if previous != None:
             self._trackList.SetStringItem(index, 5,
                                           RoughAge(time.time() - previous))
+        if weight != None:
+            self._trackList.SetStringItem(index, 6, str(weight))
         self._trackList.SetItemData(index, self._db.getTrackID(track))
         if self._index >= index:
             self._index += 1
