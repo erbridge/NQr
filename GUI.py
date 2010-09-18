@@ -27,6 +27,7 @@ from Errors import *
 import os
 from threading import *
 import time
+from Time import RoughAge
 from Util import plural
 
 import wxversion
@@ -156,6 +157,7 @@ class MainWindow(wx.Frame):
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
         self._ID_LASTPLAYED = wx.NewId()
+        self._ID_PREVIOUSPLAY = wx.NewId()
         self._ID_SCORESLIDER = wx.NewId()
         self._ID_TRACKLIST = wx.NewId()
         self._ID_DETAILS = wx.NewId()
@@ -544,15 +546,18 @@ class MainWindow(wx.Frame):
                                      style=wx.LC_REPORT|wx.LC_VRULES,
                                      size=(476,-1))
         self._trackList.InsertColumn(self._ID_NOWPLAYING, "",
-                                    format=wx.LIST_FORMAT_CENTER, width=20)
+                                     format=wx.LIST_FORMAT_CENTER, width=20)
         self._trackList.InsertColumn(self._ID_ARTIST, "Artist",
-                                    format=wx.LIST_FORMAT_CENTER, width=100)
+                                     format=wx.LIST_FORMAT_CENTER, width=100)
         self._trackList.InsertColumn(self._ID_TRACK, "Title",
-                                    format=wx.LIST_FORMAT_CENTER, width=170)
+                                     format=wx.LIST_FORMAT_CENTER, width=170)
         self._trackList.InsertColumn(self._ID_SCORE, "Score",
-                                    format=wx.LIST_FORMAT_CENTER, width=45)
-        self._trackList.InsertColumn(self._ID_LASTPLAYED, "Last Played",
-                                    format=wx.LIST_FORMAT_CENTER, width=120)
+                                     format=wx.LIST_FORMAT_CENTER, width=45)
+        self._trackList.InsertColumn(self._ID_LASTPLAYED, "Played At",
+                                     format=wx.LIST_FORMAT_CENTER, width=120)
+        self._trackList.InsertColumn(self._ID_PREVIOUSPLAY, "Last Played",
+                                     format=wx.LIST_FORMAT_CENTER, width=120)
+
 
         try:
             self._logger.debug("Adding current track to track playlist.")
@@ -563,6 +568,8 @@ class MainWindow(wx.Frame):
             if currentTrackID != self._db.getLastPlayedTrackID():
                 self._logger.debug("Adding play for current track.")
                 self._db.addPlay(currentTrack)
+            currentTrack.setPreviousPlay(
+                self._db.getLastPlayedInSeconds(currentTrack))
             self.addTrack(currentTrack)
         except NoTrackError:
             pass
@@ -934,11 +941,15 @@ class MainWindow(wx.Frame):
         ## should be time from last play?
         if lastPlayed == None:
             lastPlayed = "-"
+        previous = track.getPreviousPlay()
         self._trackList.InsertStringItem(index, isScored)
         self._trackList.SetStringItem(index, 1, self._db.getArtist(track))
         self._trackList.SetStringItem(index, 2, self._db.getTitle(track))
         self._trackList.SetStringItem(index, 3, score)
         self._trackList.SetStringItem(index, 4, lastPlayed)
+        if previous != None:
+            self._trackList.SetStringItem(index, 5,
+                                          RoughAge(time.time() - previous))
         self._trackList.SetItemData(index, self._db.getTrackID(track))
         if self._index >= index:
             self._index += 1

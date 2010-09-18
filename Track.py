@@ -104,6 +104,12 @@ class Track:
         self._id = id
         factory.addTrackToCache(self)
 
+    def setPreviousPlay(self, previous):
+        self._previous = previous
+
+    def getPreviousPlay(self):
+        return self._previous
+
 class AudioTrack(Track):
     def __init__(self, db, path, logger):
         Track.__init__(self, db, path, logger)

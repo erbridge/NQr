@@ -421,6 +421,7 @@ class Database:
 ##            self._logger.debug("\'"+self.getPath(track)\
 ##                               +"\' is not in the library.")
 ##            return
+        track.setPreviousPlay(self.getLastPlayedInSeconds(track))
         c.execute("""insert into plays (trackid, datetime) values
                   (?, datetime('now'))""", (trackID, ))
         c.close()
@@ -439,7 +440,8 @@ class Database:
 
     def _getLastPlayed(self, track=None, trackID=None):
         (self.basicLastPlayedIndex, self.localLastPlayedIndex,
-        self.secondsSinceLastPlayedIndex) = range(3)
+         self.secondsSinceLastPlayedIndex,
+         self.lastPlayedInSecondsIndex) = range(4)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
@@ -448,7 +450,8 @@ class Database:
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select datetime, datetime(datetime, 'localtime'),
-                  strftime('%s', 'now') - strftime('%s', datetime) from plays
+                  strftime('%s', 'now') - strftime('%s', datetime),
+                  strftime('%s', datetime) from plays
                   where trackid = ? order by playid desc""", (trackID, ))
         result = c.fetchone()
         c.close()
@@ -480,6 +483,12 @@ class Database:
 ##    def getTimeSinceLastPlayed(self, track):
 ##        return self._getLastPlayed("datetime('now') - datetime", track=track)
 ####        return self._getLastPlayed("strftime('%J days, %H hrs, %M mins, %S secs ago', (datetime('now') - datetime))", track=track)
+
+    def getLastPlayedInSeconds(self, track):
+        details = self._getLastPlayed(track=track)
+        if details == None:
+            return None
+        return int(details[self.lastPlayedInSecondsIndex])
 
     def getSecondsSinceLastPlayedFromID(self, trackID):
         if self._debugMode == True:
