@@ -51,7 +51,7 @@ if __name__ == '__main__':
     if system == 'Windows':
         logger.debug("Loading Winamp module.")
         import WinampWindows
-        player = WinampWindows.WinampWindows(loggerFactory)
+        player = WinampWindows.WinampWindows(loggerFactory, noQueue)
         ## should be called early
     elif system == 'FreeBSD':
         logger.debug("Loading XMMS module.")
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     elif system == 'Mac OS X':
         logger.debug("Loading iTunes module")
         import iTunesMacOS
-        player = iTunesMacOS.iTunesMacOS()
+        player = iTunesMacOS.iTunesMacOS(noQueue)
 
     logger.debug("Initializing track factory.")
     trackFactory = Track.TrackFactory(loggerFactory, debugMode=debugMode)

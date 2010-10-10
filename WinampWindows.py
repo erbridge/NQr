@@ -38,8 +38,8 @@ IPC_GETWND_PE = 1
 
 class WinampWindows(MediaPlayer):
 ## playlistname not used in winamp
-    def __init__(self, loggerFactory, playlistname=None):
-        MediaPlayer.__init__(self, loggerFactory, "NQr.Winamp")
+    def __init__(self, loggerFactory, noQueue, playlistname=None):
+        MediaPlayer.__init__(self, loggerFactory, "NQr.Winamp", noQueue)
         self._winamp = winampImport.Winamp()
         self.launchBackground()
         
@@ -76,7 +76,7 @@ class WinampWindows(MediaPlayer):
         else:
             self._logger.debug("Winamp is not running.")
 
-    def addTrack(self, filepath):
+    def _addTrack(self, filepath):
         self.launchBackground()
         self._logger.info("Adding \'"+filepath+"\' to playlist.")
         self._winamp.enqueue(filepath)
