@@ -13,23 +13,40 @@
 ## FIXME: scores added twice to scores table
 
 import Database
+import getopt
 import GUI
 import Logger
 import platform
 import Randomizer
+import sys
 import Track
 import wx
 
+def usage():
+    print sys.argv[0], "[-h|--help] [-n|--no-queue]"
+    print
+    print "-n      Don't queue tracks"
+
 ## this info should be read from a settings file
 if __name__ == '__main__':
+    noQueue = False
     debugMode = False
+    
+    opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
+    for opt, arg in opts:
+        if opt in ("-n", "--no-queue"):
+            noQueue = True
+        else:
+            usage()
+            sys.exit()
+
     loggerFactory = Logger.LoggerFactory(debugMode=debugMode)
     logger = loggerFactory.getLogger("NQr", "debug")
+    
     # Do platform-dependent imports, and choose a player type. For
     # now, we just choose it based on the platform...
     system = platform.system()
     logger.debug("Running on "+system+".")
-##    print "Running on", system
     player = None
     if system == 'Windows':
         logger.debug("Loading Winamp module.")
@@ -39,22 +56,28 @@ if __name__ == '__main__':
     elif system == 'FreeBSD':
         logger.debug("Loading XMMS module.")
         import XMMS
-        player = XMMS.XMMS(loggerFactory)
+        player = XMMS.XMMS(loggerFactory, noQueue)
     elif system == 'Mac OS X':
         logger.debug("Loading iTunes module")
         import iTunesMacOS
         player = iTunesMacOS.iTunesMacOS()
+
     logger.debug("Initializing track factory.")
     trackFactory = Track.TrackFactory(loggerFactory, debugMode=debugMode)
+
     logger.debug("Initializing database.")
     db = Database.Database(trackFactory, loggerFactory, debugMode=debugMode)
+
     logger.debug("Initializing randomizer.")
     randomizer = Randomizer.Randomizer(db, trackFactory, loggerFactory)
     
     app = wx.App(False)
     logger.debug("Initializing GUI.")
+    title = "NQr"
+    if noQueue:
+        title = title + " (no queue)"
     frame = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
-                           loggerFactory)
+                           loggerFactory, title=title)
     frame.Center()
     logger.info("Initialization complete.")
     logger.info("Starting main loop.")
