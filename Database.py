@@ -693,9 +693,17 @@ class Database:
             return self._defaultScore
         return self._getScore(trackID=trackID)
 
-    def getIDFromPath(self, path):
+    def maybeGetIDFromPath(self, path):
         c = self._conn.cursor()
         c.execute("select trackid from tracks where path = ?", (path, ))
         result = c.fetchone()
         c.close()
-        return result[0]
+        if result is None:
+            return None
+        else:
+            return result[0]
+
+    def getIDFromPath(self, path):
+        id = self.maybeGetIDFromPath(path)
+        if id is None:
+            raise PathNotFoundError()

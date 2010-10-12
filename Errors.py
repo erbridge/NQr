@@ -19,3 +19,6 @@ class UnknownTrackType(Error):
 
 class NoMetadataError(Error):
     pass
+
+class PathNotFoundError(Error):
+    pass
