@@ -40,8 +40,12 @@ class MediaPlayer:
         ids = []
         for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
             path = self.getTrackPathAtPos(pos)
-            id = db.getIDFromPath(path)
-            ids.append(id)
+            id = db.maybeGetIDFromPath(path)
+            # The track may be one we don't know added directly to the player
+            if id is not None:
+                ids.append(id)
+            else:
+                self._logger.info("Skipping unknown unplayed track " + path)
         return ids
 
     def addTrack(self, filepath):
