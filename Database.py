@@ -31,6 +31,7 @@ class Database:
         self._initMaybeCreateLinksTable()
         self._initMaybeCreateIgnoreTable()
         self._conn.commit()
+        self._cursor = self._conn.cursor()
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
@@ -709,10 +710,8 @@ class Database:
             raise PathNotFoundError()
 
     def _execute_and_fetchone(self, stmt, args = ()):
-        c = self._conn.cursor()
-        c.execute(stmt)
-        result = c.fetchone()
-        c.close()
+        self._cursor.execute(stmt)
+        result = self._cursor.fetchone()
         return result[0]
 
     def getNumberOfTracks(self):
