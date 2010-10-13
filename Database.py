@@ -173,6 +173,19 @@ class Database:
         c.close()
         return result
 
+    def _execute_and_fetchone_or_null(self, stmt, args = ()):
+        self._cursor.execute(stmt, args)
+        result = self._cursor.fetchone()
+        if result is None:
+            return None
+        return result[0]
+
+    def _execute_and_fetchone(self, stmt, args = ()):
+        result = self._execute_and_fetchone_or_null(stmt, args)
+        if result is None:
+            raise NoResultError()
+        return result
+
     def _getTrackID(self, track):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
@@ -708,11 +721,6 @@ class Database:
         id = self.maybeGetIDFromPath(path)
         if id is None:
             raise PathNotFoundError()
-
-    def _execute_and_fetchone(self, stmt, args = ()):
-        self._cursor.execute(stmt)
-        result = self._cursor.fetchone()
-        return result[0]
 
     def getNumberOfTracks(self):
         return self._execute_and_fetchone("select count(*) from tracks")

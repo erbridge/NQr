@@ -22,3 +22,6 @@ class NoMetadataError(Error):
 
 class PathNotFoundError(Error):
     pass
+
+class NoResultError(Error):
+    pass
