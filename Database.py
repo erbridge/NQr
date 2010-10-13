@@ -189,16 +189,11 @@ class Database:
     def _getTrackID(self, track):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
-        c = self._conn.cursor()
-        c.execute("select trackid from tracks where path = ?",
-                  (path, ))
-        result = c.fetchone()
-        c.close()
+        result = self._execute_and_fetchone_or_null(
+            "select trackid from tracks where path = ?", (path, ))
         if result == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
-            return None
-        else:
-            return result[0]
+        return result
 
     def getTrackID(self, track):
         trackID = self._getTrackID(track)
@@ -224,16 +219,11 @@ class Database:
 
     def getDirectoryID(self, directory):
         self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
-        c = self._conn.cursor()
-        c.execute("select directoryid from directories where path = ?",
-                  (directory, ))
-        result = c.fetchone()
-        c.close()
+        result = self._execute_and_fetchone_or_null(
+            "select directoryid from directories where path = ?", (directory, ))
         if result == None:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
-            return None
-        else:
-            return result[0]
+        return result
 
     def addDirectoryNoWatch(self, directory):
         self._logger.debug("Adding files in \'"+directory+"\' to the library.")
@@ -297,73 +287,47 @@ class Database:
 
     def getLinkID(self, firstTrack, secondTrack):
         self._logger.debug("Retrieving link ID.")
-        c = self._conn.cursor()
         firstTrackID = firstTrack.getID()
         secondTrackID = secondTrack.getID()
         firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
         secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-##        if firstTrackID == None:
-##            self._logger.debug("\'"+self.getPath(firstTrack)\
-##                               +"\' is not in the library.")
-##            return
-##        if secondTrackID == None:
-##            self._logger.debug("\'"+self.getPath(secondTrack)\
-##                               +"\' is not in the library.")
-##            return
-        c.execute("""select linkid from links where firsttrackid = ? and
-                  secondtrackid = ?""", (firstTrackID, secondTrackID))
-        result = c.fetchone()
-        c.close()
+        result = self._execute_and_fetchone_or_null(
+            """select linkid from links where firsttrackid = ? and
+               secondtrackid = ?""", (firstTrackID, secondTrackID))
         if result == None:
             self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
                                +secondTrackPath+"\'.")
-            return None
-        else:
-            return result[0]
+        return result
 
     ## if there are two links for a track, returns the link with track as second
     ## track first for queueing ease
     def getLinkIDs(self, track):
         self._logger.debug("Retrieving link IDs.")
-        c = self._conn.cursor()
         trackID = track.getID()
         path = self.getPathFromIDNoDebug(trackID)
-##        if trackID == None:
-##            self._logger.debug("\'"+self.getPath(track)\
-##                               +"\' is not in the library.")
-##            return
-        c.execute("select linkid from links where secondtrackid = ?",
-                  (trackID, ))
-        firstResult = c.fetchone()
-        c.execute("select linkid from links where firsttrackid = ?",
-                  (trackID, ))
-        secondResult = c.fetchone()
-        c.close()
+        firstResult = self._execute_and_fetchone_or_null(
+            "select linkid from links where secondtrackid = ?", (trackID, ))
+        secondResult = self._execute_and_fetchone_or_null(
+            "select linkid from links where firsttrackid = ?", (trackID, ))
         if firstResult == None:
             if secondResult == None:
                 self._logger.debug("\'"+path\
                                    +"\' is not linked to another track.")
-                return None
-            else:
-                return secondResult[0]
+            return secondResult
         else:
             if secondResult == None:
-                return firstResult[0]
+                return firstResult
             else:
-                return firstResult[0], secondResult[0]
+                return firstResult, secondResult
 
     def getLinkedTrackIDs(self, linkID):
         self._logger.debug("Retrieving track IDs for linked tracks.")
-        c = self._conn.cursor()
-        c.execute("""select firsttrackid, secondtrackid from links where
-                  linkid = ?""", (linkID, ))
-        result = c.fetchone()
-        c.close()
+        self._execute_and_fetchone_or_null(
+            """select firsttrackid, secondtrackid from links where
+               linkid = ?""", (linkID, ))
         if result == None:
             self._logger.debug("No such link exists.")
-            return None
-        else:
-            return result
+        return result
 
     def removeLink(self, firstTrack, secondTrack):
         self._logger.debug("Removing link.")
@@ -407,25 +371,13 @@ class Database:
         self._conn.commit()
 
     def getSecondsSinceLastEnqueuedFromID(self, trackID):
-##        if self._debugMode == True:
-##            self._logger.debug("Calculating time since last enqueued.")
         if trackID == None:
             self._logger.error("No track has been identified.")
             raise NoTrackError
-##            return None
-        c = self._conn.cursor()
-        c.execute("""select strftime('%s', 'now') - strftime('%s', datetime)
-                  from enqueues where trackid = ? order by enqueueid desc""",
-                  (trackID, ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-        else:
-##            if self._debugMode == True:
-##                self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
-##                                   +"\' has never been enqueued.")
-            return None
+        return self._execute_and_fetchone_or_null(
+            """select strftime('%s', 'now') - strftime('%s', datetime)
+               from enqueues where trackid = ? order by enqueueid desc""",
+            (trackID, ))
 
     def addPlay(self, track):
         self._logger.debug("Adding play.")
@@ -442,12 +394,10 @@ class Database:
         self._conn.commit()
 
     def getLastPlayedTrackID(self):
-        c = self._conn.cursor()
-        c.execute("""select trackid from plays order by playid desc""")
-        result = c.fetchone()
-        c.close()
+        result = self._execute_and_fetchone_or_null(
+            "select trackid from plays order by playid desc")
         if result != None:
-            return result[0]
+            return result
         else:
             self._logger.error("No plays recorded.")
             raise EmptyDatabaseError
@@ -518,15 +468,12 @@ class Database:
     # played again, this will get stuck. We need to keep track of
     # whether entries are current or historical.
     def getOldestLastPlayed(self):
-        c = self._conn.cursor()
-        c.execute("""
-                  select strftime('%s', 'now') - strftime('%s', min(datetime))
-                  from (select max(playid) as id from plays group by trackid)
-                    as maxplays,
-                  plays
-                  where maxplays.id = plays.playid""")
-        result = c.fetchone()
-        return result[0]
+        return self._execute_and_fetchone(
+            """select strftime('%s', 'now') - strftime('%s', min(datetime))
+               from (select max(playid) as id from plays group by trackid)
+                       as maxplays,
+                 plays
+               where maxplays.id = plays.playid""")
 
     def getPlayCount(self, track=None, trackID=None):
         self._logger.debug("Retrieving play count.")
@@ -553,25 +500,17 @@ class Database:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
-##                return None
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select path, artist, album, title, tracknumber, unscored
                   from tracks where trackid = ?""", (trackID, ))
         result = c.fetchone()
         c.close()
-##        if result != None:
         return result
-##        else:
-##            return None
 
     def getPath(self, track):
         self._logger.debug("Retrieving track's path.")
         return self.getPathNoDebug(track)
-##        details = self._getTrackDetails(track=track)
-##        if details == None:
-##            return None
-##        return details[self.pathIndex]
 
     def getPathNoDebug(self, track):
         details = self._getTrackDetails(track=track)
@@ -582,10 +521,6 @@ class Database:
     def getPathFromID(self, trackID):
         self._logger.debug("Retrieving track's path.")
         return self.getPathFromIDNoDebug(trackID)
-##        details = self._getTrackDetails(trackID=trackID)
-##        if details == None:
-##            return None
-##        return details[self.pathIndex]
 
     def getPathFromIDNoDebug(self, trackID):
         details = self._getTrackDetails(trackID=trackID)
@@ -680,17 +615,10 @@ class Database:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
-##                return None
             trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("""select score from scores where trackid = ? order by
-                  scoreid desc""", (trackID, ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result[0]
-##        else:
-##            print "\'"+self.getPath(track)+"\' has no score associated with it in the library."
+        return self._execute_and_fetchone_or_null(
+            "select score from scores where trackid = ? order by scoreid desc",
+            (trackID, ))
 
     def getScore(self, track):
         if self.getIsScored(track) == False:
@@ -708,14 +636,8 @@ class Database:
         return self._getScore(trackID=trackID)
 
     def maybeGetIDFromPath(self, path):
-        c = self._conn.cursor()
-        c.execute("select trackid from tracks where path = ?", (path, ))
-        result = c.fetchone()
-        c.close()
-        if result is None:
-            return None
-        else:
-            return result[0]
+        return self._execute_and_fetchone_or_null(
+            "select trackid from tracks where path = ?", (path, ))
 
     def getIDFromPath(self, path):
         id = self.maybeGetIDFromPath(path)
