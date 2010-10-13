@@ -629,7 +629,8 @@ class MainWindow(wx.Frame):
     def _onAbout(self, e):
         self._logger.debug("Opening about dialog.")
         text = "For all your NQing needs\n"
-        text += str(self._db.getNumberOfTracks()) + " tracks in library"
+        text += str(self._db.getNumberOfTracks()) + " tracks in library\n"
+        text += str(self._db.getNumberOfUnplayedTracks()) + " unplayed"
         dialog = wx.MessageDialog(self, text, "NQr",
                                   wx.OK)
         dialog.ShowModal()

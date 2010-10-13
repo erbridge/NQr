@@ -708,10 +708,21 @@ class Database:
         if id is None:
             raise PathNotFoundError()
 
-    def getNumberOfTracks(self):
+    def _execute_and_fetchone(self, stmt, args = ()):
         c = self._conn.cursor()
-        c.execute("select count(*) from tracks")
+        c.execute(stmt)
         result = c.fetchone()
         c.close()
         return result[0]
 
+    def getNumberOfTracks(self):
+        return self._execute_and_fetchone("select count(*) from tracks")
+
+    # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
+    # or this is slow!
+    def getNumberOfUnplayedTracks(self):
+        return self._execute_and_fetchone(
+            """select count(*) from tracks left outer join plays using(trackid)
+               where plays.trackid is null""")
+
+        
