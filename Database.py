@@ -707,3 +707,11 @@ class Database:
         id = self.maybeGetIDFromPath(path)
         if id is None:
             raise PathNotFoundError()
+
+    def getNumberOfTracks(self):
+        c = self._conn.cursor()
+        c.execute("select count(*) from tracks")
+        result = c.fetchone()
+        c.close()
+        return result[0]
+
