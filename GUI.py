@@ -766,7 +766,7 @@ class MainWindow(wx.Frame):
             self._db.setScore(self._track, score)
             self.refreshSelectedTrack()
         except AttributeError as err:
-            if str(err) != "'MainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
             return
@@ -785,7 +785,7 @@ class MainWindow(wx.Frame):
             else:
                 self._logger.warning("Track already has maximum score.")
         except AttributeError as err:
-            if str(err) != "'MainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
             return
@@ -800,7 +800,7 @@ class MainWindow(wx.Frame):
             else:
                 self._logger.warning("Track already has minimum score.")
         except AttributeError as err:
-            if str(err) != "'MainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
             return
@@ -815,7 +815,7 @@ class MainWindow(wx.Frame):
             else:
                 self._logger.warning("Track already has that score!")
         except AttributeError as err:
-            if str(err) != "'MainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
             return
@@ -826,7 +826,7 @@ class MainWindow(wx.Frame):
             self._db.setUnscored(self._track)
             self.refreshSelectedTrack()
         except AttributeError as err:
-            if str(err) != "'MainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
             return
@@ -866,7 +866,7 @@ class MainWindow(wx.Frame):
             self._logger.info("Requeueing track.")
             self._player.addTrack(self._track.getPath())
         except AttributeError as err:
-            if str(err) != "'MainWindow' object has no attribute 'track'":
+            if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
             return
