@@ -545,7 +545,7 @@ class MainWindow(wx.Frame):
         self._logger.debug("Creating track playlist.")
         self._trackList = wx.ListCtrl(self, self._ID_TRACKLIST,
                                      style=wx.LC_REPORT|wx.LC_VRULES,
-                                     size=(476,-1))
+                                     size=(676,-1))
         self._trackList.InsertColumn(self._ID_NOWPLAYING, "",
                                      format=wx.LIST_FORMAT_CENTER, width=20)
         self._trackList.InsertColumn(self._ID_ARTIST, "Artist",
@@ -559,7 +559,7 @@ class MainWindow(wx.Frame):
         self._trackList.InsertColumn(self._ID_PREVIOUSPLAY, "Last Played",
                                      format=wx.LIST_FORMAT_CENTER, width=120)
         self._trackList.InsertColumn(self._ID_WEIGHT, "Weight",
-                                     format=wx.LIST_FORMAT_CENTER, width=120)
+                                     format=wx.LIST_FORMAT_CENTER, width=80)
 
 
         try:
