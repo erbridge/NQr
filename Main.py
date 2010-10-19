@@ -6,6 +6,7 @@
 ## TODO: allow import of directories with a score
 ## TODO: ORGANIZE CODE
 ## TODO: make all errors go to a log (including python errors)
+## TODO: add track with tag retrieval?
 ##
 ## FIXME: sometimes when changing the score of a track which was selected a
 ##        while ago, the track replaces the current track in the track list

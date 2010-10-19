@@ -30,6 +30,7 @@ class Database:
         self._initMaybeCreateScoresTable()
         self._initMaybeCreateLinksTable()
         self._initMaybeCreateIgnoreTable()
+        self._initMaybeCreateTagsTable()
         self._conn.commit()
         self._cursor = self._conn.cursor()
 
@@ -132,6 +133,19 @@ class Database:
             if str(err) != "table ignore already exists":
                 raise err
             self._logger.debug("Ignore table found.")
+        c.close()
+
+    def _initMaybeCreateTagsTable(self):
+        self._logger.debug("Looking for tags table.")
+        c = self._conn.cursor()
+        try:
+            c.execute("""create table tags (tagid integer primary key,
+                                            trackid integer, tag text)""")
+            self._logger.info("Tags table created.")
+        except sqlite3.OperationalError as err:
+            if str(err) != "table tags already exists":
+                raise err
+            self._logger.debug("Tags table found.")
         c.close()
 
     def addTrack(self, path, hasTrackID=True):
@@ -555,6 +569,34 @@ class Database:
         if details == None:
             return None
         return details[self.trackNumberIndex]
+
+    def setTags(self, track, tags):
+        self._logger.debug("Setting track tags.")
+        c = self._conn.cursor()
+        trackID = track.getID()
+        self._logger.debug("Removing old tags.")
+        c.execute("delete from tags where trackid = ?", (trackID, ))
+        self._logger.debug("Adding new tags.")
+        for tag in tags:
+            c.execute("insert into tags (trackid, tag) values (?, ?)",
+                      (trackID, tag))
+        track.setTags(tags)
+        c.close()
+        self._conn.commit()
+
+    def getTags(self, track):
+        trackID = track.getID()
+        return self.getTagsFromID(trackID)
+
+    def getTagsFromID(self, trackID):
+        self._logger.debug("Retrieving track tags.")
+        c = self._conn.cursor()
+        c.execute("select tag from tags where trackid = ?", (trackID, ))
+        (details, ) = c.fetchall()
+        c.close()
+        if details == None:
+            return None
+        return details
 
     ## determines whether user has changed score for this track
     def _getIsScored(self, track=None, trackID=None):

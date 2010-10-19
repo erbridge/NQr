@@ -21,6 +21,8 @@
 ##       track is selected
 ## TODO: remember playlist contents for when NQr is toggled off.
 ## TODO: leftmost column of track list no longer needed
+## TODO: check if there is a next track in the playlist, and if not queue one
+## TODO: pressing next track should select it
 
 from collections import deque
 from Errors import *
@@ -162,6 +164,7 @@ class MainWindow(wx.Frame):
         self._ID_SCORESLIDER = wx.NewId()
         self._ID_TRACKLIST = wx.NewId()
         self._ID_DETAILS = wx.NewId()
+        self._ID_TAGS = wx.NewId()
         self._ID_NOWPLAYING = wx.NewId()
         self._ID_ADDDIRECTORY = wx.NewId()
         self._ID_ADDFILE = wx.NewId()
@@ -487,13 +490,16 @@ class MainWindow(wx.Frame):
     def _initCreateMainSizer(self):
         self._initCreatePlayerControls()
         self._initCreateDetails()
+        self._initCreateTagSizer()
         self._initCreateTrackSizer()
 
         self._mainSizer = wx.BoxSizer(wx.VERTICAL)
         self._mainSizer.Add(self._playerControls, 0, wx.EXPAND)
         self._mainSizer.Add(self._trackSizer, 1,
                            wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
-        self._mainSizer.Add(self._details, 0, wx.EXPAND|wx.ALL, 3)
+        self._mainSizer.Add(self._details, 0, wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT,
+                            3)
+        self._mainSizer.Add(self._tagSizer, 0, wx.EXPAND|wx.ALL, 3)
 
         self.SetSizer(self._mainSizer)
         self.SetAutoLayout(True)
@@ -530,6 +536,33 @@ class MainWindow(wx.Frame):
         self._details = wx.TextCtrl(self, self._ID_DETAILS,
                                    style=wx.TE_READONLY|wx.TE_MULTILINE|
                                    wx.TE_DONTWRAP, size=(-1,140))
+
+    def _initCreateTagSizer(self):
+        self._logger.debug("Creating tag panel.")
+        self._initCreateTagList()
+        self._initCreateTagLabel()
+        self._initCreateTagSetButton()
+
+        self._tagSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._tagSizer.Add(self._tagLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        self._tagSizer.Add(self._tagList, 1, wx.EXPAND)
+        self._tagSizer.Add(self._tagSetButtonPanel, 0, wx.LEFT, 3)
+
+    def _initCreateTagList(self):
+        self._logger.debug("Creating tag list box.")
+        self._tagList = wx.TextCtrl(self, self._ID_TAGS, size=(-1,-1))
+
+    def _initCreateTagLabel(self):
+        self._tagLabel = wx.StaticText(self, wx.NewId(),
+                                       style=wx.ST_NO_AUTORESIZE)
+        self._tagLabel.SetLabel("Tags: ")
+
+    def _initCreateTagSetButton(self):
+        self._tagSetButtonPanel = wx.Panel(self)
+        tagSetButton = wx.Button(self._tagSetButtonPanel, wx.ID_ANY,
+                                       "Set")
+
+        self.Bind(wx.EVT_BUTTON, self._onTagSet, tagSetButton)
 
     def _initCreateTrackSizer(self):
         self._logger.debug("Creating track panel.")
@@ -831,6 +864,25 @@ class MainWindow(wx.Frame):
             self._logger.error("No track selected.")
             return
 
+    def _onTagSet(self, e):
+        try:
+            self._logger.info("Tagging track.")
+            tagString = self._tagList.GetLineText(0)
+            tags = tagString.split(",")
+            index = 0
+            for tag in tags:
+                tag = tag.strip()
+                tags[index] = tag
+                index += 1
+            tags = filter(None, tags)
+            self._db.setTags(self._track, tags)
+            self.refreshSelectedTrack()
+        except AttributeError as err:
+            if str(err) != "'MainWindow' object has no attribute '_track'":
+                raise err
+            self._logger.error("No track selected.")
+            return        
+
     def _onExit(self, e):
         self._logger.debug("Exiting NQr.")
         self.Close(True)
@@ -1070,6 +1122,7 @@ class MainWindow(wx.Frame):
         if lastPlayed == None:
             lastPlayed = "-"
         self.clearDetails()
+        self.clearTags()
         self.addDetail("Artist:   "+self._db.getArtist(track))
         self.addDetail("Title:   "+self._db.getTitle(track))
         self.addDetail("Track:   "+self._db.getTrackNumber(track)\
@@ -1078,6 +1131,9 @@ class MainWindow(wx.Frame):
         self.addDetail("Play Count:   "+str(self._db.getPlayCount(track))\
                        +"       Last Played:   "+lastPlayed)
         self.addDetail("Filetrack:   "+self._db.getPath(track))
+        tags = track.getTags()
+        for tag in tags:
+            self.addTag(tag)
 
     def addDetail(self, detail):
         self._details.AppendText(detail+"\n")
@@ -1085,3 +1141,10 @@ class MainWindow(wx.Frame):
     def clearDetails(self):
         self._logger.debug("Clearing details panel.")
         self._details.Clear()
+
+    def addTag(self, tag):
+        self._tagList.AppendText(tag+", ")
+
+    def clearTags(self):
+        self._logger.debug("Clearing tag list.")
+        self._tagList.Clear()

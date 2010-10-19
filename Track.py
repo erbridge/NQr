@@ -96,6 +96,7 @@ class Track:
         self._db = db
         self._logger = logger
         self._id = None
+        self._tags = None
         self._weight = None
 
     def getPath(self):
@@ -111,6 +112,14 @@ class Track:
         self._logger.debug("Setting track's ID to "+str(id)+".")
         self._id = id
         factory.addTrackToCache(self)
+
+    def getTags(self):
+        if self._tags == None:
+            self._tags = self._db.getTags(self)
+        return self._tags
+
+    def setTags(self, tags):
+        self._tags = tags
 
     def setPreviousPlay(self, previous):
         self._previous = previous
