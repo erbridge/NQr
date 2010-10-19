@@ -8,10 +8,7 @@
 from Errors import *
 import math
 import mutagen
-##from mutagen.easyid3 import EasyID3 as id3
 import os
-
-##print mutagen.easyid3.EasyID3.valid_keys.keys()
 
 class TrackFactory:
     def __init__(self, loggerFactory, debugMode=False):
@@ -158,6 +155,7 @@ class AudioTrack(Track):
         self._album = self._getAttribute('album')
         self._title = self._getAttribute('title')
         self._trackNumber = self._getAttribute('tracknumber')
+        self._bpm = self._getAttribute('bpm')
         self._length = self._getLength()
 
     def _getAttribute(self, attr):
@@ -170,7 +168,8 @@ class AudioTrack(Track):
             # which is an error we should not accept - so for now, die
             ## poss should die on no title not no artist?
             ## what is key for artist?
-            if "TRCK" not in err and "TALB" not in err and "TPE1" not in err:
+            if "TRCK" not in err and "TALB" not in err and "TPE1" not in err\
+               and "TBPM" not in err:
                 raise err
             return "-"
 
@@ -194,6 +193,9 @@ class AudioTrack(Track):
     def getTrackNumber(self):
 ##        trackNumber = self.getAttribute('tracknumber')
         return self._trackNumber
+
+    def getBPM(self):
+        return self._bpm
 
     def getLength(self):
         return self._length
@@ -230,3 +232,9 @@ class AudioTrack(Track):
 ##    def getTrackNumber(self):
 ##        trackNumber = self.getAttribute('tracknumber')
 ##        return trackNumber
+
+if __name__ == '__main__':
+    from mutagen.easyid3 import EasyID3
+
+    print EasyID3.valid_keys.keys()
+    

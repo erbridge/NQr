@@ -44,7 +44,8 @@ class Database:
                                               autoincrement, path text,
                                               artist text, album text,
                                               title text, tracknumber text,
-                                              unscored integer, length real)""")
+                                              unscored integer, length real, bpm
+                                              integer)""")
             self._logger.info("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":
@@ -58,6 +59,9 @@ class Database:
             if columnNames.count('length') == 0:
                 self._logger.debug("Adding length column to track table.")
                 c.execute("alter table tracks add column length real")
+            if columnNames.count('bpm') == 0:
+                self._logger.debug("Adding bpm column to track table.")
+                c.execute("alter table tracks add column bpm integer")
 ##                c.execute("""create table tracksbackup (
 ##                          trackid integer primary key autoincrement, path text,
 ##                          artist text, album text, title text, tracknumber text,
@@ -540,7 +544,8 @@ class Database:
 
     def _getTrackDetails(self, track=None, trackID=None):
         (self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
-        self.trackNumberIndex, self.unscoredIndex, self.lengthIndex) = range(7)
+         self.trackNumberIndex, self.unscoredIndex, self.lengthIndex,
+         self.bpmIndex) = range(8)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
@@ -548,7 +553,7 @@ class Database:
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select path, artist, album, title, tracknumber, unscored,
-                  length from tracks where trackid = ?""", (trackID, ))
+                  length, bpm from tracks where trackid = ?""", (trackID, ))
         result = c.fetchone()
         c.close()
         return result
@@ -611,6 +616,24 @@ class Database:
             length = track.getLength()
             self.setLength(length, track)
         return length
+
+    def getBPM(self, track):
+        self._logger.debug("Retrieving track's bpm.")
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        bpm = details[self.bpmIndex]
+        if bpm == None:
+            bpm = track.getBPM()
+            self.setBPM(bpm, track)
+        return bpm
+
+    def setBPM(self, bpm, track):
+        trackID = track.getID()
+        c = self._conn.cursor()
+        c.execute("update tracks set bpm = ? where trackID = ?", (bpm, trackID))
+        c.close()
+        self._conn.commit()
 
     def getLengthString(self, track):
         rawLength = self.getLength(track)
