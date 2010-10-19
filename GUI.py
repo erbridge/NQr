@@ -23,6 +23,7 @@
 ## TODO: check if there is a next track in the playlist, and if not queue one
 ## TODO: pressing next track should select it
 ## TODO: make tags autocomplete
+## TODO: add clear cache menu option (to force metadata change updates)?
 
 from collections import deque
 from Errors import *

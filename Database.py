@@ -542,6 +542,48 @@ class Database:
         count = len(result)
         return count
 
+    def maybeUpdateTrackDetails(self, track):
+        if self._getTrackDetailsChange(track) == True:
+            self._updateTrackDetails(track)
+
+    def _updateTrackDetails(self, track):
+        path = track.getPath()
+        self._logger.debug("Updating \'"+path+"\' in the library.")
+        c = self._conn.cursor()
+        trackID = self._getTrackID(track)
+        if trackID != None:
+            c.execute("""update tracks set path = ?, artist = ?, album = ?,
+                      title = ?, tracknumber = ?, length = ?, bpm = ? where
+                      trackid = ?""", (path, track.getArtist(),
+                                       track.getAlbum(), track.getTitle(),
+                                       track.getTrackNumber(),
+                                       track.getLength(), track.getBPM(),
+                                       trackID))
+            self._logger.info("\'"+path+"\' has been updated the library.")
+        else:
+            self._logger.debug("\'"+path+"\' is not in the library.")
+        c.close()
+        self._conn.commit()
+
+    def _getTrackDetailsChange(self, track):
+        self._logger.debug("Checking whether track details have changed.")
+        details = self._getTrackDetails(track=track)
+        newDetails = {}
+        newDetails[self.pathIndex] = track.getPath()
+        newDetails[self.artistIndex] = track.getArtist()
+        newDetails[self.albumIndex] = track.getAlbum()
+        newDetails[self.titleIndex] = track.getTitle()
+        newDetails[self.trackNumberIndex] = track.getTrackNumber()
+        newDetails[self.lengthIndex] = track.getLength()
+        newDetails[self.bpmIndex] = track.getBPM()
+        for n in range(8):
+            try:
+                if details[n] != newDetails[n]:
+                    return True
+            except KeyError:
+                continue
+        return False
+
     def _getTrackDetails(self, track=None, trackID=None):
         (self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
          self.trackNumberIndex, self.unscoredIndex, self.lengthIndex,
@@ -606,17 +648,6 @@ class Database:
             return None
         return details[self.trackNumberIndex]
 
-    def getLength(self, track):
-        self._logger.debug("Retrieving track's length.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        length = details[self.lengthIndex]
-        if length == None:
-            length = track.getLength()
-            self.setLength(length, track)
-        return length
-
     def getBPM(self, track):
         self._logger.debug("Retrieving track's bpm.")
         details = self._getTrackDetails(track=track)
@@ -629,11 +660,23 @@ class Database:
         return bpm
 
     def setBPM(self, bpm, track):
+        self._logger.debug("Adding bpm to track.")
         trackID = track.getID()
         c = self._conn.cursor()
         c.execute("update tracks set bpm = ? where trackID = ?", (bpm, trackID))
         c.close()
         self._conn.commit()
+
+    def getLength(self, track):
+        self._logger.debug("Retrieving track's length.")
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        length = details[self.lengthIndex]
+        if length == None:
+            length = track.getLength()
+            self.setLength(length, track)
+        return length
 
     def getLengthString(self, track):
         rawLength = self.getLength(track)
@@ -646,6 +689,7 @@ class Database:
         return length
 
     def setLength(self, length, track):
+        self._logger.debug("Adding length to track.")
         trackID = track.getID()
         c = self._conn.cursor()
         c.execute("update tracks set length = ? where trackID = ?", (length,

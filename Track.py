@@ -146,6 +146,7 @@ class AudioTrack(Track):
             raise UnknownTrackType
         self._logger.debug("Track created.")
         self._initGetAttributes()
+        self._db.maybeUpdateTrackDetails(self)
 
     ## tags are of the form [u'artistName']
     def _initGetAttributes(self):
