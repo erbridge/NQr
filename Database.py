@@ -192,10 +192,10 @@ class Database:
         path = track.getPath()
         if hasTrackID == False or trackID == None:
             c.execute("""insert into tracks (path, artist, album, title,
-                      tracknumber, unscored, length) values (?, ?, ?, ?, ?, 1,
-                      ?)""", (path, track.getArtist(), track.getAlbum(),
-                              track.getTitle(), track.getTrackNumber(),
-                              track.getLength()))
+                      tracknumber, unscored, length, bpm) values (?, ?, ?, ?, ?,
+                      1, ?)""", (path, track.getArtist(), track.getAlbum(),
+                                 track.getTitle(), track.getTrackNumber(),
+                                 track.getLength(), track.getBPM()))
             trackID = c.lastrowid
             self._logger.info("\'"+path+"\' has been added to the library.")
         else:
@@ -639,7 +639,7 @@ class Database:
         rawLength = self.getLength(track)
         (minutes, seconds) = (math.floor(rawLength/60),
                               math.floor(rawLength-math.floor(rawLength/60)*60))
-        if seconds not in range(0, 10):
+        if seconds not in range(10):
             length = str(int(minutes))+":"+str(int(seconds))
         else:
             length = str(int(minutes))+":0"+str(int(seconds))
