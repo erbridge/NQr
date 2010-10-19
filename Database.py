@@ -509,12 +509,15 @@ class Database:
     # played again, this will get stuck. We need to keep track of
     # whether entries are current or historical.
     def getOldestLastPlayed(self):
-        return self._execute_and_fetchone(
-            """select strftime('%s', 'now') - strftime('%s', min(datetime))
-               from (select max(playid) as id from plays group by trackid)
-                       as maxplays,
-                 plays
-               where maxplays.id = plays.playid""")
+        try:
+            return self._execute_and_fetchone(
+                """select strftime('%s', 'now') - strftime('%s', min(datetime))
+                   from (select max(playid) as id from plays group by trackid)
+                           as maxplays,
+                     plays
+                   where maxplays.id = plays.playid""")
+        except NoResultError:
+            return 0
 
     def getPlayCount(self, track=None, trackID=None):
         self._logger.debug("Retrieving play count.")

@@ -600,9 +600,12 @@ class MainWindow(wx.Frame):
             currentTrack = self._trackFactory.getTrackFromPath(self._db,
                                                               currentTrackPath)
             currentTrackID = currentTrack.getID()
-            if currentTrackID != self._db.getLastPlayedTrackID():
-                self._logger.debug("Adding play for current track.")
-                self._db.addPlay(currentTrack)
+            try:
+                if currentTrackID != self._db.getLastPlayedTrackID():
+                    self._logger.debug("Adding play for current track.")
+                    self._db.addPlay(currentTrack)
+            except EmptyDatabaseError:
+                pass
             currentTrack.setPreviousPlay(
                 self._db.getLastPlayedInSeconds(currentTrack))
             self.addTrack(currentTrack)
