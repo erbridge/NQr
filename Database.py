@@ -24,6 +24,7 @@ class Database:
         self._logger.debug("Opening connection to database at "\
                            +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
+        self._conn.isolation_level = None
         self._initMaybeCreateTrackTable()
         self._initMaybeCreateDirectoryTable()
         self._initMaybeCreatePlaysTable()
