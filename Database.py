@@ -42,12 +42,20 @@ class Database:
                                               autoincrement, path text,
                                               artist text, album text,
                                               title text, tracknumber text,
-                                              unscored integer)""")
+                                              unscored integer, length text)""")
             self._logger.info("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":
                 raise err
             self._logger.debug("Track table found.")
+            c.execute("pragma table_info(tracks)")
+            details = c.fetchall()
+            columnNames = []
+            for detail in details:
+                columnNames.append(detail[1])
+            if columnNames.count('length') == 0:
+                self._logger.debug("Adding length column to track table.")
+                c.execute("alter table tracks add column length text")
 ##            print "Tracks table found."
         c.close()
 
