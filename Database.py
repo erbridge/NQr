@@ -616,7 +616,10 @@ class Database:
         rawLength = self.getLength(track)
         (minutes, seconds) = (math.floor(rawLength/60),
                               math.floor(rawLength-math.floor(rawLength/60)*60))
-        length = str(int(minutes))+":"+str(int(seconds))
+        if seconds is not in range(0, 10):
+            length = str(int(minutes))+":"+str(int(seconds))
+        else:
+            length = str(int(minutes))+":0"+str(int(seconds))
         return length
 
     def setLength(self, length, track):
