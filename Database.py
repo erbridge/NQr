@@ -9,6 +9,7 @@
 ## TODO: add more attributes to tracks
 
 from Errors import *
+import math
 import os
 import sqlite3
 
@@ -42,7 +43,7 @@ class Database:
                                               autoincrement, path text,
                                               artist text, album text,
                                               title text, tracknumber text,
-                                              unscored integer, length text)""")
+                                              unscored integer, length real)""")
             self._logger.info("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":
@@ -55,8 +56,25 @@ class Database:
                 columnNames.append(detail[1])
             if columnNames.count('length') == 0:
                 self._logger.debug("Adding length column to track table.")
-                c.execute("alter table tracks add column length text")
-##            print "Tracks table found."
+                c.execute("alter table tracks add column length real")
+##                c.execute("""create table tracksbackup (
+##                          trackid integer primary key autoincrement, path text,
+##                          artist text, album text, title text, tracknumber text,
+##                          unscored integer)""")
+##                c.execute("""insert into tracksbackup select trackid, path,
+##                          artist, album, title, tracknumber, unscored from
+##                          tracks""")
+##                c.execute("drop table tracks")
+##                c.execute("""create table tracks (trackid integer primary key
+##                                                  autoincrement, path text,
+##                                                  artist text, album text,
+##                                                  title text, tracknumber text,
+##                                                  unscored integer, length
+##                                                  real)""")
+##                c.execute("""insert into tracks select trackid, path, artist,
+##                          album, title, tracknumber, unscored, null from
+##                          tracksbackup""")
+##                c.execute("drop table tracksbackup")
         c.close()
 
     def _initMaybeCreateDirectoryTable(self):
@@ -169,9 +187,10 @@ class Database:
         path = track.getPath()
         if hasTrackID == False or trackID == None:
             c.execute("""insert into tracks (path, artist, album, title,
-                      tracknumber, unscored) values (?, ?, ?, ?, ?, 1)""",
-                      (path, track.getArtist(), track.getAlbum(),
-                       track.getTitle(), track.getTrackNumber()))
+                      tracknumber, unscored, length) values (?, ?, ?, ?, ?, 1,
+                      ?)""", (path, track.getArtist(), track.getAlbum(),
+                              track.getTitle(), track.getTrackNumber(),
+                              track.getLength()))
             trackID = c.lastrowid
             self._logger.info("\'"+path+"\' has been added to the library.")
         else:
@@ -517,15 +536,15 @@ class Database:
 
     def _getTrackDetails(self, track=None, trackID=None):
         (self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
-        self.trackNumberIndex, self.unscoredIndex) = range(6)
+        self.trackNumberIndex, self.unscoredIndex, self.lengthIndex) = range(7)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
             trackID = track.getID()
         c = self._conn.cursor()
-        c.execute("""select path, artist, album, title, tracknumber, unscored
-                  from tracks where trackid = ?""", (trackID, ))
+        c.execute("""select path, artist, album, title, tracknumber, unscored,
+                  length from tracks where trackid = ?""", (trackID, ))
         result = c.fetchone()
         c.close()
         return result
@@ -577,6 +596,32 @@ class Database:
         if details == None:
             return None
         return details[self.trackNumberIndex]
+
+    def getLength(self, track):
+        self._logger.debug("Retrieving track's length.")
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        length = details[self.lengthIndex]
+        if length == None:
+            length = track.getLength()
+            self.setLength(length, track)
+        return length
+
+    def getLengthString(self, track):
+        rawLength = self.getLength(track)
+        (minutes, seconds) = (math.floor(rawLength/60),
+                              math.floor(rawLength-math.floor(rawLength/60)*60))
+        length = str(int(minutes))+":"+str(int(seconds))
+        return length
+
+    def setLength(self, length, track):
+        trackID = track.getID()
+        c = self._conn.cursor()
+        c.execute("update tracks set length = ? where trackID = ?", (length,
+                                                                     trackID))
+        c.close()
+        self._conn.commit()
 
     def setTags(self, track, tags):
         self._logger.debug("Setting track tags.")
@@ -703,5 +748,3 @@ class Database:
         return self._execute_and_fetchone(
             """select count(*) from tracks left outer join plays using(trackid)
                where plays.trackid is null""")
-
-        

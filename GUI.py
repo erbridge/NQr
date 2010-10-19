@@ -1,7 +1,6 @@
 ## GUI
 ## TODO: set minimum sizes of windows
 ## TODO: add library viewer with scoring and queueing funcionality
-## TODO: remove bottom lines/copy to main
 ## TODO: debug message window with levels of messages (basic score up/down
 ##       etc for users and more complex for devs) using "logging" module?
 ## TODO: add delete file/directory menus, with confirmation?
@@ -20,7 +19,7 @@
 ## TODO: when nothing is selected NQr should act as if the currently playing
 ##       track is selected
 ## TODO: remember playlist contents for when NQr is toggled off.
-## TODO: leftmost column of track list no longer needed
+## TODO: leftmost column of track list no longer needed?
 ## TODO: check if there is a next track in the playlist, and if not queue one
 ## TODO: pressing next track should select it
 
@@ -1127,6 +1126,7 @@ class MainWindow(wx.Frame):
         self.addDetail("Title:   "+self._db.getTitle(track))
         self.addDetail("Track:   "+self._db.getTrackNumber(track)\
                        +"       Album:   "+self._db.getAlbum(track))
+        self.addDetail("Length:   "+self._db.getLengthString(track))
         self.addDetail("Score:   "+str(self._db.getScore(track)))
         self.addDetail("Play Count:   "+str(self._db.getPlayCount(track))\
                        +"       Last Played:   "+lastPlayed)

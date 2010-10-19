@@ -6,6 +6,7 @@
 ## TODO: make cache a limited size
 
 from Errors import *
+import math
 import mutagen
 ##from mutagen.easyid3 import EasyID3 as id3
 import os
@@ -136,9 +137,9 @@ class Track:
 class AudioTrack(Track):
     def __init__(self, db, path, logger):
         Track.__init__(self, db, path, logger)
-        path = self.getPath()
+        self._path = self.getPath()
         try:
-            self._logger.debug("Creating track from \'"+path+"\'.")
+            self._logger.debug("Creating track from \'"+self._path+"\'.")
             self.track = mutagen.File(path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
             self._logger.error("File has no metadata.")
@@ -153,10 +154,11 @@ class AudioTrack(Track):
     def _initGetAttributes(self):
 ##        attr = ['artist', 'album', 'title', 'tracknumber']
         self._logger.debug("Getting basic track details.")
-        self.artist = self._getAttribute('artist')
-        self.album = self._getAttribute('album')
-        self.title = self._getAttribute('title')
-        self.trackNumber = self._getAttribute('tracknumber')
+        self._artist = self._getAttribute('artist')
+        self._album = self._getAttribute('album')
+        self._title = self._getAttribute('title')
+        self._trackNumber = self._getAttribute('tracknumber')
+        self._length = self._getLength()
 
     def _getAttribute(self, attr):
         try:
@@ -171,22 +173,30 @@ class AudioTrack(Track):
             if "TRCK" not in err and "TALB" not in err and "TPE1" not in err:
                 raise err
             return "-"
+
+    def _getLength(self):
+        audio = mutagen.mp3.MP3(self._path)
+        length = audio.info.length
+        return length
     
     def getArtist(self):
 ##        artist = self.getAttribute('artist')
-        return self.artist
+        return self._artist
     
     def getAlbum(self):
 ##        album = self.getAttribute('album')
-        return self.album
+        return self._album
 
     def getTitle(self):
 ##        title = self.getAttribute('title')
-        return self.title
+        return self._title
 
     def getTrackNumber(self):
 ##        trackNumber = self.getAttribute('tracknumber')
-        return self.trackNumber
+        return self._trackNumber
+
+    def getLength(self):
+        return self._length
 
 ##class ID3Track(Track):
 ##    def __init__(self, db, path):
