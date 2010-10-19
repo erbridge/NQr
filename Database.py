@@ -645,11 +645,14 @@ class Database:
         self._logger.debug("Retrieving track tags.")
         c = self._conn.cursor()
         c.execute("select tag from tags where trackid = ?", (trackID, ))
-        (details, ) = c.fetchall()
+        details = c.fetchall()
         c.close()
         if details == None:
             return None
-        return details
+        tags = []
+        for detail in details:
+            tags.append(detail[0])
+        return tags
 
     ## determines whether user has changed score for this track
     def _getIsScored(self, track=None, trackID=None):
