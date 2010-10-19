@@ -495,7 +495,7 @@ class MainWindow(wx.Frame):
         self._mainSizer = wx.BoxSizer(wx.VERTICAL)
         self._mainSizer.Add(self._playerControls, 0, wx.EXPAND)
         self._mainSizer.Add(self._trackSizer, 1,
-                           wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
+                            wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
         self._mainSizer.Add(self._details, 0, wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT,
                             3)
         self._mainSizer.Add(self._tagSizer, 0, wx.EXPAND|wx.ALL, 3)
@@ -533,8 +533,8 @@ class MainWindow(wx.Frame):
     def _initCreateDetails(self):
         self._logger.debug("Creating details panel.")
         self._details = wx.TextCtrl(self, self._ID_DETAILS,
-                                   style=wx.TE_READONLY|wx.TE_MULTILINE|
-                                   wx.TE_DONTWRAP, size=(-1,140))
+                                    style=wx.TE_READONLY|wx.TE_MULTILINE|
+                                    wx.TE_DONTWRAP, size=(-1,140))
 
     def _initCreateTagSizer(self):
         self._logger.debug("Creating tag panel.")
@@ -550,6 +550,8 @@ class MainWindow(wx.Frame):
     def _initCreateTagList(self):
         self._logger.debug("Creating tag list box.")
         self._tagList = wx.TextCtrl(self, self._ID_TAGS, size=(-1,-1))
+
+        self._tagList.Bind(wx.EVT_TEXT_ENTER, self._onTagSet)
 
     def _initCreateTagLabel(self):
         self._tagLabel = wx.StaticText(self, wx.NewId(),
@@ -799,7 +801,7 @@ class MainWindow(wx.Frame):
                                +" Retrieving new score.")
             score = self._scoreSlider.GetValue()
             self._db.setScore(self._track, score)
-            self.refreshSelectedTrack()
+            self.refreshSelectedTrack() ## causes second scoring
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
