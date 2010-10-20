@@ -15,8 +15,7 @@
 ## TODO: poss create delay before counting a play (to ignore skips)
 ## TODO: deal with tracks played not in database (ignore them?)
 ## TODO: add keyboard shortcuts
-## TODO: when nothing is selected NQr should act as if the currently playing
-##       track is selected
+## TODO: after a timeout period, NQr should select current track
 ## TODO: remember playlist contents for when NQr is toggled off.
 ## TODO: leftmost column of track list no longer needed?
 ## TODO: check if there is a next track in the playlist, and if not queue one
@@ -214,6 +213,8 @@ class MainWindow(wx.Frame):
         self._logger.info("Starting track monitor.")
         self._trackMonitor = TrackMonitor(self, self._db, self._player,
                                           self._trackFactory, loggerFactory)
+
+        self.selectTrack(0)
 
     def _initCreateMenuBar(self):
         self._logger.debug("Creating menu bar.")
@@ -980,9 +981,7 @@ class MainWindow(wx.Frame):
 
     def _onDeselectTrack(self, e):
         self._logger.debug("Track has been deselected.")
-        self.clearDetails()
-##        path = currentTrack()
-##        self.populateDetails(path)
+        self.selectTrack(0)
 
 #### should queue the correct number of tracks
 ##    def _onEnqueueTracks(self, e=None):
