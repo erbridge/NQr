@@ -1,5 +1,4 @@
 ## Database Control
-## TODO: check metadata haven't changed when grabbing track?
 ## TODO: use a hash as a track identifier instead of path to allow for path
 ##       changes.
 ## TODO: add a function to remove the last play record (to undo the play)

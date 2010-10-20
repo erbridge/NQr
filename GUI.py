@@ -1,5 +1,4 @@
 ## GUI
-## TODO: set minimum sizes of windows
 ## TODO: add library viewer with scoring and queueing funcionality
 ## TODO: debug message window with levels of messages (basic score up/down
 ##       etc for users and more complex for devs) using "logging" module?
@@ -24,6 +23,7 @@
 ## TODO: pressing next track should select it
 ## TODO: make tags autocomplete
 ## TODO: add clear cache menu option (to force metadata change updates)?
+## TODO: make details resizable (splitter window?)
 
 from collections import deque
 from Errors import *
@@ -505,6 +505,7 @@ class MainWindow(wx.Frame):
         self.SetSizer(self._mainSizer)
         self.SetAutoLayout(True)
         self._mainSizer.Fit(self)
+        self.SetSizeHints(430, self.GetSize().y);
 
 ## TODO: use svg or gd to create button images via wx.Bitmap and wx.BitmapButton
 ## TODO: add requeue button and "play this" button to play selected track
