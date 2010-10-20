@@ -558,7 +558,7 @@ class Database:
                                        track.getTrackNumber(),
                                        track.getLength(), track.getBPM(),
                                        trackID))
-            self._logger.info("\'"+path+"\' has been updated the library.")
+            self._logger.info("\'"+path+"\' has been updated in the library.")
         else:
             self._logger.debug("\'"+path+"\' is not in the library.")
         c.close()
