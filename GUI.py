@@ -888,7 +888,7 @@ class MainWindow(wx.Frame):
                 tags[index] = tag
                 index += 1
             tags = filter(None, tags)
-            self._db.setTags(self._track, tags)
+            self._track.setTags(tags)
             self.refreshSelectedTrack()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
