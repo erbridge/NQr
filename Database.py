@@ -814,3 +814,13 @@ class Database:
         return self._execute_and_fetchone(
             """select count(*) from tracks left outer join plays using(trackid)
                where plays.trackid is null""")
+
+    # returns an array of [ score, count ]
+    def getScoreTotals(self):
+        self._cursor.execute(
+            """select score, count(score)
+               from (select max(scoreid), x.trackid, score
+                     from scores, (select distinct trackid from scores) as x
+                     where scores.trackid = x.trackid group by scores.trackid)
+               group by score;""")
+        return self._cursor.fetchall()
