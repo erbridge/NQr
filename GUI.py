@@ -981,7 +981,7 @@ class MainWindow(wx.Frame):
 
     def _onDeselectTrack(self, e):
         self._logger.debug("Track has been deselected.")
-        self.selectTrack(0)
+        self.clearDetails()
 
 #### should queue the correct number of tracks
 ##    def _onEnqueueTracks(self, e=None):
