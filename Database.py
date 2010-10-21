@@ -753,12 +753,6 @@ class Database:
         self._logger.debug("Setting track as unscored.")
         c = self._conn.cursor()
         trackID = track.getID()
-##        if trackID == None:
-##            self._logger.debug("\'"+self.getPath(track)\
-##                               +"\' is not in the library.")
-##            c.execute("""insert into scores (trackid, score, datetime) values
-##                      (?, ?, datetime('now'))""", (trackID,
-##                                                   self._defaultScore, ))
         c.execute("""update tracks set unscored = 1 where trackid = ?""",
                   (trackID, ))
         c.close()
@@ -769,10 +763,6 @@ class Database:
         self._logger.debug("Setting track's score.")
         c = self._conn.cursor()
         trackID = track.getID()
-##        if trackID == None:
-##            self._logger.debug("\'"+self.getPath(track)\
-##                               +"\' is not in the library.")
-##            return
         c.execute("update tracks set unscored = 0 where trackid = ?",
                   (trackID, ))
         c.execute("""insert into scores (trackid, score, datetime) values
