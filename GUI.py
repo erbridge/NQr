@@ -475,6 +475,9 @@ class MainWindow(wx.Frame):
             -1, "Rate &Up", " Increase the score of the current track by one")
         menuTrackRightClickRateDown = self._trackRightClickMenu.Append(
             -1, "Rate &Down", " Decrease the score of the current track by one")
+        # TODO(ben): this generates a warning (at least on FreeBSD),
+        # presumably because this menu is also attached to the
+        # Player/Rate... menu item.
         rateRightClickMenu = self._trackRightClickMenu.AppendMenu(
             -1, "&Rate", self._rateMenu)
         self._trackRightClickMenu.AppendSeparator()
