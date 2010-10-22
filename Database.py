@@ -706,7 +706,6 @@ class Database:
         for tag in tags:
             c.execute("insert into tags (trackid, tag) values (?, ?)",
                       (trackID, tag))
-        track.setTags(tags)
         c.close()
         self._conn.commit()
 
@@ -721,7 +720,7 @@ class Database:
         details = c.fetchall()
         c.close()
         if details == None:
-            return None
+            return []
         tags = []
         for detail in details:
             tags.append(detail[0])

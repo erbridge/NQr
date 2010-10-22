@@ -117,6 +117,7 @@ class Track:
         return self._tags
 
     def setTags(self, tags):
+        self._db.setTags(self, tags)
         self._tags = tags
 
     def setPreviousPlay(self, previous):
