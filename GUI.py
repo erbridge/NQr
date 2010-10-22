@@ -191,7 +191,7 @@ class MainWindow(wx.Frame):
         self.CreateStatusBar()
         self._initCreateMenuBar()
         self._initCreateTrackRightClickMenu()
-        self._initCreateMainSizer()
+        self._initCreateMainPanel()
 
         EVT_TRACK_CHANGE(self, self._onTrackChange)
 ##        EVT_TRACK_QUEUE(self, self._onEnqueueTracks)
@@ -489,7 +489,8 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onRequeue, menuTrackRightClickRequeue)
         self.Bind(wx.EVT_MENU, self._onResetScore, menuTrackRightClickResetScore)
 
-    def _initCreateMainSizer(self):
+    def _initCreateMainPanel(self):
+        self._panel = wx.Panel(self)
         self._initCreatePlayerControls()
         self._initCreateDetails()
         self._initCreateTagSizer()
@@ -503,8 +504,8 @@ class MainWindow(wx.Frame):
                             3)
         self._mainSizer.Add(self._tagSizer, 0, wx.EXPAND|wx.ALL, 3)
 
-        self.SetSizer(self._mainSizer)
-        self.SetAutoLayout(True)
+        self._panel.SetSizerAndFit(self._mainSizer)
+        self._panel.SetAutoLayout(True)
         self._mainSizer.Fit(self)
         self.SetSizeHints(430, self.GetSize().y);
 
@@ -512,7 +513,7 @@ class MainWindow(wx.Frame):
 ## TODO: add requeue button and "play this" button to play selected track
     def _initCreatePlayerControls(self):
         self._logger.debug("Creating player controls.")
-        self._playerControls = wx.Panel(self)
+        self._playerControls = wx.Panel(self._panel)
         previousButton = wx.Button(self._playerControls, wx.ID_ANY, "Prev")
         playButton = wx.Button(self._playerControls, wx.ID_ANY, "Play")
         pauseButton = wx.Button(self._playerControls, wx.ID_ANY, "Pause")
@@ -536,7 +537,7 @@ class MainWindow(wx.Frame):
 
     def _initCreateDetails(self):
         self._logger.debug("Creating details panel.")
-        self._details = wx.TextCtrl(self, self._ID_DETAILS,
+        self._details = wx.TextCtrl(self._panel, self._ID_DETAILS,
                                     style=wx.TE_READONLY|wx.TE_MULTILINE|
                                     wx.TE_DONTWRAP, size=(-1,140))
 
@@ -553,17 +554,17 @@ class MainWindow(wx.Frame):
 
     def _initCreateTagList(self):
         self._logger.debug("Creating tag list box.")
-        self._tagList = wx.TextCtrl(self, self._ID_TAGS, size=(-1,-1))
+        self._tagList = wx.TextCtrl(self._panel, self._ID_TAGS, size=(-1,-1))
 
         self._tagList.Bind(wx.EVT_TEXT_ENTER, self._onTagSet)
 
     def _initCreateTagLabel(self):
-        self._tagLabel = wx.StaticText(self, wx.NewId(),
+        self._tagLabel = wx.StaticText(self._panel, wx.NewId(),
                                        style=wx.ST_NO_AUTORESIZE)
         self._tagLabel.SetLabel("Tags: ")
 
     def _initCreateTagSetButton(self):
-        self._tagSetButtonPanel = wx.Panel(self)
+        self._tagSetButtonPanel = wx.Panel(self._panel)
         tagSetButton = wx.Button(self._tagSetButtonPanel, wx.ID_ANY,
                                        "Set")
 
@@ -581,7 +582,7 @@ class MainWindow(wx.Frame):
     ## first column for displaying "Now Playing" or a "+"
     def _initCreateTrackList(self):
         self._logger.debug("Creating track playlist.")
-        self._trackList = wx.ListCtrl(self, self._ID_TRACKLIST,
+        self._trackList = wx.ListCtrl(self._panel, self._ID_TRACKLIST,
                                      style=wx.LC_REPORT|wx.LC_VRULES,
                                      size=(676,-1))
         self._trackList.InsertColumn(self._ID_NOWPLAYING, "",
@@ -628,13 +629,13 @@ class MainWindow(wx.Frame):
     def _initCreateScoreSlider(self):
         self._logger.debug("Creating score slider.")
         if self._system == 'FreeBSD':
-            self._scoreSlider = wx.Slider(self, self._ID_SCORESLIDER, 0, -10,
-                                          10, style=wx.SL_VERTICAL|wx.SL_LABELS|
-                                          wx.SL_INVERSE)
+            self._scoreSlider = wx.Slider(self._panel, self._ID_SCORESLIDER, 0,
+                                          -10, 10, style=wx.SL_VERTICAL|
+                                          wx.SL_LABELS|wx.SL_INVERSE)
         else:
-            self._scoreSlider = wx.Slider(self, self._ID_SCORESLIDER, 0, -10,
-                                          10, style=wx.SL_RIGHT|wx.SL_LABELS|
-                                          wx.SL_INVERSE)
+            self._scoreSlider = wx.Slider(self._panel, self._ID_SCORESLIDER, 0,
+                                          -10, 10, style=wx.SL_RIGHT|
+                                          wx.SL_LABELS|wx.SL_INVERSE)
 
         self.Bind(wx.EVT_SCROLL_CHANGED, self._onScoreSliderMove,
                   self._scoreSlider)
@@ -684,7 +685,9 @@ class MainWindow(wx.Frame):
 
     def _onPrefs(self, e):
         self._logger.debug("Opening preferences window.")
-        pass
+        self._prefsWindow = PrefsWindow(self, self._logger)
+        
+        self._prefsWindow.Show()
 
 ## TODO: change buttons to say "import" rather than "open"/"choose"
     def _onAddFile(self, e):
@@ -1161,3 +1164,62 @@ class MainWindow(wx.Frame):
     def clearTags(self):
         self._logger.debug("Clearing tag list.")
         self._tagList.Clear()
+
+class PrefsWindow(wx.Frame):
+    def __init__(self, parent, logger):
+        self._logger = logger
+
+        wx.Frame.__init__(self, parent, title="Preferences",
+                          style=wx.CAPTION|wx.FRAME_NO_TASKBAR|
+                          wx.FRAME_FLOAT_ON_PARENT)
+        panel = wx.Panel(self)
+        prefs = wx.Notebook(panel, size=(400,400))
+
+        self.general = PrefsGeneralPage(prefs)
+        self.randomizer = PrefsRandomizerPage(prefs)
+        self.database = PrefsDatabasePage(prefs)
+        self.player = PrefsPlayerPage(prefs)
+        self.advanced = PrefsAdvancedPage(prefs)
+        
+        prefs.AddPage(self.general, "General")
+        prefs.AddPage(self.randomizer, "Randomizer")
+        prefs.AddPage(self.database, "Database")
+        prefs.AddPage(self.player, "Player")
+        prefs.AddPage(self.advanced, "Advanced")
+
+        closeButton = wx.Button(panel, wx.ID_CLOSE)
+
+        self.Bind(wx.EVT_BUTTON, self._onClose, closeButton)
+        
+        buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
+        ## FIXME: doesn't align right...
+        buttonSizer.Add(closeButton, 0, wx.ALIGN_RIGHT)
+
+        mainSizer = wx.BoxSizer(wx.VERTICAL)
+        mainSizer.Add(prefs, 1, wx.EXPAND)
+        mainSizer.Add(buttonSizer, 0)
+        panel.SetSizerAndFit(mainSizer)
+
+    def _onClose(self, e):
+        self._logger.debug("Closing preferences window.")
+        self.Close(True)
+
+class PrefsGeneralPage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+
+class PrefsRandomizerPage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+
+class PrefsDatabasePage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+
+class PrefsPlayerPage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+
+class PrefsAdvancedPage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
