@@ -23,6 +23,9 @@
 ## TODO: make tags autocomplete
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
+##
+## FIXME: play timer may add the wrong track if track changes at same time as
+##        timer dinging
 
 from collections import deque
 from Errors import *
@@ -154,7 +157,7 @@ class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
                  loggerFactory, title="NQr", restorePlaylist=False,
                  enqueueOnStartup=True, rescanOnStartup=False,
-                 defaultPlaylistLength=11):
+                 defaultPlaylistLength=11, defaultPlayDelay=4000):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -170,6 +173,7 @@ class MainWindow(wx.Frame):
         self._ID_ADDFILE = wx.NewId()
         self._ID_PREFS = wx.NewId()
         self._ID_TOGGLENQR = wx.NewId()
+        self._ID_PLAYTIMER = wx.NewId()
     
 ##        self._db = DatabaseThread(db).database
         self._db = db
@@ -183,6 +187,7 @@ class MainWindow(wx.Frame):
         self._rescanOnStartup = rescanOnStartup
         self._defaultPlaylistLength = defaultPlaylistLength
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
+        self._defaultPlayDelay = defaultPlayDelay
 ##        self._trackMonitor = None
         self._index = None
 
@@ -193,6 +198,10 @@ class MainWindow(wx.Frame):
         self._initCreateTrackRightClickMenu()
         self._initCreateMainPanel()
 
+        self._logger.debug("Creating play delay timer.")
+        self._playTimer = wx.Timer(self, self._ID_PLAYTIMER)
+
+        wx.EVT_TIMER(self, self._ID_PLAYTIMER, self._onPlayTimerDing)
         EVT_TRACK_CHANGE(self, self._onTrackChange)
 ##        EVT_TRACK_QUEUE(self, self._onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
@@ -961,10 +970,18 @@ class MainWindow(wx.Frame):
             self.maintainPlaylist()
 
     def _onTrackChange(self, e):
-        track = e.getTrack()
-        self._db.addPlay(track)
-        self.addTrack(track)
+        self._playingTrack = e.getTrack()
+        self._playingTrack.setPreviousPlay(
+                self._db.getLastPlayedInSeconds(self._playingTrack))
+        self._playTimer.Stop()
+        if self._playTimer.Start(self._defaultPlayDelay, oneShot=True) == False:
+            self._db.addPlay(self._playingTrack)
+        self.addTrack(self._playingTrack)
         self.maintainPlaylist()
+
+    def _onPlayTimerDing(self, e):
+        self._db.addPlay(self._playingTrack, self._defaultPlayDelay)
+        self.refreshTrack(0, self._playingTrack)
 
     def maintainPlaylist(self):
         if self.toggleNQr == True:
@@ -999,7 +1016,7 @@ class MainWindow(wx.Frame):
     def addTrack(self, track):
         self.addTrackAtPos(track, 0)
 
-    def addTrackAtPos(self, track, index):
+    def addTrackAtPos(self, track, index, refresh=False):
         self._logger.debug("Adding track to track playlist.")
 ##        if IsCurrentTrack()==False:
         isScored = self._db.getIsScored(track)
@@ -1026,7 +1043,7 @@ class MainWindow(wx.Frame):
         if weight != None:
             self._trackList.SetStringItem(index, 6, str(weight))
         self._trackList.SetItemData(index, self._db.getTrackID(track))
-        if self._index >= index:
+        if refresh == False and self._index >= index:
             self._index += 1
 
     def enqueueTrack(self, track):
@@ -1117,10 +1134,12 @@ class MainWindow(wx.Frame):
 
     def refreshSelectedTrack(self):
         self._logger.debug("Refreshing selected track.")
-        index = self._index
+        self.refreshTrack(self._index, self._track)
+        self.selectTrack(self._index)
+
+    def refreshTrack(self, index, track):
         self._trackList.DeleteItem(index)
-        self.addTrackAtPos(self._track, index)
-        self.selectTrack(index)
+        self.addTrackAtPos(track, index, refresh=True)
 
     def selectTrack(self, index):
         self._logger.debug("Selecting track in position "+str(index)+".")

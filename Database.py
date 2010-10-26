@@ -424,7 +424,8 @@ class Database:
                from enqueues where trackid = ? order by enqueueid desc""",
             (trackID, ))
 
-    def addPlay(self, track):
+    ## FIXME: should take delay from time before adding
+    def addPlay(self, track, delay=0):
         self._logger.debug("Adding play.")
         c = self._conn.cursor()
         trackID = track.getID()
