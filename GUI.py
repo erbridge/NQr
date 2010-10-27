@@ -12,17 +12,16 @@
 ## TODO: set up rescan on startup?
 ## TODO: make add/rescan directory/files a background operation: poss create a
 ##       thread to check the directory and queue the database to add the file.
-## TODO: poss create delay before counting a play (to ignore skips)
-## TODO: deal with tracks played not in database (ignore them?)
+## TODO: allow ignoring of tracks played not in database
 ## TODO: add keyboard shortcuts
 ## TODO: after a timeout period, NQr should select current track
 ## TODO: remember playlist contents for when NQr is toggled off.
 ## TODO: leftmost column of track list no longer needed?
 ## TODO: check if there is a next track in the playlist, and if not queue one
 ## TODO: pressing next track should select it
-## TODO: make tags autocomplete
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
+## TODO: add tags to right click menu
 ##
 ## FIXME: play timer may add the wrong track if track changes at same time as
 ##        timer dinging
@@ -116,17 +115,17 @@ class TrackMonitor(Thread):
 
 
 ## doesn't yet unlock GUI
-class DatabaseThread(Thread):
-    def __init__(self, db):
-        Thread.__init__(self)
-        self._db = db
-        self.start()
-
-    def run(self):
-        pass
-
-    def rescanDirectories(self):
-        self._db.rescanDirectories()
+##class DatabaseThread(Thread):
+##    def __init__(self, db):
+##        Thread.__init__(self)
+##        self._db = db
+##        self.start()
+##
+##    def run(self):
+##        pass
+##
+##    def rescanDirectories(self):
+##        self._db.rescanDirectories()
 
 #### TODO: poss create popup dialog when complete
 #### continues even if NQr is closed
@@ -636,12 +635,12 @@ class MainWindow(wx.Frame):
             self._logger.debug("Adding current track to track playlist.")
             currentTrackPath = self._player.getCurrentTrackPath()
             currentTrack = self._trackFactory.getTrackFromPath(self._db,
-                                                              currentTrackPath)
+                                                               currentTrackPath)
             currentTrackID = currentTrack.getID()
             try:
                 if currentTrackID != self._db.getLastPlayedTrackID():
                     self._logger.debug("Adding play for current track.")
-                    self._db.addPlay(currentTrack)
+                    currentTrack.addPlay()
             except EmptyDatabaseError:
                 pass
             currentTrack.setPreviousPlay(
@@ -843,7 +842,7 @@ class MainWindow(wx.Frame):
             self._logger.debug("Score slider has been moved."\
                                +" Retrieving new score.")
             score = self._scoreSlider.GetValue()
-            self._db.setScore(self._track, score)
+            self._track.setScore(score)
             self.refreshSelectedTrack() ## causes second scoring
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
@@ -858,9 +857,9 @@ class MainWindow(wx.Frame):
     def _onRateUp(self, e):
         try:
             self._logger.debug("Increasing track's score by 1.")
-            score = self._db.getScoreValue(self._track)
+            score = self._track.getScoreValue()
             if score != 10:
-                self._db.setScore(self._track, score+1)
+                self._track.setScore(score+1)
                 self.refreshSelectedTrack()
             else:
                 self._logger.warning("Track already has maximum score.")
@@ -873,9 +872,9 @@ class MainWindow(wx.Frame):
     def _onRateDown(self, e):
         try:
             self._logger.debug("Decreasing track's score by 1.")
-            score = self._db.getScoreValue(self._track)
+            score = self._track.getScoreValue()
             if score != -10:
-                self._db.setScore(self._track, score-1)
+                self._track.setScore(score-1)
                 self.refreshSelectedTrack()
             else:
                 self._logger.warning("Track already has minimum score.")
@@ -888,9 +887,9 @@ class MainWindow(wx.Frame):
     def _onRate(self, e, score):
         try:
             self._logger.debug("Setting the track's score to "+str(score)+".")
-            oldScore = self._db.getScoreValue(self._track)
+            oldScore = self._track.getScoreValue()
             if score != oldScore:
-                self._db.setScore(self._track, score)
+                self._track.setScore(score)
                 self.refreshSelectedTrack()
             else:
                 self._logger.warning("Track already has that score!")
@@ -903,7 +902,7 @@ class MainWindow(wx.Frame):
     def _onResetScore(self, e):
         try:
             self._logger.info("Resetting track's score.")
-            self._db.setUnscored(self._track)
+            self._track.setUnscored()
             self.refreshSelectedTrack()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
@@ -1033,12 +1032,12 @@ class MainWindow(wx.Frame):
                 self._db.getLastPlayedInSeconds(self._playingTrack))
         self._playTimer.Stop()
         if self._playTimer.Start(self._defaultPlayDelay, oneShot=True) == False:
-            self._db.addPlay(self._playingTrack)
+            self._playingTrack.addPlay()
         self.addTrack(self._playingTrack)
         self.maintainPlaylist()
 
     def _onPlayTimerDing(self, e):
-        self._db.addPlay(self._playingTrack, self._defaultPlayDelay)
+        self._playingTrack.addPlay(self._defaultPlayDelay)
         self.refreshTrack(0, self._playingTrack)
 
     def maintainPlaylist(self):
@@ -1060,7 +1059,7 @@ class MainWindow(wx.Frame):
         self._index = e.GetIndex()
         self._track = self._trackFactory.getTrackFromID(self._db, self._trackID)
         self.populateDetails(self._track)
-        self.setScoreSliderPosition(self._db.getScoreValue(self._track))
+        self.setScoreSliderPosition(self._track.getScoreValue())
 
     def _onDeselectTrack(self, e):
         self._logger.debug("Track has been deselected.")
@@ -1077,12 +1076,12 @@ class MainWindow(wx.Frame):
     def addTrackAtPos(self, track, index, refresh=False):
         self._logger.debug("Adding track to track playlist.")
 ##        if IsCurrentTrack()==False:
-        isScored = self._db.getIsScored(track)
+        isScored = track.getIsScored()
         if isScored == False:
-            score = "("+str(self._db.getScoreValue(track))+")"
+            score = "("+str(track.getScoreValue())+")"
             isScored = "+"
         else:
-            score = str(self._db.getScore(track))
+            score = str(track.getScore())
             isScored = ""
         lastPlayed = self._db.getLastPlayedLocalTime(track)
         ## should be time from last play?
@@ -1091,8 +1090,8 @@ class MainWindow(wx.Frame):
         previous = track.getPreviousPlay()
         weight = track.getWeight()
         self._trackList.InsertStringItem(index, isScored)
-        self._trackList.SetStringItem(index, 1, self._db.getArtist(track))
-        self._trackList.SetStringItem(index, 2, self._db.getTitle(track))
+        self._trackList.SetStringItem(index, 1, track.getArtist())
+        self._trackList.SetStringItem(index, 2, track.getTitle())
         self._trackList.SetStringItem(index, 3, score)
         self._trackList.SetStringItem(index, 4, lastPlayed)
         if previous != None:
@@ -1100,7 +1099,7 @@ class MainWindow(wx.Frame):
                                           RoughAge(time.time() - previous))
         if weight != None:
             self._trackList.SetStringItem(index, 6, str(weight))
-        self._trackList.SetItemData(index, self._db.getTrackID(track))
+        self._trackList.SetItemData(index, track.getID())
         if refresh == False and self._index >= index:
             self._index += 1
 
@@ -1190,6 +1189,8 @@ class MainWindow(wx.Frame):
             self._logging.error("The database is empty.")
             return
 
+## FIXME: seems to give an outlined focus on track 2 (poss does nothing except
+##        look confusing)
     def refreshSelectedTrack(self):
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track)
@@ -1214,16 +1215,16 @@ class MainWindow(wx.Frame):
             lastPlayed = "-"
         self.clearDetails()
 ##        self.clearTags()
-        self.addDetail("Artist:   "+self._db.getArtist(track))
-        self.addDetail("Title:   "+self._db.getTitle(track))
-        self.addDetail("Track:   "+self._db.getTrackNumber(track)\
-                       +"       Album:   "+self._db.getAlbum(track))
-        self.addDetail("Length:   "+self._db.getLengthString(track)\
-                       +"       BPM:   "+self._db.getBPM(track))
-        self.addDetail("Score:   "+str(self._db.getScore(track)))
-        self.addDetail("Play Count:   "+str(self._db.getPlayCount(track))\
+        self.addDetail("Artist:   "+track.getArtist())
+        self.addDetail("Title:   "+track.getTitle())
+        self.addDetail("Track:   "+track.getTrackNumber()\
+                       +"       Album:   "+track.getAlbum())
+        self.addDetail("Length:   "+track.getLengthString()\
+                       +"       BPM:   "+track.getBPM())
+        self.addDetail("Score:   "+str(track.getScore()))
+        self.addDetail("Play Count:   "+str(track.getPlayCount())\
                        +"       Last Played:   "+lastPlayed)
-        self.addDetail("Filetrack:   "+self._db.getPath(track))
+        self.addDetail("Filetrack:   "+track.getPath())
         self.resetTagMenu()
         tags = track.getTags()
         if tags == []:

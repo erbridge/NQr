@@ -96,6 +96,9 @@ class Track:
         self._id = None
         self._tags = None
         self._weight = None
+        self._isScored = None
+        self._score = None
+        self._playCount = None
 
     def getPath(self):
         return self._path
@@ -126,6 +129,15 @@ class Track:
         self._db.unsetTag(self, tag)
         self._tags.remove(tag)
 
+    def addPlay(self, delay=0):
+        self._db.addPlay(self, delay)
+        self._playCount = self.getPlayCount() + 1
+
+    def getPlayCount(self):
+        if self._playCount == None:
+            self._playCount = self._db.getPlayCount(self)
+        return self._playCount
+
     def setPreviousPlay(self, previous):
         self._previous = previous
 
@@ -137,6 +149,40 @@ class Track:
 
     def getWeight(self):
         return self._weight
+
+    def setScore(self, score):
+        self._db.setScore(self, score)
+        self._score = score
+        self._isScored = True
+
+    def getScore(self):
+        if self.getIsScored == False:
+            return "-"
+        return self.getScoreValue()
+
+    def getScoreValue(self):
+        if self._score == None:
+            self._score = self._db.getScoreValue(self)
+        return self._score
+
+    def setUnscored(self):
+        self._isScored = False
+        self._db.setUnscored(self)
+
+    def getIsScored(self):
+        if self._isScored == None:
+            self._isScored = self._db.getIsScored(self)
+        return self._isScored
+
+    def getLengthString(self):
+        rawLength = self._getLength()
+        (minutes, seconds) = (math.floor(rawLength/60),
+                              math.floor(rawLength-math.floor(rawLength/60)*60))
+        if seconds not in range(10):
+            self._lengthString = str(int(minutes))+":"+str(int(seconds))
+        else:
+            self._lengthString = str(int(minutes))+":0"+str(int(seconds))
+        return self._lengthString
 
 class AudioTrack(Track):
     def __init__(self, db, path, logger):
