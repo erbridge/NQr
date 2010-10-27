@@ -629,8 +629,8 @@ class MainWindow(wx.Frame):
     def _initCreateTrackList(self):
         self._logger.debug("Creating track playlist.")
         self._trackList = wx.ListCtrl(self._panel, self._ID_TRACKLIST,
-                                     style=wx.LC_REPORT|wx.LC_VRULES,
-                                     size=(676,-1))
+                                      style=wx.LC_REPORT|wx.LC_VRULES|
+                                      wx.LC_SINGLE_SEL, size=(676,-1))
         self._trackList.InsertColumn(self._ID_NOWPLAYING, "",
                                      format=wx.LIST_FORMAT_CENTER, width=20)
         self._trackList.InsertColumn(self._ID_ARTIST, "Artist",
@@ -864,7 +864,7 @@ class MainWindow(wx.Frame):
                                +" Retrieving new score.")
             score = self._scoreSlider.GetValue()
             self._track.setScore(score)
-            self.refreshSelectedTrack() ## causes second scoring
+            self.refreshSelectedTrackScore() ## causes second scoring
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -882,7 +882,7 @@ class MainWindow(wx.Frame):
             score = self._track.getScoreValue()
             if score != 10:
                 self._track.setScore(score+1)
-                self.refreshSelectedTrack()
+                self.refreshSelectedTrackScore()
             else:
                 self._logger.warning("Track already has maximum score.")
         except AttributeError as err:
@@ -898,7 +898,7 @@ class MainWindow(wx.Frame):
             score = self._track.getScoreValue()
             if score != -10:
                 self._track.setScore(score-1)
-                self.refreshSelectedTrack()
+                self.refreshSelectedTrackScore()
             else:
                 self._logger.warning("Track already has minimum score.")
         except AttributeError as err:
@@ -914,7 +914,7 @@ class MainWindow(wx.Frame):
             oldScore = self._track.getScoreValue()
             if score != oldScore:
                 self._track.setScore(score)
-                self.refreshSelectedTrack()
+                self.refreshSelectedTrackScore()
             else:
                 self._logger.warning("Track already has that score!")
         except AttributeError as err:
@@ -928,7 +928,7 @@ class MainWindow(wx.Frame):
         try:
             self._logger.info("Resetting track's score.")
             self._track.setUnscored()
-            self.refreshSelectedTrack()
+            self.refreshSelectedTrackScore()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -943,7 +943,8 @@ class MainWindow(wx.Frame):
                 self.setTag(self._track, tagID)
             else:
                 self.unsetTag(self._track, tagID)
-            self.refreshSelectedTrack()
+            self.populateDetails(self._track)
+##            self.refreshSelectedTrack()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -963,7 +964,8 @@ class MainWindow(wx.Frame):
                 tagMenu = self._tagMenu.AppendCheckItem(
                     tagID, tag, " Tag track with " + tag)
                 self.setTag(self._track, tagID)
-                self.refreshSelectedTrack()
+                self.populateDetails(self._track)
+##                self.refreshSelectedTrack()
                 
                 self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
             dialog.Destroy()
@@ -1070,7 +1072,8 @@ class MainWindow(wx.Frame):
 
     def _onPlayTimerDing(self, e):
         self._playingTrack.addPlay(self._defaultPlayDelay)
-        self.refreshTrack(0, self._playingTrack)
+        self.refreshLastPlayed(0, self._playingTrack)
+        self.refreshPreviousPlay(0, self._playingTrack)
 
     def _onInactivityTimerDing(self, e):
         if self._index != 0:
@@ -1080,11 +1083,8 @@ class MainWindow(wx.Frame):
         for index in range(self._trackList.GetItemCount()):
             trackID = self._trackList.GetItemData(index)
             track = self._trackFactory.getTrackFromID(self._db, trackID)
-            previous = track.getPreviousPlay()
-            if previous != None:
-                self._trackList.SetStringItem(index, 5,
-                                              RoughAge(time.time() - previous))
-        self._trackList.Refresh()
+            self.refreshPreviousPlay(index, track)
+##        self._trackList.Refresh()
 
     def resetInactivityTimer(self):
         self._logger.debug("Restarting inactivity timer.")
@@ -1125,7 +1125,7 @@ class MainWindow(wx.Frame):
     def addTrack(self, track):
         self.addTrackAtPos(track, 0)
 
-    def addTrackAtPos(self, track, index, refresh=False):
+    def addTrackAtPos(self, track, index):
         self._logger.debug("Adding track to track playlist.")
 ##        if IsCurrentTrack()==False:
         isScored = track.getIsScored()
@@ -1152,7 +1152,7 @@ class MainWindow(wx.Frame):
         if weight != None:
             self._trackList.SetStringItem(index, 6, str(weight))
         self._trackList.SetItemData(index, track.getID())
-        if refresh == False and self._index >= index:
+        if self._index >= index:
             self._index += 1
 
     def enqueueTrack(self, track):
@@ -1246,11 +1246,50 @@ class MainWindow(wx.Frame):
     def refreshSelectedTrack(self):
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track)
-        self.selectTrack(self._index)
+
+    def refreshSelectedTrackScore(self):
+        self.refreshScore(self._index, self._track)
 
     def refreshTrack(self, index, track):
-        self._trackList.DeleteItem(index)
-        self.addTrackAtPos(track, index, refresh=True)
+        self.refreshArtist(index, track)
+        self.refreshTitle(index, track)
+        self.refreshScore(index, track)
+        self.refreshLastPlayed(index, track)
+        self.refreshPreviousPlay(index, track)
+
+    def refreshArtist(self, index, track):
+        self._trackList.SetStringItem(index, 1, track.getArtist())
+        self._trackList.RefreshItem(index)
+
+    def refreshTitle(self, index, track):
+        self._trackList.SetStringItem(index, 2, track.getTitle())
+        self._trackList.RefreshItem(index)
+
+    def refreshScore(self, index, track):
+        isScored = track.getIsScored()
+        if isScored == False:
+            score = "("+str(track.getScoreValue())+")"
+            isScored = "+"
+        else:
+            score = str(track.getScore())
+            isScored = ""
+        self._trackList.SetStringItem(index, 0, isScored)
+        self._trackList.SetStringItem(index, 3, score)
+        self._trackList.RefreshItem(index)
+
+    def refreshLastPlayed(self, index, track):
+        lastPlayed = self._db.getLastPlayedLocalTime(track)
+        if lastPlayed == None:
+            lastPlayed = "-"
+        self._trackList.SetStringItem(index, 4, lastPlayed)
+        self._trackList.RefreshItem(index)
+
+    def refreshPreviousPlay(self, index, track):
+        previous = track.getPreviousPlay()
+        if previous != None:
+            self._trackList.SetStringItem(index, 5,
+                                          RoughAge(time.time() - previous))
+        self._trackList.RefreshItem(index)
 
     def selectTrack(self, index):
         self._logger.debug("Selecting track in position "+str(index)+".")
