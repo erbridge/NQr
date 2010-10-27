@@ -175,6 +175,7 @@ class MainWindow(wx.Frame):
         self._ID_TOGGLENQR = wx.NewId()
         self._ID_PLAYTIMER = wx.NewId()
         self._ID_INACTIVITYTIMER = wx.NewId()
+        self._ID_REFRESHTIMER = wx.NewId()
     
 ##        self._db = DatabaseThread(db).database
         self._db = db
@@ -208,9 +209,14 @@ class MainWindow(wx.Frame):
         self._inactivityTimer = wx.Timer(self, self._ID_INACTIVITYTIMER)
         self._inactivityTimer.Start(self._defaultInactivityTime, oneShot=False)
 
+        self._logger.debug("Creating and starting track list refresh timer.")
+        self._refreshTimer = wx.Timer(self, self._ID_REFRESHTIMER)
+        self._refreshTimer.Start(1000, oneShot=False)
+
         wx.EVT_TIMER(self, self._ID_PLAYTIMER, self._onPlayTimerDing)
         wx.EVT_TIMER(self, self._ID_INACTIVITYTIMER,
                      self._onInactivityTimerDing)
+        wx.EVT_TIMER(self, self._ID_REFRESHTIMER, self._onRefreshTimerDing)
         EVT_TRACK_CHANGE(self, self._onTrackChange)
 ##        EVT_TRACK_QUEUE(self, self._onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
@@ -996,6 +1002,7 @@ class MainWindow(wx.Frame):
         if self._trackMonitor:
             self._trackMonitor.abort()
         self._inactivityTimer.Stop()
+        self._refreshTimer.Stop()
         self.Destroy()
 
     def _onLaunchPlayer(self, e):
@@ -1068,6 +1075,16 @@ class MainWindow(wx.Frame):
     def _onInactivityTimerDing(self, e):
         if self._index != 0:
             self.selectTrack(0)
+
+    def _onRefreshTimerDing(self, e):
+        for index in range(self._trackList.GetItemCount()):
+            trackID = self._trackList.GetItemData(index)
+            track = self._trackFactory.getTrackFromID(self._db, trackID)
+            previous = track.getPreviousPlay()
+            if previous != None:
+                self._trackList.SetStringItem(index, 5,
+                                              RoughAge(time.time() - previous))
+        self._trackList.Refresh()
 
     def resetInactivityTimer(self):
         self._logger.debug("Restarting inactivity timer.")
