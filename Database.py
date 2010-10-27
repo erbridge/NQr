@@ -763,7 +763,7 @@ class Database:
     def unsetTag(self, track, tagName):
         trackID = track.getID()
         tagNameID = self.getTagNameID(tagName)
-        self._cursor.execute("""delete from tags where tagnameid = ?,
+        self._cursor.execute("""delete from tags where tagnameid = ? and
                              trackid = ?""", (tagNameID, trackID))
         
     def getTags(self, track):
