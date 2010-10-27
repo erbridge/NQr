@@ -31,6 +31,7 @@ class Database:
         self._initMaybeCreateScoresTable()
         self._initMaybeCreateLinksTable()
         self._initMaybeCreateIgnoreTable()
+        self._initMaybeCreateTagNamesTable()
         self._initMaybeCreateTagsTable()
         self._conn.commit()
         self._cursor = self._conn.cursor()
@@ -165,19 +166,33 @@ class Database:
             self._logger.debug("Ignore table found.")
         c.close()
 
+    def _initMaybeCreateTagNamesTable(self):
+        self._logger.debug("Looking for tag names table.")
+        c = self._conn.cursor()
+        try:
+            c.execute("""create table tagnames (tagnameid integer primary key,
+                                                name text)""")
+            self._logger.info("Tag names table created.")
+        except sqlite3.OperationalError as err:
+            if str(err) != "table tagnames already exists":
+                raise err
+            self._logger.debug("Tag names table found.")
+        c.close()
+
     def _initMaybeCreateTagsTable(self):
         self._logger.debug("Looking for tags table.")
         c = self._conn.cursor()
         try:
             c.execute("""create table tags (tagid integer primary key,
-                                            trackid integer, tag text)""")
+                                            tagnameid integer,
+                                            trackid integer)""")
             self._logger.info("Tags table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tags already exists":
                 raise err
             self._logger.debug("Tags table found.")
         c.close()
-
+        
     def addTrack(self, path, hasTrackID=True):
         self._logger.debug("Adding \'"+path+"\' to the library.")
         track = self._trackFactory.getTrackFromPathNoID(self, path)
@@ -697,35 +712,78 @@ class Database:
         c.close()
         self._conn.commit()
 
-    def setTags(self, track, tags):
-        self._logger.debug("Setting track tags.")
-        c = self._conn.cursor()
-        trackID = track.getID()
-        self._logger.debug("Removing old tags.")
-        c.execute("delete from tags where trackid = ?", (trackID, ))
-        self._logger.debug("Adding new tags.")
-        for tag in tags:
-            c.execute("insert into tags (trackid, tag) values (?, ?)",
-                      (trackID, tag))
-        c.close()
-        self._conn.commit()
+    def addTagName(self, tagName):
+        self._logger.debug("Adding tag name.")
+        self._cursor.execute("insert into tagnames (name) values (?)",
+                             (tagName, ))
 
+    def getAllTagNames(self):
+        self._logger.debug("Retrieving all tag names.")
+        self._cursor.execute("select name from tagnames")
+        results = self._cursor.fetchall()
+        if results == None:
+            return []
+        tagNames = []
+        for result in results:
+            tagNames.append(result[0])
+        return tagNames
+
+    def getTagNameID(self, tagName):
+        return self._execute_and_fetchone(
+            "select tagnameid from tagnames where name = ?", (tagName, ))
+##        if results == None:
+##            return []
+##        tagNameIDs = []
+##        for result in results:
+##            tagNamesIDs.append(result[0])
+##        return tagNameIDs
+
+##    def setTags(self, track, tagNames):
+##        self._logger.debug("Setting track tags.")
+##        trackID = track.getID()
+##        self._logger.debug("Removing old tags.")
+##        self._cursor.execute("delete from tags where trackid = ?", (trackID, ))
+##        self._logger.debug("Adding new tags.")
+##        tagNameIDs = []
+##        for tagName in tagNames:
+##            tagNameID = self.getTagNameID(tagName)
+##            self._cursor.execute("""insert into tags (trackid, tagnameid) values
+##                                 (?, ?)""", (trackID, tagNameID))
+##        self._conn.commit()
+
+    def setTag(self, track, tagName):
+        self._logger.info("Tagging track with '" + tagName + "'.")
+        trackID = track.getID()
+        tagNames = self.getTags(track)
+        if tagName not in tagNames:
+            tagNameID = self.getTagNameID(tagName)
+            self._cursor.execute("""insert into tags (trackid, tagnameid) values
+                                 (?, ?)""", (trackID, tagNameID))
+
+    def unsetTag(self, track, tagName):
+        trackID = track.getID()
+        tagNameID = self.getTagNameID(tagName)
+        self._cursor.execute("""delete from tags where tagnameid = ?,
+                             trackid = ?""", (tagNameID, trackID))
+        
     def getTags(self, track):
         trackID = track.getID()
-        return self.getTagsFromID(trackID)
+        return self.getTagsFromTrackID(trackID)
 
-    def getTagsFromID(self, trackID):
+    def getTagsFromTrackID(self, trackID):
         self._logger.debug("Retrieving track tags.")
         c = self._conn.cursor()
-        c.execute("select tag from tags where trackid = ?", (trackID, ))
-        details = c.fetchall()
+        c.execute("select tagnameid from tags where trackid = ?", (trackID, ))
+        tagNameIDs = c.fetchall()
         c.close()
-        if details == None:
+        if tagNameIDs == None:
             return []
-        tags = []
-        for detail in details:
-            tags.append(detail[0])
-        return tags
+        tagNames = []
+        for tagNameID in tagNameIDs:
+            tagNames.append(self._execute_and_fetchone(
+                "select name from tagnames where tagnameid = ?",
+                (tagNameID[0], )))
+        return tagNames
 
     ## determines whether user has changed score for this track
     def _getIsScored(self, track=None, trackID=None):
