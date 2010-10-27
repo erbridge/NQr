@@ -157,7 +157,7 @@ class MainWindow(wx.Frame):
                  loggerFactory, prefsFactory, title="NQr",
                  restorePlaylist=False, enqueueOnStartup=True,
                  rescanOnStartup=False, defaultPlaylistLength=11,
-                 defaultPlayDelay=4000):
+                 defaultPlayDelay=4000, defaultInactivityTime=30000):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -174,6 +174,7 @@ class MainWindow(wx.Frame):
         self._ID_PREFS = wx.NewId()
         self._ID_TOGGLENQR = wx.NewId()
         self._ID_PLAYTIMER = wx.NewId()
+        self._ID_INACTIVITYTIMER = wx.NewId()
     
 ##        self._db = DatabaseThread(db).database
         self._db = db
@@ -189,6 +190,7 @@ class MainWindow(wx.Frame):
         self._defaultPlaylistLength = defaultPlaylistLength
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
         self._defaultPlayDelay = defaultPlayDelay
+        self._defaultInactivityTime = defaultInactivityTime
 ##        self._trackMonitor = None
         self._index = None
 
@@ -202,7 +204,13 @@ class MainWindow(wx.Frame):
         self._logger.debug("Creating play delay timer.")
         self._playTimer = wx.Timer(self, self._ID_PLAYTIMER)
 
+        self._logger.debug("Creating and starting inactivity timer.")
+        self._inactivityTimer = wx.Timer(self, self._ID_INACTIVITYTIMER)
+        self._inactivityTimer.Start(self._defaultInactivityTime, oneShot=False)
+
         wx.EVT_TIMER(self, self._ID_PLAYTIMER, self._onPlayTimerDing)
+        wx.EVT_TIMER(self, self._ID_INACTIVITYTIMER,
+                     self._onInactivityTimerDing)
         EVT_TRACK_CHANGE(self, self._onTrackChange)
 ##        EVT_TRACK_QUEUE(self, self._onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
@@ -675,6 +683,7 @@ class MainWindow(wx.Frame):
                   self._scoreSlider)
 
     def _onTrackRightClick(self, e):
+        self.resetInactivityTimer()
         self._logger.debug("Popping up track right click menu.")
         point = e.GetPoint()
 ##        self._initCreateRateMenu()
@@ -843,6 +852,7 @@ class MainWindow(wx.Frame):
         firstDialog.Destroy()
 
     def _onScoreSliderMove(self, e):
+        self.resetInactivityTimer()
         try:
             self._logger.debug("Score slider has been moved."\
                                +" Retrieving new score.")
@@ -860,6 +870,7 @@ class MainWindow(wx.Frame):
         self._scoreSlider.SetValue(score)
 
     def _onRateUp(self, e):
+        self.resetInactivityTimer()
         try:
             self._logger.debug("Increasing track's score by 1.")
             score = self._track.getScoreValue()
@@ -875,6 +886,7 @@ class MainWindow(wx.Frame):
             return
 
     def _onRateDown(self, e):
+        self.resetInactivityTimer()
         try:
             self._logger.debug("Decreasing track's score by 1.")
             score = self._track.getScoreValue()
@@ -890,6 +902,7 @@ class MainWindow(wx.Frame):
             return
 
     def _onRate(self, e, score):
+        self.resetInactivityTimer()
         try:
             self._logger.debug("Setting the track's score to "+str(score)+".")
             oldScore = self._track.getScoreValue()
@@ -905,6 +918,7 @@ class MainWindow(wx.Frame):
             return
 
     def _onResetScore(self, e):
+        self.resetInactivityTimer()
         try:
             self._logger.info("Resetting track's score.")
             self._track.setUnscored()
@@ -916,6 +930,7 @@ class MainWindow(wx.Frame):
             return
 
     def _onTag(self, e):
+        self.resetInactivityTimer()
         try:
             tagID = e.GetId()
             if self._tagMenu.IsChecked(tagID) == True: # since clicking checks
@@ -931,6 +946,7 @@ class MainWindow(wx.Frame):
 
     def _onNewTag(self, e):
         try:
+            self._inactivityTimer.Stop()
             self._logger.info("Creating tag.")
             dialog = wx.TextEntryDialog(self, "Tag name:", "New Tag...")
             if dialog.ShowModal() == wx.ID_OK:
@@ -945,10 +961,12 @@ class MainWindow(wx.Frame):
                 
                 self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
             dialog.Destroy()
+            self.resetInactivityTimer()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
+            self.resetInactivityTimer()
             return
         
 ##    def _onTagSet(self, e):
@@ -977,6 +995,7 @@ class MainWindow(wx.Frame):
     def _onClose(self, e):
         if self._trackMonitor:
             self._trackMonitor.abort()
+        self._inactivityTimer.Stop()
         self.Destroy()
 
     def _onLaunchPlayer(self, e):
@@ -1001,6 +1020,7 @@ class MainWindow(wx.Frame):
         self._player.stop()
 
     def _onRequeue(self, e):
+        self.resetInactivityTimer()
         try:
             self._logger.info("Requeueing track.")
             self._player.addTrack(self._track.getPath())
@@ -1045,6 +1065,14 @@ class MainWindow(wx.Frame):
         self._playingTrack.addPlay(self._defaultPlayDelay)
         self.refreshTrack(0, self._playingTrack)
 
+    def _onInactivityTimerDing(self, e):
+        if self._index != 0:
+            self.selectTrack(0)
+
+    def resetInactivityTimer(self):
+        self._logger.debug("Restarting inactivity timer.")
+        self._inactivityTimer.Start(self._defaultInactivityTime, oneShot=False)
+
     def maintainPlaylist(self):
         if self.toggleNQr == True:
             self._logger.debug("Maintaining playlist.")
@@ -1058,6 +1086,7 @@ class MainWindow(wx.Frame):
                     self._defaultPlaylistLength - playlistLength)
 
     def _onSelectTrack(self, e):
+        self.resetInactivityTimer()
         self._logger.debug("Track has been selected.")
         self._logger.debug("Retrieving selected track's information.")
         self._trackID = e.GetData()
@@ -1067,6 +1096,7 @@ class MainWindow(wx.Frame):
         self.setScoreSliderPosition(self._track.getScoreValue())
 
     def _onDeselectTrack(self, e):
+        self.resetInactivityTimer()
         self._logger.debug("Track has been deselected.")
         self.clearDetails()
 
