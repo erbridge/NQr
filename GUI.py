@@ -23,6 +23,9 @@
 ## TODO: make tags autocomplete
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
+##
+## FIXME: play timer may add the wrong track if track changes at same time as
+##        timer dinging
 
 from collections import deque
 from Errors import *
@@ -154,7 +157,7 @@ class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
                  loggerFactory, title="NQr", restorePlaylist=False,
                  enqueueOnStartup=True, rescanOnStartup=False,
-                 defaultPlaylistLength=11):
+                 defaultPlaylistLength=11, defaultPlayDelay=4000):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -170,6 +173,7 @@ class MainWindow(wx.Frame):
         self._ID_ADDFILE = wx.NewId()
         self._ID_PREFS = wx.NewId()
         self._ID_TOGGLENQR = wx.NewId()
+        self._ID_PLAYTIMER = wx.NewId()
     
 ##        self._db = DatabaseThread(db).database
         self._db = db
@@ -183,6 +187,7 @@ class MainWindow(wx.Frame):
         self._rescanOnStartup = rescanOnStartup
         self._defaultPlaylistLength = defaultPlaylistLength
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
+        self._defaultPlayDelay = defaultPlayDelay
 ##        self._trackMonitor = None
         self._index = None
 
@@ -193,6 +198,10 @@ class MainWindow(wx.Frame):
         self._initCreateTrackRightClickMenu()
         self._initCreateMainPanel()
 
+        self._logger.debug("Creating play delay timer.")
+        self._playTimer = wx.Timer(self, self._ID_PLAYTIMER)
+
+        wx.EVT_TIMER(self, self._ID_PLAYTIMER, self._onPlayTimerDing)
         EVT_TRACK_CHANGE(self, self._onTrackChange)
 ##        EVT_TRACK_QUEUE(self, self._onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
@@ -221,11 +230,13 @@ class MainWindow(wx.Frame):
         self._initCreateFileMenu()
         self._initCreateRateMenu()
         self._initCreatePlayerMenu()
+        self._initCreateTagMenu()
         self._initCreateOptionsMenu()
 
         menuBar = wx.MenuBar()
         menuBar.Append(self._fileMenu, "&File")
         menuBar.Append(self._playerMenu, "&Player")
+        menuBar.Append(self._tagMenu, "&Tags")
         menuBar.Append(self._optionsMenu, "&Options")
 
         self.SetMenuBar(menuBar)
@@ -452,13 +463,32 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onLaunchPlayer, menuLaunchPlayer)
         self.Bind(wx.EVT_MENU, self._onExitPlayer, menuExitPlayer)
 
+    def _initCreateTagMenu(self):
+        self._logger.debug("Creating tag menu.")
+        self._tagMenu = wx.Menu()
+        newTagMenu = self._tagMenu.Append(
+            -1, "&New...", " Create new tag and tag track with it")
+        self._tagMenu.AppendSeparator()
+        
+        self._allTags = {}
+        for tag in self._db.getAllTagNames():
+            tagID = wx.NewId()
+            self._allTags[tagID] = tag
+            tagMenu = self._tagMenu.AppendCheckItem(tagID, tag,
+                                                    " Tag track with " + tag)
+            
+            self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
+
+        self.Bind(wx.EVT_MENU, self._onNewTag, newTagMenu)
+
     def _initCreateOptionsMenu(self):
         self._logger.debug("Creating options menu.")
         self._optionsMenu = wx.Menu()
         menuPrefs = self._optionsMenu.Append(self._ID_PREFS, "&Preferences...",
                                             " Change NQr's settings")
         menuRescan = self._optionsMenu.Append(
-            -1, "&Rescan Library", " Search previously added directories for new files")
+            -1, "&Rescan Library",
+            " Search previously added directories for new files")
         self._optionsMenu.AppendSeparator()
         self.menuToggleNQr = self._optionsMenu.AppendCheckItem(
             self._ID_TOGGLENQR, "En&queue with NQr",
@@ -475,9 +505,6 @@ class MainWindow(wx.Frame):
             -1, "Rate &Up", " Increase the score of the current track by one")
         menuTrackRightClickRateDown = self._trackRightClickMenu.Append(
             -1, "Rate &Down", " Decrease the score of the current track by one")
-        # TODO(ben): this generates a warning (at least on FreeBSD),
-        # presumably because this menu is also attached to the
-        # Player/Rate... menu item.
         rateRightClickMenu = self._trackRightClickMenu.AppendMenu(
             -1, "&Rate", self._rateMenu)
         self._trackRightClickMenu.AppendSeparator()
@@ -490,13 +517,14 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onRateUp, menuTrackRightClickRateUp)
         self.Bind(wx.EVT_MENU, self._onRateDown, menuTrackRightClickRateDown)
         self.Bind(wx.EVT_MENU, self._onRequeue, menuTrackRightClickRequeue)
-        self.Bind(wx.EVT_MENU, self._onResetScore, menuTrackRightClickResetScore)
+        self.Bind(wx.EVT_MENU, self._onResetScore,
+                  menuTrackRightClickResetScore)
 
     def _initCreateMainPanel(self):
         self._panel = wx.Panel(self)
         self._initCreatePlayerControls()
         self._initCreateDetails()
-        self._initCreateTagSizer()
+##        self._initCreateTagSizer()
         self._initCreateTrackSizer()
 
         self._mainSizer = wx.BoxSizer(wx.VERTICAL)
@@ -505,7 +533,7 @@ class MainWindow(wx.Frame):
                             wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
         self._mainSizer.Add(self._details, 0, wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT,
                             3)
-        self._mainSizer.Add(self._tagSizer, 0, wx.EXPAND|wx.ALL, 3)
+##        self._mainSizer.Add(self._tagSizer, 0, wx.EXPAND|wx.ALL, 3)
 
         self._panel.SetSizerAndFit(self._mainSizer)
         self._panel.SetAutoLayout(True)
@@ -544,34 +572,34 @@ class MainWindow(wx.Frame):
                                     style=wx.TE_READONLY|wx.TE_MULTILINE|
                                     wx.TE_DONTWRAP, size=(-1,140))
 
-    def _initCreateTagSizer(self):
-        self._logger.debug("Creating tag panel.")
-        self._initCreateTagList()
-        self._initCreateTagLabel()
-        self._initCreateTagSetButton()
-
-        self._tagSizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._tagSizer.Add(self._tagLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-        self._tagSizer.Add(self._tagList, 1, wx.EXPAND)
-        self._tagSizer.Add(self._tagSetButtonPanel, 0, wx.LEFT, 3)
-
-    def _initCreateTagList(self):
-        self._logger.debug("Creating tag list box.")
-        self._tagList = wx.TextCtrl(self._panel, self._ID_TAGS, size=(-1,-1))
-
-        self._tagList.Bind(wx.EVT_TEXT_ENTER, self._onTagSet)
-
-    def _initCreateTagLabel(self):
-        self._tagLabel = wx.StaticText(self._panel, wx.NewId(),
-                                       style=wx.ST_NO_AUTORESIZE)
-        self._tagLabel.SetLabel("Tags: ")
-
-    def _initCreateTagSetButton(self):
-        self._tagSetButtonPanel = wx.Panel(self._panel)
-        tagSetButton = wx.Button(self._tagSetButtonPanel, wx.ID_ANY,
-                                       "Set")
-
-        self.Bind(wx.EVT_BUTTON, self._onTagSet, tagSetButton)
+##    def _initCreateTagSizer(self):
+##        self._logger.debug("Creating tag panel.")
+##        self._initCreateTagList()
+##        self._initCreateTagLabel()
+##        self._initCreateTagSetButton()
+##
+##        self._tagSizer = wx.BoxSizer(wx.HORIZONTAL)
+##        self._tagSizer.Add(self._tagLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+##        self._tagSizer.Add(self._tagList, 1, wx.EXPAND)
+##        self._tagSizer.Add(self._tagSetButtonPanel, 0, wx.LEFT, 3)
+##
+##    def _initCreateTagList(self):
+##        self._logger.debug("Creating tag list box.")
+##        self._tagList = wx.TextCtrl(self._panel, self._ID_TAGS, size=(-1,-1))
+##
+##        self._tagList.Bind(wx.EVT_TEXT_ENTER, self._onTagSet)
+##
+##    def _initCreateTagLabel(self):
+##        self._tagLabel = wx.StaticText(self._panel, wx.NewId(),
+##                                       style=wx.ST_NO_AUTORESIZE)
+##        self._tagLabel.SetLabel("Tags: ")
+##
+##    def _initCreateTagSetButton(self):
+##        self._tagSetButtonPanel = wx.Panel(self._panel)
+##        tagSetButton = wx.Button(self._tagSetButtonPanel, wx.ID_ANY,
+##                                       "Set")
+##
+##        self.Bind(wx.EVT_BUTTON, self._onTagSet, tagSetButton)
 
     def _initCreateTrackSizer(self):
         self._logger.debug("Creating track panel.")
@@ -883,24 +911,59 @@ class MainWindow(wx.Frame):
             self._logger.error("No track selected.")
             return
 
-    def _onTagSet(self, e):
+    def _onTag(self, e):
         try:
-            self._logger.info("Tagging track.")
-            tagString = self._tagList.GetLineText(0)
-            tags = tagString.split(",")
-            index = 0
-            for tag in tags:
-                tag = tag.strip()
-                tags[index] = tag
-                index += 1
-            tags = filter(None, tags)
-            self._track.setTags(tags)
-            self.refreshSelectedTrack()
+            self._logger.info("Creating tag.")
+            tagID = e.GetId()
+            if self._tagMenu.IsChecked(tagID) == True: # since clicking checks
+                self.setTag(self._track, tagID)
+            else:
+                self.unsetTag(self._track, tagID)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
-            return        
+            return
+
+    def _onNewTag(self, e):
+        try:
+            self._logger.info("Creating tag.")
+            dialog = wx.TextEntryDialog(self, "Tag name:", "New Tag...")
+            if dialog.ShowModal() == wx.ID_OK:
+                tag = unicode(dialog.GetValue())
+                self._db.addTagName(tag)
+                tagID = wx.NewId()
+                self._allTags[tagID] = tag
+                tagMenu = self._tagMenu.AppendCheckItem(
+                    tagID, tag, " Tag track with " + tag)
+                self.setTag(self._track, tagID)
+                
+                self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
+            dialog.Destroy()
+        except AttributeError as err:
+            if str(err) != "'MainWindow' object has no attribute '_track'":
+                raise err
+            self._logger.error("No track selected.")
+            return
+        
+##    def _onTagSet(self, e):
+##        try:
+##            self._logger.info("Tagging track.")
+##            tagString = self._tagList.GetLineText(0)
+##            tags = tagString.split(",")
+##            index = 0
+##            for tag in tags:
+##                tag = tag.strip()
+##                tags[index] = tag
+##                index += 1
+##            tags = filter(None, tags)
+##            self._track.setTags(tags)
+##            self.refreshSelectedTrack()
+##        except AttributeError as err:
+##            if str(err) != "'MainWindow' object has no attribute '_track'":
+##                raise err
+##            self._logger.error("No track selected.")
+##            return        
 
     def _onExit(self, e):
         self._logger.debug("Exiting NQr.")
@@ -964,10 +1027,18 @@ class MainWindow(wx.Frame):
             self.maintainPlaylist()
 
     def _onTrackChange(self, e):
-        track = e.getTrack()
-        self._db.addPlay(track)
-        self.addTrack(track)
+        self._playingTrack = e.getTrack()
+        self._playingTrack.setPreviousPlay(
+                self._db.getLastPlayedInSeconds(self._playingTrack))
+        self._playTimer.Stop()
+        if self._playTimer.Start(self._defaultPlayDelay, oneShot=True) == False:
+            self._db.addPlay(self._playingTrack)
+        self.addTrack(self._playingTrack)
         self.maintainPlaylist()
+
+    def _onPlayTimerDing(self, e):
+        self._db.addPlay(self._playingTrack, self._defaultPlayDelay)
+        self.refreshTrack(0, self._playingTrack)
 
     def maintainPlaylist(self):
         if self.toggleNQr == True:
@@ -1002,7 +1073,7 @@ class MainWindow(wx.Frame):
     def addTrack(self, track):
         self.addTrackAtPos(track, 0)
 
-    def addTrackAtPos(self, track, index):
+    def addTrackAtPos(self, track, index, refresh=False):
         self._logger.debug("Adding track to track playlist.")
 ##        if IsCurrentTrack()==False:
         isScored = self._db.getIsScored(track)
@@ -1029,7 +1100,7 @@ class MainWindow(wx.Frame):
         if weight != None:
             self._trackList.SetStringItem(index, 6, str(weight))
         self._trackList.SetItemData(index, self._db.getTrackID(track))
-        if self._index >= index:
+        if refresh == False and self._index >= index:
             self._index += 1
 
     def enqueueTrack(self, track):
@@ -1120,10 +1191,12 @@ class MainWindow(wx.Frame):
 
     def refreshSelectedTrack(self):
         self._logger.debug("Refreshing selected track.")
-        index = self._index
+        self.refreshTrack(self._index, self._track)
+        self.selectTrack(self._index)
+
+    def refreshTrack(self, index, track):
         self._trackList.DeleteItem(index)
-        self.addTrackAtPos(self._track, index)
-        self.selectTrack(index)
+        self.addTrackAtPos(track, index, refresh=True)
 
     def selectTrack(self, index):
         self._logger.debug("Selecting track in position "+str(index)+".")
@@ -1139,7 +1212,7 @@ class MainWindow(wx.Frame):
         if lastPlayed == None:
             lastPlayed = "-"
         self.clearDetails()
-        self.clearTags()
+##        self.clearTags()
         self.addDetail("Artist:   "+self._db.getArtist(track))
         self.addDetail("Title:   "+self._db.getTitle(track))
         self.addDetail("Track:   "+self._db.getTrackNumber(track)\
@@ -1151,8 +1224,15 @@ class MainWindow(wx.Frame):
                        +"       Last Played:   "+lastPlayed)
         self.addDetail("Filetrack:   "+self._db.getPath(track))
         tags = track.getTags()
+        if tags == []:
+            return
+        tagString = ""
         for tag in tags:
-            self.addTag(tag)
+            tagString += tag + ", "
+            tagID = self._getTagID(tag)
+            self._tagMenu.Check(tagID, True)
+##            self.addTag(tag)
+        self.addDetail("Tags:   "+tagString[:-2])
 
     def addDetail(self, detail):
         self._details.AppendText(detail+"\n")
@@ -1161,12 +1241,27 @@ class MainWindow(wx.Frame):
         self._logger.debug("Clearing details panel.")
         self._details.Clear()
 
-    def addTag(self, tag):
-        self._tagList.AppendText(tag+", ")
+    def setTag(self, track, tagID):
+        self._logger.info("Tagging track.")
+        self._tagMenu.Check(tagID, True)
+        track.setTag(self._allTags[tagID])
 
-    def clearTags(self):
-        self._logger.debug("Clearing tag list.")
-        self._tagList.Clear()
+    def unsetTag(self, track, tagID):
+        self._logger.info("Untagging track.")
+        self._tagMenu.Check(tagID, False)
+        track.unsetTag(self._allTags[tagID])
+
+    def _getTagID(self, tag):
+        for (tagID, tagName) in self._allTags.iteritems():
+            if tag == tagName:
+                return tagID
+
+##    def addTag(self, tag):
+##        self._tagList.AppendText(tag+", ")
+
+##    def clearTags(self):
+##        self._logger.debug("Clearing tag list.")
+##        self._tagList.Clear()
 
 class PrefsWindow(wx.Frame):
     def __init__(self, parent, logger):

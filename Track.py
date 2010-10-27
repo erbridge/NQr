@@ -116,9 +116,15 @@ class Track:
             self._tags = self._db.getTags(self)
         return self._tags
 
-    def setTags(self, tags):
-        self._db.setTags(self, tags)
-        self._tags = tags
+    def setTag(self, tag):
+        self._db.setTag(self, tag)
+        if self._tags == None:
+            self._tags = []
+        self._tags.append(tag)
+
+    def unsetTag(self, tag):
+        self._db.unsetTag(self, tag)
+        self._tags.remove(tag)
 
     def setPreviousPlay(self, previous):
         self._previous = previous

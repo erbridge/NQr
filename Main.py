@@ -24,7 +24,7 @@ import Track
 import wx
 
 def usage():
-    print sys.argv[0], "[-d|--debug] [-h|--help] [-n|--no-queue]"
+    print sys.argv[0], "[-h|--help] [-n|--no-queue]"
     print
     print "-n      Don't queue tracks"
 
@@ -33,13 +33,10 @@ if __name__ == '__main__':
     noQueue = False
     debugMode = False
     
-    opts, args = getopt.getopt(sys.argv[1:], "dnh",
-                               ["debug", "no-queue", "help"])
+    opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
     for opt, arg in opts:
         if opt in ("-n", "--no-queue"):
             noQueue = True
-        elif opt in ("-d", "--debug"):
-            debugMode = True
         else:
             usage()
             sys.exit()
