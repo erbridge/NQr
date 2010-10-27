@@ -919,6 +919,7 @@ class MainWindow(wx.Frame):
                 self.setTag(self._track, tagID)
             else:
                 self.unsetTag(self._track, tagID)
+            self.refreshSelectedTrack()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -937,6 +938,7 @@ class MainWindow(wx.Frame):
                 tagMenu = self._tagMenu.AppendCheckItem(
                     tagID, tag, " Tag track with " + tag)
                 self.setTag(self._track, tagID)
+                self.refreshSelectedTrack()
                 
                 self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
             dialog.Destroy()
