@@ -913,7 +913,6 @@ class MainWindow(wx.Frame):
 
     def _onTag(self, e):
         try:
-            self._logger.info("Creating tag.")
             tagID = e.GetId()
             if self._tagMenu.IsChecked(tagID) == True: # since clicking checks
                 self.setTag(self._track, tagID)
@@ -1225,6 +1224,7 @@ class MainWindow(wx.Frame):
         self.addDetail("Play Count:   "+str(self._db.getPlayCount(track))\
                        +"       Last Played:   "+lastPlayed)
         self.addDetail("Filetrack:   "+self._db.getPath(track))
+        self.resetTagMenu()
         tags = track.getTags()
         if tags == []:
             return
@@ -1253,6 +1253,11 @@ class MainWindow(wx.Frame):
         self._tagMenu.Check(tagID, False)
         track.unsetTag(self._allTags[tagID])
 
+    def resetTagMenu(self):
+        for tag in self._db.getAllTagNames():
+            tagID = self._getTagID(tag)
+            self._tagMenu.Check(tagID, False)
+            
     def _getTagID(self, tag):
         for (tagID, tagName) in self._allTags.iteritems():
             if tag == tagName:
