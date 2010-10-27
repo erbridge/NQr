@@ -1171,7 +1171,7 @@ class MainWindow(wx.Frame):
             self.selectTrack(0)
 
     def _onRefreshTimerDing(self, e):
-        for index in range(self._trackList.GetItemCount()):
+        for index in range(self._trackList.GetItemCount()-1, -1, -1):
             trackID = self._trackList.GetItemData(index)
             track = self._trackFactory.getTrackFromID(self._db, trackID)
             self.refreshPreviousPlay(index, track)
