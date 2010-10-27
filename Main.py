@@ -18,6 +18,7 @@ import getopt
 import GUI
 import Logger
 import platform
+import Prefs
 import Randomizer
 import sys
 import Track
@@ -32,6 +33,7 @@ def usage():
 if __name__ == '__main__':
     noQueue = False
     debugMode = False
+    prefsFile = "settings.ini"
     
     opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
     for opt, arg in opts:
@@ -71,15 +73,18 @@ if __name__ == '__main__':
 
     logger.debug("Initializing randomizer.")
     randomizer = Randomizer.Randomizer(db, trackFactory, loggerFactory)
+
+    modules = [player, trackFactory, db, randomizer]
+    prefsFactory = Prefs.PrefsFactory(prefsFile, loggerFactory, modules)
     
     app = wx.App(False)
     logger.debug("Initializing GUI.")
     title = "NQr"
     if noQueue:
         title = title + " (no queue)"
-    frame = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
-                           loggerFactory, title=title)
-    frame.Center()
+    gui = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
+                           loggerFactory, prefsFactory, title=title)
+    gui.Center()
     logger.info("Initialization complete.")
     logger.info("Starting main loop.")
     app.MainLoop()

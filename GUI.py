@@ -154,9 +154,10 @@ class TrackMonitor(Thread):
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
-                 loggerFactory, title="NQr", restorePlaylist=False,
-                 enqueueOnStartup=True, rescanOnStartup=False,
-                 defaultPlaylistLength=11, defaultPlayDelay=4000):
+                 loggerFactory, prefsFactory, title="NQr",
+                 restorePlaylist=False, enqueueOnStartup=True,
+                 rescanOnStartup=False, defaultPlaylistLength=11,
+                 defaultPlayDelay=4000):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -181,6 +182,7 @@ class MainWindow(wx.Frame):
         self._trackFactory = trackFactory
         self._system = system
         self._logger = loggerFactory.getLogger("NQr.GUI", "debug")
+        self._prefsFactory = prefsFactory
         self._restorePlaylist = restorePlaylist
         self._enqueueOnStartup = enqueueOnStartup
         self._rescanOnStartup = rescanOnStartup
@@ -715,7 +717,10 @@ class MainWindow(wx.Frame):
 
     def _onPrefs(self, e):
         self._logger.debug("Opening preferences window.")
-        self._prefsWindow = PrefsWindow(self, self._logger)
+        self._prefsWindow = self._prefsFactory.getPrefsWindow(self)
+        prefsBook = self._prefsWindow.getNotebook()
+        (prefsPage, prefsPageName) = self.getPrefsPage(prefsBook)
+        self._prefsWindow.addPage(prefsPage, prefsPageName, position=0)
         
         self._prefsWindow.Show()
 
@@ -1264,6 +1269,9 @@ class MainWindow(wx.Frame):
             if tag == tagName:
                 return tagID
 
+    def getPrefsPage(self, parent):
+        return PrefsPage(parent), "GUI"
+
 ##    def addTag(self, tag):
 ##        self._tagList.AppendText(tag+", ")
 
@@ -1271,61 +1279,65 @@ class MainWindow(wx.Frame):
 ##        self._logger.debug("Clearing tag list.")
 ##        self._tagList.Clear()
 
-class PrefsWindow(wx.Frame):
-    def __init__(self, parent, logger):
-        self._logger = logger
+##class PrefsWindow(wx.Frame):
+##    def __init__(self, parent, logger):
+##        self._logger = logger
+##
+##        wx.Frame.__init__(self, parent, title="Preferences",
+##                          style=wx.CAPTION|wx.FRAME_NO_TASKBAR|
+##                          wx.FRAME_FLOAT_ON_PARENT)
+##        panel = wx.Panel(self)
+##        prefs = wx.Notebook(panel, size=(400,400))
+##
+##        self.general = PrefsGeneralPage(prefs)
+##        self.randomizer = PrefsRandomizerPage(prefs)
+##        self.database = PrefsDatabasePage(prefs)
+##        self.player = PrefsPlayerPage(prefs)
+##        self.advanced = PrefsAdvancedPage(prefs)
+##        
+##        prefs.AddPage(self.general, "General")
+##        prefs.AddPage(self.randomizer, "Randomizer")
+##        prefs.AddPage(self.database, "Database")
+##        prefs.AddPage(self.player, "Player")
+##        prefs.AddPage(self.advanced, "Advanced")
+##
+##        closeButton = wx.Button(panel, wx.ID_CLOSE)
+##
+##        self.Bind(wx.EVT_BUTTON, self._onClose, closeButton)
+##        
+##        buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
+##        ## FIXME: doesn't align right...
+##        buttonSizer.Add(closeButton, 0, wx.ALIGN_RIGHT)
+##
+##        mainSizer = wx.BoxSizer(wx.VERTICAL)
+##        mainSizer.Add(prefs, 1, wx.EXPAND)
+##        mainSizer.Add(buttonSizer, 0)
+##        panel.SetSizerAndFit(mainSizer)
+##
+##    def _onClose(self, e):
+##        self._logger.debug("Closing preferences window.")
+##        self.Close(True)
+##
+##class PrefsGeneralPage(wx.Panel):
+##    def __init__(self, parent):
+##        wx.Panel.__init__(self, parent)
+##
+##class PrefsRandomizerPage(wx.Panel):
+##    def __init__(self, parent):
+##        wx.Panel.__init__(self, parent)
+##
+##class PrefsDatabasePage(wx.Panel):
+##    def __init__(self, parent):
+##        wx.Panel.__init__(self, parent)
+##
+##class PrefsPlayerPage(wx.Panel):
+##    def __init__(self, parent):
+##        wx.Panel.__init__(self, parent)
+##
+##class PrefsAdvancedPage(wx.Panel):
+##    def __init__(self, parent):
+##        wx.Panel.__init__(self, parent)
 
-        wx.Frame.__init__(self, parent, title="Preferences",
-                          style=wx.CAPTION|wx.FRAME_NO_TASKBAR|
-                          wx.FRAME_FLOAT_ON_PARENT)
-        panel = wx.Panel(self)
-        prefs = wx.Notebook(panel, size=(400,400))
-
-        self.general = PrefsGeneralPage(prefs)
-        self.randomizer = PrefsRandomizerPage(prefs)
-        self.database = PrefsDatabasePage(prefs)
-        self.player = PrefsPlayerPage(prefs)
-        self.advanced = PrefsAdvancedPage(prefs)
-        
-        prefs.AddPage(self.general, "General")
-        prefs.AddPage(self.randomizer, "Randomizer")
-        prefs.AddPage(self.database, "Database")
-        prefs.AddPage(self.player, "Player")
-        prefs.AddPage(self.advanced, "Advanced")
-
-        closeButton = wx.Button(panel, wx.ID_CLOSE)
-
-        self.Bind(wx.EVT_BUTTON, self._onClose, closeButton)
-        
-        buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
-        ## FIXME: doesn't align right...
-        buttonSizer.Add(closeButton, 0, wx.ALIGN_RIGHT)
-
-        mainSizer = wx.BoxSizer(wx.VERTICAL)
-        mainSizer.Add(prefs, 1, wx.EXPAND)
-        mainSizer.Add(buttonSizer, 0)
-        panel.SetSizerAndFit(mainSizer)
-
-    def _onClose(self, e):
-        self._logger.debug("Closing preferences window.")
-        self.Close(True)
-
-class PrefsGeneralPage(wx.Panel):
-    def __init__(self, parent):
-        wx.Panel.__init__(self, parent)
-
-class PrefsRandomizerPage(wx.Panel):
-    def __init__(self, parent):
-        wx.Panel.__init__(self, parent)
-
-class PrefsDatabasePage(wx.Panel):
-    def __init__(self, parent):
-        wx.Panel.__init__(self, parent)
-
-class PrefsPlayerPage(wx.Panel):
-    def __init__(self, parent):
-        wx.Panel.__init__(self, parent)
-
-class PrefsAdvancedPage(wx.Panel):
+class PrefsPage(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)

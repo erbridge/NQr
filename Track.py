@@ -10,6 +10,11 @@ import math
 import mutagen
 import os
 
+import wxversion
+wxversion.select([x for x in wxversion.getInstalled()
+                  if x.find('unicode') != -1])
+import wx
+
 class TrackFactory:
     def __init__(self, loggerFactory, debugMode=False):
         self._logger = loggerFactory.getLogger("NQr.Track", "debug")
@@ -17,6 +22,9 @@ class TrackFactory:
         self._logger.debug("Creating track cache.")
         self._trackCache = {}
         self._trackPathCache = {}
+
+    def getPrefsPage(self, parent):
+        return PrefsPage(parent), "Tracks"
 
     def getTrackFromPath(self, db, path):
         track = self.getTrackFromPathNoID(db, path)
@@ -286,6 +294,10 @@ class AudioTrack(Track):
 ##    def getTrackNumber(self):
 ##        trackNumber = self.getAttribute('tracknumber')
 ##        return trackNumber
+
+class PrefsPage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
 
 if __name__ == '__main__':
     from mutagen.easyid3 import EasyID3

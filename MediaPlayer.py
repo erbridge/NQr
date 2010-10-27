@@ -1,9 +1,16 @@
 ## Base class for media players
+import wxversion
+wxversion.select([x for x in wxversion.getInstalled()
+                  if x.find('unicode') != -1])
+import wx
 
 class MediaPlayer:
     def __init__(self, loggerFactory, name, noQueue):
         self._logger = loggerFactory.getLogger(name, "debug")
         self._noQueue = noQueue
+
+    def getPrefsPage(self, parent):
+        return PrefsPage(parent), "Player"
 
     def savePlaylist(self):
         self._logger.debug("Storing current playlist.")
@@ -53,3 +60,7 @@ class MediaPlayer:
             print "Not queueing", filepath
             return
         self._addTrack(filepath)
+
+class PrefsPage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)

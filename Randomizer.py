@@ -11,6 +11,11 @@ from Util import plural
 import random
 import time
 
+import wxversion
+wxversion.select([x for x in wxversion.getInstalled()
+                  if x.find('unicode') != -1])
+import wx
+
 ## tracks with a score >= scoreThreshold get played
 ## by default, -10s are not played
 class Randomizer:
@@ -19,6 +24,9 @@ class Randomizer:
         self.trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Randomizer", "debug")
         self.scoreThreshold = scoreThreshold
+
+    def getPrefsPage(self, parent):
+        return PrefsPage(parent), "Randomizer"
 
     def chooseTrack(self):
         track = self.chooseTracks(1)[0]
@@ -123,3 +131,7 @@ class Randomizer:
 ##            weightList.append(weight)
 ####            totalWeight += weight
 ##        return trackIDList, weightList##, totalWeight
+
+class PrefsPage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)

@@ -12,6 +12,11 @@ import math
 import os
 import sqlite3
 
+import wxversion
+wxversion.select([x for x in wxversion.getInstalled()
+                  if x.find('unicode') != -1])
+import wx
+
 class Database:
     def __init__(self, trackFactory, loggerFactory, debugMode=False,
                  databasePath="database", defaultScore=10):
@@ -882,3 +887,10 @@ class Database:
                      where scores.trackid = x.trackid group by scores.trackid)
                group by score;""")
         return self._cursor.fetchall()
+
+    def getPrefsPage(self, parent):
+        return PrefsPage(parent), "Database"
+
+class PrefsPage(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
