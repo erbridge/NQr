@@ -19,14 +19,16 @@ import wx
 ## tracks with a score >= scoreThreshold get played
 ## by default, -10s are not played
 class Randomizer:
-    def __init__(self, db, trackFactory, loggerFactory, scoreThreshold=-9):
+    def __init__(self, db, trackFactory, loggerFactory, configParser,
+                 scoreThreshold=-9):
         self.db = db
         self.trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Randomizer", "debug")
+        self._configParser = configParser
         self.scoreThreshold = scoreThreshold
 
     def getPrefsPage(self, parent):
-        return PrefsPage(parent), "Randomizer"
+        return PrefsPage(parent, self._configParser), "Randomizer"
 
     def chooseTrack(self):
         track = self.chooseTracks(1)[0]
@@ -133,5 +135,10 @@ class Randomizer:
 ##        return trackIDList, weightList##, totalWeight
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, configParser):
         wx.Panel.__init__(self, parent)
+        self._configParser = configParser
+        self._configParser.add_section("Randomizer")
+
+    def setSetting(name, value):
+        self._configParser.set("Randomizer", name, value)

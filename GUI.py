@@ -154,7 +154,7 @@ class TrackMonitor(Thread):
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
-                 loggerFactory, prefsFactory, title="NQr",
+                 loggerFactory, prefsFactory, configParser, title="NQr",
                  restorePlaylist=False, enqueueOnStartup=True,
                  rescanOnStartup=False, defaultPlaylistLength=11,
                  defaultPlayDelay=4000, defaultInactivityTime=30000):
@@ -185,6 +185,7 @@ class MainWindow(wx.Frame):
         self._system = system
         self._logger = loggerFactory.getLogger("NQr.GUI", "debug")
         self._prefsFactory = prefsFactory
+        self._configParser = configParser
         self._restorePlaylist = restorePlaylist
         self._enqueueOnStartup = enqueueOnStartup
         self._rescanOnStartup = rescanOnStartup
@@ -1447,7 +1448,7 @@ class MainWindow(wx.Frame):
                 return tagID
 
     def getPrefsPage(self, parent):
-        return PrefsPage(parent), "GUI"
+        return PrefsPage(parent, self._configParser), "GUI"
 
 ##    def addTag(self, tag):
 ##        self._tagList.AppendText(tag+", ")
@@ -1516,5 +1517,10 @@ class MainWindow(wx.Frame):
 ##        wx.Panel.__init__(self, parent)
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, configParser):
         wx.Panel.__init__(self, parent)
+        self._configParser = configParser
+        self._configParser.add_section("GUI")
+
+    def setSetting(name, value):
+        self._configParser.set("GUI", name, value)

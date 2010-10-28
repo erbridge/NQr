@@ -18,10 +18,11 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class Database:
-    def __init__(self, trackFactory, loggerFactory, debugMode=False,
-                 databasePath="database", defaultScore=10):
+    def __init__(self, trackFactory, loggerFactory, configParser,
+                 debugMode=False, databasePath="database", defaultScore=10):
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
+        self._configParser = configParser
         self._debugMode = debugMode
         self._databasePath = databasePath
         self._defaultScore = defaultScore
@@ -889,8 +890,13 @@ class Database:
         return self._cursor.fetchall()
 
     def getPrefsPage(self, parent):
-        return PrefsPage(parent), "Database"
+        return PrefsPage(parent, self._configParser), "Database"
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, configParser):
         wx.Panel.__init__(self, parent)
+        self._configParser = configParser
+        self._configParser.add_section("Database")
+
+    def setSetting(name, value):
+        self._configParser.set("Database", name, value)

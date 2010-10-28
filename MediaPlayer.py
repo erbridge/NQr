@@ -5,12 +5,10 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class MediaPlayer:
-    def __init__(self, loggerFactory, name, noQueue):
+    def __init__(self, loggerFactory, name, noQueue, configParser):
         self._logger = loggerFactory.getLogger(name, "debug")
         self._noQueue = noQueue
-
-    def getPrefsPage(self, parent):
-        return PrefsPage(parent), "Player"
+        self._configParser = configParser
 
     def savePlaylist(self):
         self._logger.debug("Storing current playlist.")
@@ -61,6 +59,14 @@ class MediaPlayer:
             return
         self._addTrack(filepath)
 
+    def getPrefsPage(self, parent):
+        return PrefsPage(parent, self._configParser), "Player"
+
 class PrefsPage(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, configParser):
         wx.Panel.__init__(self, parent)
+        self._configParser = configParser
+        self._configParser.add_section("Player")
+
+    def setSetting(name, value):
+        self._configParser.set("Player", name, value)

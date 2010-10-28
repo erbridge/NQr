@@ -4,17 +4,21 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class PrefsFactory:
-    def __init__(self, filename, loggerFactory, modules):
+    def __init__(self, filename, loggerFactory, modules, configParser):
         self._logger = loggerFactory.getLogger("NQr.Prefs", "debug")
         self._modules = modules
         self._filename = filename
+        self._configParser = configParser
 
     def getPrefsWindow(self, parent):
-        return PrefsWindow(parent, self._logger, self._modules)
+        return PrefsWindow(parent, self._logger, self._modules,
+                           self._configParser, self._filename)
 
 class PrefsWindow(wx.Frame):
-    def __init__(self, parent, logger, modules):
+    def __init__(self, parent, logger, modules, configParser, filename):
         self._logger = logger
+        self._configParser = configParser
+        self._filename = filename
 
         wx.Frame.__init__(self, parent, title="Preferences",
                           style=wx.CAPTION|wx.FRAME_NO_TASKBAR|
@@ -43,6 +47,7 @@ class PrefsWindow(wx.Frame):
 
     def _onClose(self, e):
         self._logger.debug("Closing preferences window.")
+        self.savePrefs()
         self.Close(True)
 
     def addPage(self, page, pageName, position=None):
@@ -54,3 +59,7 @@ class PrefsWindow(wx.Frame):
 
     def getNotebook(self):
         return self._prefs
+
+    def savePrefs(self):
+        with open(self._filename, 'w') as file:
+            self._configParser.write(file)

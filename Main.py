@@ -13,6 +13,7 @@
 ##        (poss now fixed)
 ## FIXME: scores added twice to scores table
 
+import ConfigParser
 import Database
 import getopt
 import GUI
@@ -31,9 +32,11 @@ def usage():
 
 ## this info should be read from a settings file
 if __name__ == '__main__':
+    configParser = ConfigParser.RawConfigParser()
+    
     noQueue = False
     debugMode = False
-    prefsFile = "settings.ini"
+    prefsFile = "settings"
     
     opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
     for opt, arg in opts:
@@ -54,28 +57,33 @@ if __name__ == '__main__':
     if system == 'Windows':
         logger.debug("Loading Winamp module.")
         import WinampWindows
-        player = WinampWindows.WinampWindows(loggerFactory, noQueue)
+        player = WinampWindows.WinampWindows(loggerFactory, noQueue,
+                                             configParser)
         ## should be called early
     elif system == 'FreeBSD':
         logger.debug("Loading XMMS module.")
         import XMMS
-        player = XMMS.XMMS(loggerFactory, noQueue)
+        player = XMMS.XMMS(loggerFactory, noQueue, configParser)
     elif system == 'Mac OS X':
         logger.debug("Loading iTunes module")
         import iTunesMacOS
         player = iTunesMacOS.iTunesMacOS(noQueue)
 
     logger.debug("Initializing track factory.")
-    trackFactory = Track.TrackFactory(loggerFactory, debugMode=debugMode)
+    trackFactory = Track.TrackFactory(loggerFactory, configParser,
+                                      debugMode=debugMode)
 
     logger.debug("Initializing database.")
-    db = Database.Database(trackFactory, loggerFactory, debugMode=debugMode)
+    db = Database.Database(trackFactory, loggerFactory, configParser,
+                           debugMode=debugMode)
 
     logger.debug("Initializing randomizer.")
-    randomizer = Randomizer.Randomizer(db, trackFactory, loggerFactory)
+    randomizer = Randomizer.Randomizer(db, trackFactory, loggerFactory,
+                                       configParser)
 
     modules = [player, trackFactory, db, randomizer]
-    prefsFactory = Prefs.PrefsFactory(prefsFile, loggerFactory, modules)
+    prefsFactory = Prefs.PrefsFactory(prefsFile, loggerFactory, modules,
+                                      configParser)
     
     app = wx.App(False)
     logger.debug("Initializing GUI.")
@@ -83,7 +91,7 @@ if __name__ == '__main__':
     if noQueue:
         title = title + " (no queue)"
     gui = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
-                           loggerFactory, prefsFactory, title=title)
+                         loggerFactory, prefsFactory, configParser, title=title)
     gui.Center()
     logger.info("Initialization complete.")
     logger.info("Starting main loop.")

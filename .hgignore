@@ -2,3 +2,6 @@
 glob:database
 .*~
 glob:logs/*
+glob:settings
+glob:*.orig
+glob:tmp.py

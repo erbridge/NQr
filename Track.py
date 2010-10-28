@@ -16,15 +16,16 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class TrackFactory:
-    def __init__(self, loggerFactory, debugMode=False):
+    def __init__(self, loggerFactory, configParser, debugMode=False):
         self._logger = loggerFactory.getLogger("NQr.Track", "debug")
+        self._configParser = configParser
         self._debugMode = debugMode
         self._logger.debug("Creating track cache.")
         self._trackCache = {}
         self._trackPathCache = {}
 
     def getPrefsPage(self, parent):
-        return PrefsPage(parent), "Tracks"
+        return PrefsPage(parent, self._configParser), "Track"
 
     def getTrackFromPath(self, db, path):
         track = self.getTrackFromPathNoID(db, path)
@@ -296,8 +297,13 @@ class AudioTrack(Track):
 ##        return trackNumber
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, configParser):
         wx.Panel.__init__(self, parent)
+        self._configParser = configParser
+        self._configParser.add_section("Track")
+
+    def setSetting(name, value):
+        self._configParser.set("Track", name, value)
 
 if __name__ == '__main__':
     from mutagen.easyid3 import EasyID3
