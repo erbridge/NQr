@@ -5,6 +5,7 @@
 ## TODO: getWeights from a text option (convert into python code) allowing
 ##       length of list etc.
 
+import ConfigParser
 from Errors import *
 from Time import RoughAge
 from Util import plural
@@ -21,14 +22,18 @@ import wx
 class Randomizer:
     def __init__(self, db, trackFactory, loggerFactory, configParser,
                  scoreThreshold=-9):
-        self.db = db
-        self.trackFactory = trackFactory
+        self._db = db
+        self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Randomizer", "debug")
         self._configParser = configParser
-        self.scoreThreshold = scoreThreshold
+        self.loadSettings()
+        self._scoreThreshold = scoreThreshold
 
-    def getPrefsPage(self, parent):
-        return PrefsPage(parent, self._configParser), "Randomizer"
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger), "Randomizer"
+
+    def loadSettings(self):
+        pass
 
     def chooseTrack(self):
         track = self.chooseTracks(1)[0]
@@ -40,7 +45,7 @@ class Randomizer:
         trackIDs = self._chooseTrackIDs(number, exclude)
         tracks = []
         for [trackID, weight] in trackIDs:
-            track = self.trackFactory.getTrackFromID(self.db, trackID)
+            track = self._trackFactory.getTrackFromID(self._db, trackID)
             track.setWeight(weight)
             tracks.append(track)
         return tracks
@@ -69,10 +74,10 @@ class Randomizer:
 
     def createLists(self, exclude):
         self._logger.debug("Creating weighted list of tracks.")
-        oldest = self.db.getOldestLastPlayed()
+        oldest = self._db.getOldestLastPlayed()
         self._logger.info("Oldest is " + str(oldest) + " (" + RoughAge(oldest)
                           + ")")
-        rawTrackIDList = self.db.getAllTrackIDs()
+        rawTrackIDList = self._db.getAllTrackIDs()
         if rawTrackIDList == []:
             self._logger.error("No tracks in database.")
             raise EmptyDatabaseError
@@ -83,12 +88,12 @@ class Randomizer:
             # unplayed tracks.
             if trackID in exclude:
                 continue
-            time = self.db.getSecondsSinceLastPlayedFromID(trackID)
-            score = self.db.getScoreValueFromID(trackID) + 11
+            time = self._db.getSecondsSinceLastPlayedFromID(trackID)
+            score = self._db.getScoreValueFromID(trackID) + 11
             ## creates a positive score
             if time == None:
                 time = oldest
-            if score < self.scoreThreshold + 11:
+            if score < self._scoreThreshold + 11:
                 score = 0
             weight = self.getWeight(score, time)
             trackWeightList.append([trackID, weight])
@@ -113,7 +118,7 @@ class Randomizer:
 ##                return trackID
 ##
 ##    def createLists(self):
-##        rawTrackIDList = self.db.getAllTrackIDs()
+##        rawTrackIDList = self._db.getAllTrackIDs()
 ##        if rawTrackIDList == None:
 ##            print "The database is empty."
 ##            return None
@@ -123,11 +128,11 @@ class Randomizer:
 ##        weightList = []
 ####        totalWeight = 0
 ##        for trackID in trackIDList:
-##            time = self.db.getSecondsSinceLastPlayedFromID(trackID)
-##            score = self.db.getScoreValueFromID(trackID) + 11 ## creates a positive score
+##            time = self._db.getSecondsSinceLastPlayedFromID(trackID)
+##            score = self._db.getScoreValueFromID(trackID) + 11 ## creates a positive score
 ##            if time == None:
 ##                time = 5 * (len(trackIDList) + 1)
-##            if score < self.scoreThreshold + 11:
+##            if score < self._scoreThreshold + 11:
 ##                score = 0
 ##            weight = self.getWeight(score, time)
 ##            weightList.append(weight)
@@ -135,10 +140,29 @@ class Randomizer:
 ##        return trackIDList, weightList##, totalWeight
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser):
+    def __init__(self, parent, configParser, logger):
         wx.Panel.__init__(self, parent)
+        self._logger = logger
+        self._settings = {}
         self._configParser = configParser
-        self._configParser.add_section("Randomizer")
+        try:
+            self._configParser.add_section("Randomizer")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        self._loadSettings()
 
-    def setSetting(name, value):
+    def savePrefs(self):
+        self._logger.debug("Saving randomizer preferences.")
+        for (name, value) in self._settings.items():
+            self.setSetting(name, value)
+
+    def setSetting(self, name, value):
         self._configParser.set("Randomizer", name, value)
+
+    def _loadSettings(self):
+        pass
+##        try:
+##            self._defaultScore = self._configParser.getint("Database",
+##                                                           "defaultScore")
+##        except ConfigParser.NoOptionError:
+##            self._defaultScore = "10"

@@ -32,11 +32,13 @@ def usage():
 
 ## this info should be read from a settings file
 if __name__ == '__main__':
+    prefsFile = "settings"
+
     configParser = ConfigParser.RawConfigParser()
+    configParser.read(prefsFile)
     
     noQueue = False
     debugMode = False
-    prefsFile = "settings"
     
     opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
     for opt, arg in opts:

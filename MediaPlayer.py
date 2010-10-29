@@ -1,4 +1,6 @@
 ## Base class for media players
+
+import ConfigParser
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
@@ -7,8 +9,9 @@ import wx
 class MediaPlayer:
     def __init__(self, loggerFactory, name, noQueue, configParser):
         self._logger = loggerFactory.getLogger(name, "debug")
-        self._noQueue = noQueue
         self._configParser = configParser
+        self.loadSettings()
+        self._noQueue = noQueue
 
     def savePlaylist(self):
         self._logger.debug("Storing current playlist.")
@@ -59,14 +62,36 @@ class MediaPlayer:
             return
         self._addTrack(filepath)
 
-    def getPrefsPage(self, parent):
-        return PrefsPage(parent, self._configParser), "Player"
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger), "Player"
+
+    def loadSettings(self):
+        pass
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser):
+    def __init__(self, parent, configParser, logger):
         wx.Panel.__init__(self, parent)
+        self._logger = logger
+        self._settings = {}
         self._configParser = configParser
-        self._configParser.add_section("Player")
+        try:
+            self._configParser.add_section("Player")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        self._loadSettings()
 
-    def setSetting(name, value):
+    def savePrefs(self):
+        self._logger.debug("Saving player preferences.")
+        for (name, value) in self._settings.items():
+            self.setSetting(name, value)
+
+    def setSetting(self, name, value):
         self._configParser.set("Player", name, value)
+
+    def _loadSettings(self):
+        pass
+##        try:
+##            self._defaultScore = self._configParser.getint("Database",
+##                                                           "defaultScore")
+##        except ConfigParser.NoOptionError:
+##            self._defaultScore = "10"

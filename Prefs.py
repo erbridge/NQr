@@ -1,3 +1,5 @@
+## TODO: create validation rules for text controls
+
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
@@ -17,8 +19,14 @@ class PrefsFactory:
 class PrefsWindow(wx.Frame):
     def __init__(self, parent, logger, modules, configParser, filename):
         self._logger = logger
+        self._gui = parent
+        self._modules = modules
+        if self._modules[0] != parent:
+            self._modules.insert(0, parent)
         self._configParser = configParser
         self._filename = filename
+        
+##        self._configParser.read(self._filename)
 
         wx.Frame.__init__(self, parent, title="Preferences",
                           style=wx.CAPTION|wx.FRAME_NO_TASKBAR|
@@ -27,8 +35,9 @@ class PrefsWindow(wx.Frame):
         self._prefs = wx.Notebook(panel, size=(400,400))
 
         self._pages = {}
-        for module in modules:
-            (prefsPage, prefsPageName) = module.getPrefsPage(self._prefs)
+        for module in self._modules:
+            (prefsPage, prefsPageName) = module.getPrefsPage(self._prefs,
+                                                             self._logger)
             self.addPage(prefsPage, prefsPageName)
 
         closeButton = wx.Button(panel, wx.ID_CLOSE)
@@ -47,8 +56,11 @@ class PrefsWindow(wx.Frame):
 
     def _onClose(self, e):
         self._logger.debug("Closing preferences window.")
-        self.savePrefs()
+        self.savePrefs() 
         self.Close(True)
+
+##    def getLogger(self):
+##        return self._logger
 
     def addPage(self, page, pageName, position=None):
         self._logger.debug("Adding preference page.")
@@ -57,9 +69,14 @@ class PrefsWindow(wx.Frame):
         self._pages[pageName] = page
         self._prefs.InsertPage(position, page, pageName)
 
-    def getNotebook(self):
-        return self._prefs
+##    def getNotebook(self):
+##        return self._prefs
 
     def savePrefs(self):
+        self._logger.info("Saving preferences.")
+        for page in self._pages.values():
+            page.savePrefs()
         with open(self._filename, 'w') as file:
             self._configParser.write(file)
+        for module in self._modules:
+            module.loadSettings()

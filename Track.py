@@ -5,6 +5,7 @@
 ##       database when you spot a metadata change. (Ben)
 ## TODO: make cache a limited size
 
+import ConfigParser
 from Errors import *
 import math
 import mutagen
@@ -19,13 +20,17 @@ class TrackFactory:
     def __init__(self, loggerFactory, configParser, debugMode=False):
         self._logger = loggerFactory.getLogger("NQr.Track", "debug")
         self._configParser = configParser
+        self.loadSettings()
         self._debugMode = debugMode
         self._logger.debug("Creating track cache.")
         self._trackCache = {}
         self._trackPathCache = {}
 
-    def getPrefsPage(self, parent):
-        return PrefsPage(parent, self._configParser), "Track"
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger), "Track"
+
+    def loadSettings(self):
+        pass
 
     def getTrackFromPath(self, db, path):
         track = self.getTrackFromPathNoID(db, path)
@@ -297,13 +302,32 @@ class AudioTrack(Track):
 ##        return trackNumber
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser):
+    def __init__(self, parent, configParser, logger):
         wx.Panel.__init__(self, parent)
+        self._logger = logger
+        self._settings = {}
         self._configParser = configParser
-        self._configParser.add_section("Track")
+        try:
+            self._configParser.add_section("Track")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        self._loadSettings()
 
-    def setSetting(name, value):
+    def savePrefs(self):
+        self._logger.debug("Saving track preferences.")
+        for (name, value) in self._settings.items():
+            self.setSetting(name, value)
+
+    def setSetting(self, name, value):
         self._configParser.set("Track", name, value)
+
+    def _loadSettings(self):
+        pass
+##        try:
+##            self._defaultScore = self._configParser.getint("Database",
+##                                                           "defaultScore")
+##        except ConfigParser.NoOptionError:
+##            self._defaultScore = "10"
 
 if __name__ == '__main__':
     from mutagen.easyid3 import EasyID3

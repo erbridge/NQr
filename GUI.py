@@ -27,6 +27,7 @@
 ##        timer dinging
 
 from collections import deque
+import ConfigParser
 from Errors import *
 import os
 from threading import *
@@ -186,6 +187,7 @@ class MainWindow(wx.Frame):
         self._logger = loggerFactory.getLogger("NQr.GUI", "debug")
         self._prefsFactory = prefsFactory
         self._configParser = configParser
+        self.loadSettings()
         self._restorePlaylist = restorePlaylist
         self._enqueueOnStartup = enqueueOnStartup
         self._rescanOnStartup = rescanOnStartup
@@ -825,9 +827,10 @@ class MainWindow(wx.Frame):
     def _onPrefs(self, e):
         self._logger.debug("Opening preferences window.")
         self._prefsWindow = self._prefsFactory.getPrefsWindow(self)
-        prefsBook = self._prefsWindow.getNotebook()
-        (prefsPage, prefsPageName) = self.getPrefsPage(prefsBook)
-        self._prefsWindow.addPage(prefsPage, prefsPageName, position=0)
+##        prefsBook = self._prefsWindow.getNotebook()
+##        (prefsPage, prefsPageName) = self.getPrefsPage(
+##            prefsBook, self._prefsWindow.getLogger())
+##        self._prefsWindow.addPage(prefsPage, prefsPageName, position=0)
         
         self._prefsWindow.Show()
 
@@ -1447,8 +1450,11 @@ class MainWindow(wx.Frame):
             if tag == tagName:
                 return tagID
 
-    def getPrefsPage(self, parent):
-        return PrefsPage(parent, self._configParser), "GUI"
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger), "GUI"
+
+    def loadSettings(self):
+        pass
 
 ##    def addTag(self, tag):
 ##        self._tagList.AppendText(tag+", ")
@@ -1517,10 +1523,29 @@ class MainWindow(wx.Frame):
 ##        wx.Panel.__init__(self, parent)
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser):
+    def __init__(self, parent, configParser, logger):
         wx.Panel.__init__(self, parent)
+        self._logger = logger
+        self._settings = {}
         self._configParser = configParser
-        self._configParser.add_section("GUI")
+        try:
+            self._configParser.add_section("GUI")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        self._loadSettings()
 
-    def setSetting(name, value):
+    def savePrefs(self):
+        self._logger.debug("Saving GUI preferences.")
+        for (name, value) in self._settings.items():
+            self.setSetting(name, value)
+        
+    def setSetting(self, name, value):
         self._configParser.set("GUI", name, value)
+
+    def _loadSettings(self):
+        pass
+##        try:
+##            self._defaultScore = self._configParser.getint("Database",
+##                                                           "defaultScore")
+##        except ConfigParser.NoOptionError:
+##            self._defaultScore = "10"

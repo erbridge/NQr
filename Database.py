@@ -7,6 +7,7 @@
 ##       to create other tables (poss corruption)
 ## TODO: add more attributes to tracks
 
+import ConfigParser
 from Errors import *
 import math
 import os
@@ -23,9 +24,10 @@ class Database:
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._configParser = configParser
+        self.loadSettings()
         self._debugMode = debugMode
         self._databasePath = databasePath
-        self._defaultScore = defaultScore
+##        self._defaultScore = defaultScore
         self._logger.debug("Opening connection to database at "\
                            +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
@@ -889,14 +891,63 @@ class Database:
                group by score;""")
         return self._cursor.fetchall()
 
-    def getPrefsPage(self, parent):
-        return PrefsPage(parent, self._configParser), "Database"
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger), "Database"
+
+    def loadSettings(self):
+        try:
+            self._defaultScore = self._configParser.getint("Database",
+                                                           "defaultScore")
+        except ConfigParser.NoOptionError:
+            self._settings["defaultScore"] = 10
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser):
+    def __init__(self, parent, configParser, logger):
         wx.Panel.__init__(self, parent)
+        self._logger = logger
+        self._settings = {}
         self._configParser = configParser
-        self._configParser.add_section("Database")
+        try:
+            self._configParser.add_section("Database")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        self._loadSettings()
+        self._initCreateDefaultScoreSizer()
 
-    def setSetting(name, value):
+        self.SetSizer(self._defaultScoreSizer)
+
+    def _initCreateDefaultScoreSizer(self):
+        self._defaultScoreSizer = wx.BoxSizer(wx.HORIZONTAL)
+        
+        defaultScoreLabel = wx.StaticText(self, -1, "Default Score: ")
+        self._defaultScoreSizer.Add(defaultScoreLabel, 0,
+                                    wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        
+        self._defaultScoreControl = wx.TextCtrl(
+            self, -1, str(self._settings["defaultScore"]), size=(35,-1))
+        self._defaultScoreSizer.Add(self._defaultScoreControl, 0)
+
+        self.Bind(wx.EVT_TEXT, self._onDefaultScoreChange,
+                  self._defaultScoreControl)
+
+    def _onDefaultScoreChange(self, e):
+        defaultScore = self._defaultScoreControl.GetLineText(0)
+        if defaultScore != "":
+            self._settings["defaultScore"] = int(defaultScore)
+
+    def savePrefs(self):
+        self._logger.debug("Saving database preferences.")
+        for (name, value) in self._settings.items():
+            self.setSetting(name, value)
+
+    def setSetting(self, name, value):
         self._configParser.set("Database", name, value)
+
+    def _loadSettings(self):
+        try:
+            ## FIXME: poss should be main setting?
+            defaultScore = self._configParser.getint("Database",
+                                                           "defaultScore")
+            self._settings["defaultScore"] = defaultScore
+        except ConfigParser.NoOptionError:
+            self._settings["defaultScore"] = 10
