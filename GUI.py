@@ -1142,7 +1142,7 @@ class MainWindow(wx.Frame):
             self.toggleNQr = False
             self._logger.info("Restoring shuffle status.")
             self._player.setShuffle(self._oldShuffleStatus)
-            if self._oldPlaylist != None and self._restorePlaylist == True:
+            if self._restorePlaylist == True and self._oldPlaylist != None:
                 self._player.loadPlaylist(self._oldPlaylist)
             self._logger.info("Enqueueing turned off.")
         elif self.menuToggleNQr.IsChecked() == True:
