@@ -958,8 +958,9 @@ class MainWindow(wx.Frame):
             self._logger.debug("Score slider has been moved."\
                                +" Retrieving new score.")
             score = self._scoreSlider.GetValue()
-            self._track.setScore(score)
-            self.refreshSelectedTrackScore() ## causes second scoring
+            if self._track.getScore() != score:
+                self._track.setScore(score)
+                self.refreshSelectedTrackScore()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -1341,9 +1342,13 @@ class MainWindow(wx.Frame):
     def refreshSelectedTrack(self):
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track)
+        self.setScoreSliderPosition(self._track.getScore())
+        self.populateDetails(self._track)
 
     def refreshSelectedTrackScore(self):
         self.refreshScore(self._index, self._track)
+        self.setScoreSliderPosition(self._track.getScore())
+        self.populateDetails(self._track)
 
     def refreshTrack(self, index, track):
         self.refreshArtist(index, track)
