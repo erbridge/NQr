@@ -1,11 +1,11 @@
 ## Database Control
+##
 ## TODO: use a hash as a track identifier instead of path to allow for path
 ##       changes.
-## TODO: add a function to remove the last play record (to undo the play)
+## TODO: add a function to remove the last play record (to undo the play)?
 ## TODO: add ignore list
 ## TODO: check if track table already exists first to confirm whether or not
 ##       to create other tables (poss corruption)
-## TODO: add more attributes to tracks
 
 import ConfigParser
 from Errors import *
@@ -24,10 +24,10 @@ class Database:
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._configParser = configParser
+        self._defaultDefaultScore = defaultScore
         self.loadSettings()
         self._debugMode = debugMode
         self._databasePath = databasePath
-##        self._defaultScore = defaultScore
         self._logger.debug("Opening connection to database at "\
                            +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
@@ -896,10 +896,14 @@ class Database:
 
     def loadSettings(self):
         try:
+            self._configParser.add_section("Database")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        try:
             self._defaultScore = self._configParser.getint("Database",
                                                            "defaultScore")
         except ConfigParser.NoOptionError:
-            self._settings["defaultScore"] = 10
+            self._defaultScore = self._defaultDefaultScore
 
 class PrefsPage(wx.Panel):
     def __init__(self, parent, configParser, logger):
@@ -946,8 +950,7 @@ class PrefsPage(wx.Panel):
     def _loadSettings(self):
         try:
             ## FIXME: poss should be main setting?
-            defaultScore = self._configParser.getint("Database",
-                                                           "defaultScore")
+            defaultScore = self._configParser.getint("Database", "defaultScore")
             self._settings["defaultScore"] = defaultScore
         except ConfigParser.NoOptionError:
             self._settings["defaultScore"] = 10
