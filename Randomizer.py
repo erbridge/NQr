@@ -256,7 +256,7 @@ class PrefsPage(wx.Panel):
     def _onThresholdChange(self, e):
         threshold = self._thresholdControl.GetLineText(0)
         if threshold != "":
-            self._settings["scoreThreshold"] = threshold
+            self._settings["scoreThreshold"] = int(threshold)
 
     def savePrefs(self):
         self._logger.debug("Saving randomizer preferences.")
