@@ -20,11 +20,12 @@ import wx
 
 class Database:
     def __init__(self, trackFactory, loggerFactory, configParser,
-                 debugMode=False, databasePath="database", defaultScore=10):
+                 debugMode=False, databasePath="database",
+                 defaultDefaultScore=10):
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._configParser = configParser
-        self._defaultDefaultScore = defaultScore
+        self._defaultDefaultScore = defaultDefaultScore
         self.loadSettings()
         self._debugMode = debugMode
         self._databasePath = databasePath
@@ -892,7 +893,8 @@ class Database:
         return self._cursor.fetchall()
 
     def getPrefsPage(self, parent, logger):
-        return PrefsPage(parent, self._configParser, logger), "Database"
+        return PrefsPage(parent, self._configParser, logger,
+                         self._defaultDefaultScore), "Database"
 
     def loadSettings(self):
         try:
@@ -906,9 +908,10 @@ class Database:
             self._defaultScore = self._defaultDefaultScore
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger):
+    def __init__(self, parent, configParser, logger, defaultDefaultScore):
         wx.Panel.__init__(self, parent)
         self._logger = logger
+        self._defaultDefaultScore = defaultDefaultScore
         self._settings = {}
         self._configParser = configParser
         try:
@@ -953,4 +956,4 @@ class PrefsPage(wx.Panel):
             defaultScore = self._configParser.getint("Database", "defaultScore")
             self._settings["defaultScore"] = defaultScore
         except ConfigParser.NoOptionError:
-            self._settings["defaultScore"] = 10
+            self._settings["defaultScore"] = self._defaultDefaultScore
