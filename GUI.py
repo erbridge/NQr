@@ -187,7 +187,6 @@ class MainWindow(wx.Frame):
         self._logger = loggerFactory.getLogger("NQr.GUI", "debug")
         self._prefsFactory = prefsFactory
         self._configParser = configParser
-        self.loadSettings()
         self._restorePlaylist = restorePlaylist
         self._enqueueOnStartup = enqueueOnStartup
         self._rescanOnStartup = rescanOnStartup
@@ -195,6 +194,8 @@ class MainWindow(wx.Frame):
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
         self._defaultPlayDelay = defaultPlayDelay
         self._defaultInactivityTime = defaultInactivityTime
+        self.loadSettings()
+
 ##        self._trackMonitor = None
         self._index = None
 
@@ -1161,13 +1162,13 @@ class MainWindow(wx.Frame):
         self._playingTrack.setPreviousPlay(
                 self._db.getLastPlayedInSeconds(self._playingTrack))
         self._playTimer.Stop()
-        if self._playTimer.Start(self._defaultPlayDelay, oneShot=True) == False:
+        if self._playTimer.Start(self._playDelay, oneShot=True) == False:
             self._playingTrack.addPlay()
         self.addTrack(self._playingTrack)
         self.maintainPlaylist()
 
     def _onPlayTimerDing(self, e):
-        self._playingTrack.addPlay(self._defaultPlayDelay)
+        self._playingTrack.addPlay(self._playDelay)
         self.refreshLastPlayed(0, self._playingTrack)
         self.refreshPreviousPlay(0, self._playingTrack)
 
@@ -1456,10 +1457,18 @@ class MainWindow(wx.Frame):
                 return tagID
 
     def getPrefsPage(self, parent, logger):
-        return PrefsPage(parent, self._configParser, logger), "GUI"
+        return PrefsPage(parent, self._configParser, logger,
+                         self._defaultPlayDelay), "GUI"
 
     def loadSettings(self):
-        pass
+        try:
+            self._configParser.add_section("GUI")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        try:
+            self._playDelay = self._configParser.get("GUI", "playDelay")
+        except ConfigParser.NoOptionError:
+            self._playDelay = self._defaultPlayDelay
 
 ##    def addTag(self, tag):
 ##        self._tagList.AppendText(tag+", ")
@@ -1528,9 +1537,10 @@ class MainWindow(wx.Frame):
 ##        wx.Panel.__init__(self, parent)
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger):
+    def __init__(self, parent, configParser, logger, defaultPlayDelay):
         wx.Panel.__init__(self, parent)
         self._logger = logger
+        self._defaultPlayDelay = defaultPlayDelay
         self._settings = {}
         self._configParser = configParser
         try:
@@ -1538,6 +1548,31 @@ class PrefsPage(wx.Panel):
         except ConfigParser.DuplicateSectionError:
             pass
         self._loadSettings()
+        self._initCreatePlayDelaySizer()
+
+        self.SetSizer(self._playDelaySizer)
+
+    def _initCreatePlayDelaySizer(self):
+        self._playDelaySizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        playDelayLabel = wx.StaticText(self, -1, "Play Record Delay: ")
+        self._playDelaySizer.Add(playDelayLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        
+        self._playDelayControl = wx.TextCtrl(
+            self, -1, str(self._settings["playDelay"]), size=(40,-1))
+        self._playDelaySizer.Add(self._playDelayControl, 0)
+
+        playDelayUnits = wx.StaticText(self, -1, " milliseconds")
+        self._playDelaySizer.Add(playDelayUnits, 0,
+                                 wx.RIGHT|wx.TOP|wx.BOTTOM, 3)
+
+        self.Bind(wx.EVT_TEXT, self._onPlayDelayChange,
+                  self._playDelayControl)
+
+    def _onPlayDelayChange(self, e):
+        playDelay = self._playDelayControl.GetLineText(0)
+        if playDelay != "":
+            self._settings["playDelay"] = int(playDelay)
 
     def savePrefs(self):
         self._logger.debug("Saving GUI preferences.")
@@ -1548,9 +1583,8 @@ class PrefsPage(wx.Panel):
         self._configParser.set("GUI", name, value)
 
     def _loadSettings(self):
-        pass
-##        try:
-##            self._defaultScore = self._configParser.getint("Database",
-##                                                           "defaultScore")
-##        except ConfigParser.NoOptionError:
-##            self._defaultScore = "10"
+        try:
+            playDelay = self._configParser.getint("GUI", "playDelay")
+            self._settings["playDelay"] = playDelay
+        except ConfigParser.NoOptionError:
+            self._settings["playDelay"] = self._defaultPlayDelay
