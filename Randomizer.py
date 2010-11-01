@@ -1,9 +1,6 @@
 ## Randomization Algorithm
-## TODO: work out time factor if track has never been played: poss use time
-##       since added to database?
+##
 ## TODO: work out what weights should be (poss make sliders)
-## TODO: getWeights from a text option (convert into python code) allowing
-##       length of list etc.
 
 import ConfigParser
 from Errors import *
@@ -21,19 +18,48 @@ import wx
 ## by default, -10s are not played
 class Randomizer:
     def __init__(self, db, trackFactory, loggerFactory, configParser,
-                 scoreThreshold=-9):
+                 defaultScoreThreshold=-9,
+                 defaultWeight="score ** 2 * time ** 2"):
+        self._safeOperations = ["", "score", "time", "**", "*", "/", "+", "-"]
         self._db = db
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Randomizer", "debug")
         self._configParser = configParser
+        self._defaultScoreThreshold = defaultScoreThreshold
+        self._defaultWeight = defaultWeight
         self.loadSettings()
-        self._scoreThreshold = scoreThreshold
 
     def getPrefsPage(self, parent, logger):
-        return PrefsPage(parent, self._configParser, logger), "Randomizer"
+        return PrefsPage(
+            parent, self._configParser, logger, self._defaultScoreThreshold,
+            self._defaultWeight), "Randomizer"
 
     def loadSettings(self):
-        pass
+        try:
+            self._configParser.add_section("Randomizer")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        try:
+            rawWeightAlgorithm = self._configParser.get("Randomizer",
+                                                           "weightAlgorithm")
+        except ConfigParser.NoOptionError:
+            rawWeightAlgorithm = self._defaultWeight
+        for part in rawWeightAlgorithm.split(" "):
+            if part not in self._safeOperations:
+                try:
+                    float(part)
+                    continue
+                except ValueError:
+                    pass
+                self._logger.error("Unsafe weight algorithm imported: \'"+\
+                                   rawWeightAlgorithm+"\'.")
+                raise UnsafeInputError
+        self._weightAlgorithm = rawWeightAlgorithm
+        try:
+            self._scoreThreshold = self._configParser.getint("Randomizer",
+                                                             "scoreThreshold")
+        except ConfigParser.NoOptionError:
+            self._scoreThreshold = self._defaultScoreThreshold
 
     def chooseTrack(self):
         track = self.chooseTracks(1)[0]
@@ -101,8 +127,9 @@ class Randomizer:
         return trackWeightList, totalWeight
 
     def getWeight(self, score, time):
+        weight = eval(self._weightAlgorithm) # slow?
 ##        weight = time ** (score/50.)
-        weight = score**2 * time**2
+##        weight = score**2 * time**2
 ##        weight = score * time
         return weight
 
@@ -140,9 +167,12 @@ class Randomizer:
 ##        return trackIDList, weightList##, totalWeight
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger):
+    def __init__(self, parent, configParser, logger, defaultScoreThreshold,
+                 defaultWeight):
         wx.Panel.__init__(self, parent)
         self._logger = logger
+        self._defaultScoreThreshold = defaultScoreThreshold
+        self._defaultWeight = defaultWeight
         self._settings = {}
         self._configParser = configParser
         try:
@@ -150,6 +180,83 @@ class PrefsPage(wx.Panel):
         except ConfigParser.DuplicateSectionError:
             pass
         self._loadSettings()
+        self._initCreateWeightSizer()
+        self._initCreateThresholdSizer()
+
+        mainSizer = wx.BoxSizer(wx.VERTICAL)
+        mainSizer.Add(self._weightSizer, 0)
+        mainSizer.Add(self._thresholdSizer, 0)
+
+        self.SetSizer(mainSizer)
+
+    def _initCreateWeightSizer(self):
+        self._weightSizer = wx.BoxSizer(wx.VERTICAL)
+
+        weightAlgorithmSizer = wx.BoxSizer(wx.HORIZONTAL)
+        
+        weightLabel = wx.StaticText(self, -1, "Weight Algorithm: ")
+        weightAlgorithmSizer.Add(weightLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        
+        self._weightControl = wx.TextCtrl(
+            self, -1, self._settings["weightAlgorithm"], size=(-1,-1))
+        weightAlgorithmSizer.Add(self._weightControl, 1)
+        
+        self._weightSizer.Add(weightAlgorithmSizer, 0)
+
+        weightHelpBox = wx.StaticBox(self, -1,
+                                     "Acceptable Input (separate with spaces):")
+        weightHelpSizer = wx.StaticBoxSizer(weightHelpBox, wx.HORIZONTAL)
+        weightHelpFont = wx.Font(8, wx.MODERN, wx.NORMAL, wx.NORMAL)
+
+        weightHelpVariablesBox = wx.StaticBox(self, -1, "Variables:")
+        weightHelpVariablesSizer = wx.StaticBoxSizer(weightHelpVariablesBox)
+        
+        weightHelpVariablesText = "score = track score + 11        \n"+\
+                                  "time  = seconds since last play "
+        weightHelpVariables = wx.StaticText(self, -1, weightHelpVariablesText)
+        weightHelpVariables.SetFont(weightHelpFont)
+        weightHelpVariablesSizer.Add(weightHelpVariables, 0)
+        weightHelpSizer.Add(weightHelpVariablesSizer, 0, wx.RIGHT, 1)
+
+        weightHelpOperatorsBox = wx.StaticBox(self, -1, "Operators:")
+        weightHelpOperatorsSizer = wx.StaticBoxSizer(weightHelpOperatorsBox)
+        
+        weightHelpOperatorsText = "** = to the power of \n"+\
+                                  "*  = multiplied by   \n"+\
+                                  "/  = divided by      \n"+\
+                                  "+  = plus            \n"+\
+                                  "-  = minus           "
+        weightHelpOperators = wx.StaticText(self, -1, weightHelpOperatorsText)
+        weightHelpOperators.SetFont(weightHelpFont)
+        weightHelpOperatorsSizer.Add(weightHelpOperators, 0)
+        weightHelpSizer.Add(weightHelpOperatorsSizer, 0)
+
+        self._weightSizer.Add(weightHelpSizer, 1)
+
+        self.Bind(wx.EVT_TEXT, self._onWeightChange, self._weightControl)
+
+    def _initCreateThresholdSizer(self):
+        self._thresholdSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        thresholdLabel = wx.StaticText(self, -1, "Minimum Play Score: ")
+        self._thresholdSizer.Add(thresholdLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        
+        self._thresholdControl = wx.TextCtrl(
+            self, -1, str(self._settings["scoreThreshold"]), size=(25,-1))
+        self._thresholdSizer.Add(self._thresholdControl, 0)
+
+        self.Bind(wx.EVT_TEXT, self._onThresholdChange,
+                  self._thresholdControl)
+
+    def _onWeightChange(self, e):
+        weight = self._weightControl.GetLineText(0)
+        if weight != "":
+            self._settings["weightAlgorithm"] = weight
+
+    def _onThresholdChange(self, e):
+        threshold = self._thresholdControl.GetLineText(0)
+        if threshold != "":
+            self._settings["scoreThreshold"] = threshold
 
     def savePrefs(self):
         self._logger.debug("Saving randomizer preferences.")
@@ -160,9 +267,14 @@ class PrefsPage(wx.Panel):
         self._configParser.set("Randomizer", name, value)
 
     def _loadSettings(self):
-        pass
-##        try:
-##            self._defaultScore = self._configParser.getint("Database",
-##                                                           "defaultScore")
-##        except ConfigParser.NoOptionError:
-##            self._defaultScore = "10"
+        try:
+            weight = self._configParser.get("Randomizer", "weightAlgorithm")
+            self._settings["weightAlgorithm"] = weight
+        except ConfigParser.NoOptionError:
+            self._settings["weightAlgorithm"] = self._defaultWeight
+        try:
+            threshold = self._configParser.getint("Randomizer",
+                                                  "scoreThreshold")
+            self._settings["scoreThreshold"] = threshold
+        except ConfigParser.NoOptionError:
+            self._settings["scoreThreshold"] = self._defaultScoreThreshold

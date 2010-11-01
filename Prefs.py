@@ -1,3 +1,5 @@
+## Preference window
+##
 ## TODO: create validation rules for text controls
 
 import wxversion
@@ -32,7 +34,7 @@ class PrefsWindow(wx.Frame):
                           style=wx.CAPTION|wx.FRAME_NO_TASKBAR|
                           wx.FRAME_FLOAT_ON_PARENT)
         panel = wx.Panel(self)
-        self._prefs = wx.Notebook(panel, size=(400,400))
+        self._prefs = wx.Notebook(panel, size=(-1,-1))
 
         self._pages = {}
         for module in self._modules:

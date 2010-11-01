@@ -25,3 +25,6 @@ class PathNotFoundError(Error):
 
 class NoResultError(Error):
     pass
+
+class UnsafeInputError(Error):
+    pass
