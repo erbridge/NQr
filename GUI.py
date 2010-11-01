@@ -211,7 +211,7 @@ class MainWindow(wx.Frame):
 
         self._logger.debug("Creating and starting inactivity timer.")
         self._inactivityTimer = wx.Timer(self, self._ID_INACTIVITYTIMER)
-        self._inactivityTimer.Start(self._defaultInactivityTime, oneShot=False)
+        self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
 
         self._logger.debug("Creating and starting track list refresh timer.")
         self._refreshTimer = wx.Timer(self, self._ID_REFRESHTIMER)
@@ -1185,7 +1185,7 @@ class MainWindow(wx.Frame):
 
     def resetInactivityTimer(self):
         self._logger.debug("Restarting inactivity timer.")
-        self._inactivityTimer.Start(self._defaultInactivityTime, oneShot=False)
+        self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
 
     def maintainPlaylist(self):
         if self.toggleNQr == True:
@@ -1457,8 +1457,9 @@ class MainWindow(wx.Frame):
                 return tagID
 
     def getPrefsPage(self, parent, logger):
-        return PrefsPage(parent, self._configParser, logger,
-                         self._defaultPlayDelay), "GUI"
+        return PrefsPage(
+            parent, self._configParser, logger, self._defaultPlayDelay,
+            self._defaultInactivityTime), "GUI"
 
     def loadSettings(self):
         try:
@@ -1469,6 +1470,11 @@ class MainWindow(wx.Frame):
             self._playDelay = self._configParser.get("GUI", "playDelay")
         except ConfigParser.NoOptionError:
             self._playDelay = self._defaultPlayDelay
+        try:
+            self._inactivityTime = self._configParser.get("GUI",
+                                                          "inactivityTime")
+        except ConfigParser.NoOptionError:
+            self._inactivityTime = self._defaultInactivityTime
 
 ##    def addTag(self, tag):
 ##        self._tagList.AppendText(tag+", ")
@@ -1537,10 +1543,12 @@ class MainWindow(wx.Frame):
 ##        wx.Panel.__init__(self, parent)
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger, defaultPlayDelay):
+    def __init__(self, parent, configParser, logger, defaultPlayDelay,
+                 defaultInactivityTime):
         wx.Panel.__init__(self, parent)
         self._logger = logger
         self._defaultPlayDelay = defaultPlayDelay
+        self._defaultInactivityTime = defaultInactivityTime
         self._settings = {}
         self._configParser = configParser
         try:
@@ -1549,8 +1557,13 @@ class PrefsPage(wx.Panel):
             pass
         self._loadSettings()
         self._initCreatePlayDelaySizer()
+        self._initCreateInactivityTimeSizer()
 
-        self.SetSizer(self._playDelaySizer)
+        mainSizer = wx.BoxSizer(wx.VERTICAL)
+        mainSizer.Add(self._playDelaySizer, 0)
+        mainSizer.Add(self._inactivityTimeSizer, 0)
+
+        self.SetSizer(mainSizer)
 
     def _initCreatePlayDelaySizer(self):
         self._playDelaySizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -1569,10 +1582,33 @@ class PrefsPage(wx.Panel):
         self.Bind(wx.EVT_TEXT, self._onPlayDelayChange,
                   self._playDelayControl)
 
+    def _initCreateInactivityTimeSizer(self):
+        self._inactivityTimeSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        inactivityTimeLabel = wx.StaticText(self, -1, "Idle Time: ")
+        self._inactivityTimeSizer.Add(inactivityTimeLabel, 0,
+                                      wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        
+        self._inactivityTimeControl = wx.TextCtrl(
+            self, -1, str(self._settings["inactivityTime"]), size=(50,-1))
+        self._inactivityTimeSizer.Add(self._inactivityTimeControl, 0)
+
+        inactivityTimeUnits = wx.StaticText(self, -1, " milliseconds")
+        self._inactivityTimeSizer.Add(inactivityTimeUnits, 0,
+                                      wx.RIGHT|wx.TOP|wx.BOTTOM, 3)
+
+        self.Bind(wx.EVT_TEXT, self._onInactivityTimeChange,
+                  self._inactivityTimeControl)
+
     def _onPlayDelayChange(self, e):
         playDelay = self._playDelayControl.GetLineText(0)
         if playDelay != "":
             self._settings["playDelay"] = int(playDelay)
+
+    def _onInactivityTimeChange(self, e):
+        inactivityTime = self._inactivityTimeControl.GetLineText(0)
+        if inactivityTime != "":
+            self._settings["inactivityTime"] = int(inactivityTime)
 
     def savePrefs(self):
         self._logger.debug("Saving GUI preferences.")
@@ -1588,3 +1624,8 @@ class PrefsPage(wx.Panel):
             self._settings["playDelay"] = playDelay
         except ConfigParser.NoOptionError:
             self._settings["playDelay"] = self._defaultPlayDelay
+        try:
+            inactivityTime = self._configParser.getint("GUI", "inactivityTime")
+            self._settings["inactivityTime"] = inactivityTime
+        except ConfigParser.NoOptionError:
+            self._settings["inactivityTime"] = self._defaultInactivityTime
