@@ -39,6 +39,7 @@ import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
 import wx
+##import wx.lib.agw.multidirdialog as wxMDD
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
 ##ID_EVT_TRACK_QUEUE = wx.NewId()
@@ -158,7 +159,9 @@ class MainWindow(wx.Frame):
                  loggerFactory, prefsFactory, configParser, title="NQr",
                  restorePlaylist=False, enqueueOnStartup=True,
                  rescanOnStartup=False, defaultPlaylistLength=11,
-                 defaultPlayDelay=4000, defaultInactivityTime=30000):
+                 defaultPlayDelay=4000, defaultInactivityTime=30000,
+                 wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|"+\
+                 "All files|*.*", defaultDirectory=""):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -194,6 +197,8 @@ class MainWindow(wx.Frame):
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
         self._defaultPlayDelay = defaultPlayDelay
         self._defaultInactivityTime = defaultInactivityTime
+        self._wildcards = wildcards
+        self._defaultDirectory = defaultDirectory
         self.loadSettings()
 
 ##        self._trackMonitor = None
@@ -828,21 +833,14 @@ class MainWindow(wx.Frame):
     def _onPrefs(self, e):
         self._logger.debug("Opening preferences window.")
         self._prefsWindow = self._prefsFactory.getPrefsWindow(self)
-##        prefsBook = self._prefsWindow.getNotebook()
-##        (prefsPage, prefsPageName) = self.getPrefsPage(
-##            prefsBook, self._prefsWindow.getLogger())
-##        self._prefsWindow.addPage(prefsPage, prefsPageName, position=0)
-        
         self._prefsWindow.Show()
 
 ## TODO: change buttons to say "import" rather than "open"/"choose"
     def _onAddFile(self, e):
         self._logger.debug("Opening add file dialog.")
-        defaultDirectory = ''
         dialog = wx.FileDialog(
-            self, "Choose a file", defaultDirectory, "",
-            "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
-            wx.FD_OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR
+            self, "Choose some files...", self._defaultDirectory, "",
+            self._wildcards, wx.FD_OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR
             )
         if dialog.ShowModal() == wx.ID_OK:
             paths = dialog.GetPaths()
@@ -852,12 +850,12 @@ class MainWindow(wx.Frame):
 
     def _onAddDirectory(self, e):
         self._logger.debug("Opening add directory dialog.")
-        defaultDirectory = ''
         if self._system == 'FreeBSD':
-            dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory)
+            dialog = wx.DirDialog(self, "Choose a directory...",
+                                  self._defaultDirectory)
         else:
-            dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory,
-                                  wx.DD_DIR_MUST_EXIST)
+            dialog = wx.DirDialog(self, "Choose a directory...",
+                                  self._defaultDirectory, wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
             self._db.addDirectory(os.path.abspath(path))
@@ -865,26 +863,33 @@ class MainWindow(wx.Frame):
 
     def _onAddDirectoryOnce(self, e):
         self._logger.debug("Opening add directory once dialog.")
-        defaultDirectory = ''
         if self._system == 'FreeBSD':
-            dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory)
+            dialog = wx.DirDialog(self, "Choose a directory...",
+                                  self._defaultDirectory)
         else:
-            dialog = wx.DirDialog(self, "Choose a directory", defaultDirectory,
-                                  wx.DD_DIR_MUST_EXIST)
+            dialog = wx.DirDialog(self, "Choose a directory...",
+                                  self._defaultDirectory, wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
             self._db.addDirectoryNoWatch(os.path.abspath(path))
+##        dialog = wxMDD.MultiDirDialog(self, title="Choose some directories...",
+##                                      defaultPath=self._defaultDirectory,
+##                                      agwStyle=wxMDD.DD_DIR_MUST_EXIST|
+##                                      wxMDD.DD_MULTIPLE)
+##        if dialog.ShowModal() == wx.ID_OK:
+##            paths = dialog.GetPaths()
+##            for path in paths:
+##                self._db.addDirectoryNoWatch(os.path.abspath(path))
         dialog.Destroy()
 
     def _onRemoveDirectory(self, e):
         self._logger.debug("Opening remove directory dialog.")
-        defaultDirectory = ''
         if self._system == 'FreeBSD':
-            dialog = wx.DirDialog(self, "Choose a directory to remove",
-                                  defaultDirectory)
+            dialog = wx.DirDialog(self, "Choose a directory to remove...",
+                                  self._defaultDirectory)
         else:
-            dialog = wx.DirDialog(self, "Choose a directory to remove",
-                                  defaultDirectory, wx.DD_DIR_MUST_EXIST)
+            dialog = wx.DirDialog(self, "Choose a directory to remove...",
+                                  self._defaultDirectory, wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
             self._db.removeDirectory(os.path.abspath(path))
@@ -894,14 +899,14 @@ class MainWindow(wx.Frame):
         self._logger.debug("Rescanning watch list for new files.")
         self._db.rescanDirectories()
 
+## TODO: make linking files simpler, poss side by side selection or order
+##       sensitive multiple selection?
     def _onLinkTracks(self, e):
         self._logger.debug("Opening add link dialogs.")
         self._logger.debug("Opening first file dialog.")
-        defaultDirectory = ''
         firstDialog = wx.FileDialog(
-            self, "Choose the first file", defaultDirectory, "",
-            "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
-            wx.FD_OPEN|wx.FD_CHANGE_DIR
+            self, "Choose the first file...", self._defaultDirectory, "",
+            self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR
             )
         if firstDialog.ShowModal() == wx.ID_OK:
             firstPath = firstDialog.GetPath()
@@ -910,9 +915,8 @@ class MainWindow(wx.Frame):
             self._logger.debug("Opening second file dialog.")
             directory = os.path.dirname(firstPath)
             secondDialog = wx.FileDialog(
-                self, "Choose the second file", directory, "",
-                "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
-                wx.FD_OPEN|wx.FD_CHANGE_DIR
+                self, "Choose the second file...", directory, "",
+                self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR
                 )
             if secondDialog.ShowModal() == wx.ID_OK:
                 secondPath = secondDialog.GetPath()
@@ -922,14 +926,13 @@ class MainWindow(wx.Frame):
             secondDialog.Destroy()
         firstDialog.Destroy()
 
+## TODO: make removing links select from a list of current links
     def _onRemoveLink(self, e):
         self._logger.debug("Opening remove link dialog.")
         self._logger.debug("Opening first file dialog.")
-        defaultDirectory = ''
         firstDialog = wx.FileDialog(
-            self, "Choose the first file", defaultDirectory, "",
-            "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
-            wx.FD_OPEN|wx.FD_CHANGE_DIR
+            self, "Choose the first file...", self._defaultDirectory, "",
+            self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR
             )
         if firstDialog.ShowModal() == wx.ID_OK:
             firstPath = firstDialog.GetPath()
@@ -938,9 +941,8 @@ class MainWindow(wx.Frame):
             self._logger.debug("Opening second file dialog.")
             directory = os.path.dirname(firstPath)
             secondDialog = wx.FileDialog(
-                self, "Choose the second file", directory, "",
-                "Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*",
-                wx.FD_OPEN|wx.FD_CHANGE_DIR
+                self, "Choose the second file...", directory, "",
+                self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR
                 )
             if secondDialog.ShowModal() == wx.ID_OK:
                 secondPath = secondDialog.GetPath()
