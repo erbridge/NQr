@@ -1,9 +1,9 @@
 ## Track information
+##
 ## TODO: check getPath gets Mac path in correct form for iTunes
 ## TODO: create clearCache function for when user has changed metadata?
 ##       * I would actually make tracks update themselves and the
 ##       database when you spot a metadata change. (Ben)
-## TODO: make cache a limited size
 
 import ConfigParser
 from Errors import *
@@ -24,7 +24,9 @@ class TrackFactory:
         self._debugMode = debugMode
         self._logger.debug("Creating track cache.")
         self._trackCache = {}
+        self._trackIDList = []
         self._trackPathCache = {}
+        self._trackPathList = []
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger), "Track"
@@ -99,8 +101,15 @@ class TrackFactory:
 
     def addTrackToCache(self, track):
         self._logger.debug("Adding track to cache.")
+        if len(self._trackCache) > 10000:
+            del self._trackCache[self.trackIDList.pop(0)]
         self._trackCache[track.getID()] = track
+        self._trackIDList.append(track.getID())
+
+        if len(self._trackPathCache) > 10000:
+            del self._trackPathCache[self.trackPathList.pop(0)]
         self._trackPathCache[track.getPath()] = track
+        self._trackPathList.append(track.getPath())
 
 class Track:
     def __init__(self, db, path, logger):
