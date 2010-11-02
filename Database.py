@@ -71,24 +71,6 @@ class Database:
             if columnNames.count('bpm') == 0:
                 self._logger.debug("Adding bpm column to track table.")
                 c.execute("alter table tracks add column bpm integer")
-##                c.execute("""create table tracksbackup (
-##                          trackid integer primary key autoincrement, path text,
-##                          artist text, album text, title text, tracknumber text,
-##                          unscored integer)""")
-##                c.execute("""insert into tracksbackup select trackid, path,
-##                          artist, album, title, tracknumber, unscored from
-##                          tracks""")
-##                c.execute("drop table tracks")
-##                c.execute("""create table tracks (trackid integer primary key
-##                                                  autoincrement, path text,
-##                                                  artist text, album text,
-##                                                  title text, tracknumber text,
-##                                                  unscored integer, length
-##                                                  real)""")
-##                c.execute("""insert into tracks select trackid, path, artist,
-##                          album, title, tracknumber, unscored, null from
-##                          tracksbackup""")
-##                c.execute("drop table tracksbackup")
         c.close()
 
     def _initMaybeCreateDirectoryTable(self):
@@ -214,7 +196,7 @@ class Database:
         if result is None:
             raise NoResultError()
         return result
-        
+
     def addTrack(self, path, hasTrackID=True):
         self._logger.debug("Adding \'"+path+"\' to the library.")
         track = self._trackFactory.getTrackFromPathNoID(self, path)
@@ -336,14 +318,6 @@ class Database:
         secondTrackID = secondTrack.getID()
         firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
         secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-##        if firstTrackID == None:
-##            self._logger.debug("\'"+self.getPath(firstTrack)\
-##                               +"\' is not in the library.")
-##            return
-##        if secondTrackID == None:
-##            self._logger.debug("\'"+self.getPath(secondTrack)\
-##                               +"\' is not in the library.")
-##            return
         linkID = self.getLinkID(firstTrack, secondTrack)
         if linkID == None:
             c.execute("""insert into links (firsttrackid, secondtrackid) values
@@ -407,14 +381,6 @@ class Database:
         secondTrackID = secondTrack.getID()
         firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
         secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-##        if firstTrackID == None:
-##            self._logger.debug("\'"+self.getPath(firstTrack)\
-##                               +"\' is not in the library.")
-##            return
-##        if secondTrackID == None:
-##            self._logger.debug("\'"+self.getPath(secondTrack)\
-##                               +"\' is not in the library.")
-##            return
         linkID = self.getLinkID(firstTrack, secondTrack)
         if linkID != None:
             c.execute("""delete from links where firsttrackid = ? and
@@ -432,10 +398,6 @@ class Database:
         self._logger.debug("Adding enqueue.")
         c = self._conn.cursor()
         trackID = track.getID()
-##        if trackID == None:
-##            self._logger.debug("\'"+self.getPath(track)\
-##                               +"\' is not in the library.")
-##            return
         c.execute("""insert into enqueues (trackid, datetime) values
                   (?, datetime('now'))""", (trackID, ))
         c.close()
@@ -455,10 +417,6 @@ class Database:
         self._logger.debug("Adding play.")
         c = self._conn.cursor()
         trackID = track.getID()
-##        if trackID == None:
-##            self._logger.debug("\'"+self.getPath(track)\
-##                               +"\' is not in the library.")
-##            return
         track.setPreviousPlay(self.getLastPlayedInSeconds(track))
         c.execute("""insert into plays (trackid, datetime) values
                   (?, datetime('now'))""", (trackID, ))
@@ -482,7 +440,6 @@ class Database:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
-##                return None
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select datetime, datetime(datetime, 'localtime'),
@@ -505,7 +462,6 @@ class Database:
         if details == None:
             return None
         return details[self.basicLastPlayedIndex]
-##        return self._getLastPlayed("datetime", track=track)
 
     def getLastPlayedLocalTime(self, track):
         self._logger.debug("Retrieving time of last play in localtime.")
@@ -513,12 +469,6 @@ class Database:
         if details == None:
             return None
         return details[self.localLastPlayedIndex]
-##        return self._getLastPlayed("datetime(datetime, 'localtime')",
-##                                   track=track)
-
-##    def getTimeSinceLastPlayed(self, track):
-##        return self._getLastPlayed("datetime('now') - datetime", track=track)
-####        return self._getLastPlayed("strftime('%J days, %H hrs, %M mins, %S secs ago', (datetime('now') - datetime))", track=track)
 
     def getLastPlayedInSeconds(self, track):
         details = self._getLastPlayed(track=track)
@@ -533,8 +483,6 @@ class Database:
         if details == None:
             return None
         return details[self.secondsSinceLastPlayedIndex]
-##        return self._getLastPlayed(
-##            "strftime('%s', 'now') - strftime('%s', datetime)", trackID=trackID)
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     # played again, this will get stuck. We need to keep track of
@@ -742,25 +690,6 @@ class Database:
     def getTagNameID(self, tagName):
         return self._execute_and_fetchone(
             "select tagnameid from tagnames where name = ?", (tagName, ))
-##        if results == None:
-##            return []
-##        tagNameIDs = []
-##        for result in results:
-##            tagNamesIDs.append(result[0])
-##        return tagNameIDs
-
-##    def setTags(self, track, tagNames):
-##        self._logger.debug("Setting track tags.")
-##        trackID = track.getID()
-##        self._logger.debug("Removing old tags.")
-##        self._cursor.execute("delete from tags where trackid = ?", (trackID, ))
-##        self._logger.debug("Adding new tags.")
-##        tagNameIDs = []
-##        for tagName in tagNames:
-##            tagNameID = self.getTagNameID(tagName)
-##            self._cursor.execute("""insert into tags (trackid, tagnameid) values
-##                                 (?, ?)""", (trackID, tagNameID))
-##        self._conn.commit()
 
     def setTag(self, track, tagName):
         self._logger.info("Tagging track with '" + tagName + "'.")
@@ -776,7 +705,7 @@ class Database:
         tagNameID = self.getTagNameID(tagName)
         self._cursor.execute("""delete from tags where tagnameid = ? and
                              trackid = ?""", (tagNameID, trackID))
-        
+
     def getTags(self, track):
         trackID = track.getID()
         return self.getTagsFromTrackID(trackID)
@@ -927,11 +856,11 @@ class PrefsPage(wx.Panel):
 
     def _initCreateDefaultScoreSizer(self):
         self._defaultScoreSizer = wx.BoxSizer(wx.HORIZONTAL)
-        
+
         defaultScoreLabel = wx.StaticText(self, -1, "Default Score: ")
         self._defaultScoreSizer.Add(defaultScoreLabel, 0,
                                     wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-        
+
         self._defaultScoreControl = wx.TextCtrl(
             self, -1, str(self._settings["defaultScore"]), size=(35,-1))
         self._defaultScoreSizer.Add(self._defaultScoreControl, 0)

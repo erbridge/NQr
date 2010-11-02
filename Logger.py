@@ -6,7 +6,7 @@ import datetime
 class LoggerFactory:
     def __init__(self, debugMode=False):
         self.debugMode = debugMode
-        
+
         dateString = str(
             datetime.datetime.strftime(datetime.datetime.utcnow(),
                                        '%Y%m%d_%H%M%S'))
@@ -41,17 +41,6 @@ class LoggerFactory:
         logging.getLogger("NQr").addHandler(errorFileHandler)
 
         self._logger = self.getLogger("NQr.Logger", "debug")
-
-##        self._logger = logging.getLogger("NQr.Logger")
-##        if self.debugMode == True:
-##            self._logger.setLevel(logging.DEBUG)
-##        elif self.debugMode == False:
-##            self._logger.setLevel(logging.INFO)
-##        else:
-##            self._logger.error(str(self.debugMode)\
-##                               +" is an invalid debug mode.")
-##            raise ValueError(str(self.debugMode)\
-##                             +" is an invalid debug mode.")
 
     def getLogger(self, name, level):
         logger = logging.getLogger(name)

@@ -1,6 +1,7 @@
 ## Randomization Algorithm
 ##
 ## TODO: work out what weights should be (poss make sliders)
+## TODO: use tags to limit track selection
 
 import ConfigParser
 from Errors import *
@@ -89,7 +90,6 @@ class Randomizer:
             for [trackID, weight] in trackWeightList:
                 selector -= weight
                 if selector < 0:
-##                    print time.time()
                     norm = float(weight) * len(trackWeightList) / totalWeight
                     self._logger.info("Selected " + str(trackID) + " weight " \
                                       + str(weight) + " total " \
@@ -133,39 +133,6 @@ class Randomizer:
 ##        weight = score * time
         return weight
 
-#### poss "reverse(sorted(" makes operation slower, not faster
-##    def chooseTrackID(self):
-####        print time.time()
-##        (trackIDList, weightList) = self.createLists()
-##        selector = random.random() * sum(weightList)
-##        for weight, trackID in reversed(sorted(zip(weightList, trackIDList))):
-##            selector -= weight
-##            if selector < 0:
-####                print time.time()
-##                return trackID
-##
-##    def createLists(self):
-##        rawTrackIDList = self._db.getAllTrackIDs()
-##        if rawTrackIDList == None:
-##            print "The database is empty."
-##            return None
-##        trackIDList = []
-##        for (trackID, ) in rawTrackIDList:
-##            trackIDList.append(trackID)
-##        weightList = []
-####        totalWeight = 0
-##        for trackID in trackIDList:
-##            time = self._db.getSecondsSinceLastPlayedFromID(trackID)
-##            score = self._db.getScoreValueFromID(trackID) + 11 ## creates a positive score
-##            if time == None:
-##                time = 5 * (len(trackIDList) + 1)
-##            if score < self._scoreThreshold + 11:
-##                score = 0
-##            weight = self.getWeight(score, time)
-##            weightList.append(weight)
-####            totalWeight += weight
-##        return trackIDList, weightList##, totalWeight
-
 class PrefsPage(wx.Panel):
     def __init__(self, parent, configParser, logger, defaultScoreThreshold,
                  defaultWeight):
@@ -193,14 +160,14 @@ class PrefsPage(wx.Panel):
         self._weightSizer = wx.BoxSizer(wx.VERTICAL)
 
         weightAlgorithmSizer = wx.BoxSizer(wx.HORIZONTAL)
-        
+
         weightLabel = wx.StaticText(self, -1, "Weight Algorithm: ")
         weightAlgorithmSizer.Add(weightLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-        
+
         self._weightControl = wx.TextCtrl(
             self, -1, self._settings["weightAlgorithm"], size=(-1,-1))
         weightAlgorithmSizer.Add(self._weightControl, 1)
-        
+
         self._weightSizer.Add(weightAlgorithmSizer, 0)
 
         weightHelpBox = wx.StaticBox(self, -1,
@@ -210,7 +177,7 @@ class PrefsPage(wx.Panel):
 
         weightHelpVariablesBox = wx.StaticBox(self, -1, "Variables:")
         weightHelpVariablesSizer = wx.StaticBoxSizer(weightHelpVariablesBox)
-        
+
         weightHelpVariablesText = "score = track score + 11        \n"+\
                                   "time  = seconds since last play "
         weightHelpVariables = wx.StaticText(self, -1, weightHelpVariablesText)
@@ -220,7 +187,7 @@ class PrefsPage(wx.Panel):
 
         weightHelpOperatorsBox = wx.StaticBox(self, -1, "Operators:")
         weightHelpOperatorsSizer = wx.StaticBoxSizer(weightHelpOperatorsBox)
-        
+
         weightHelpOperatorsText = "** = to the power of \n"+\
                                   "*  = multiplied by   \n"+\
                                   "/  = divided by      \n"+\
@@ -240,7 +207,7 @@ class PrefsPage(wx.Panel):
 
         thresholdLabel = wx.StaticText(self, -1, "Minimum Play Score: ")
         self._thresholdSizer.Add(thresholdLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-        
+
         self._thresholdControl = wx.TextCtrl(
             self, -1, str(self._settings["scoreThreshold"]), size=(25,-1))
         self._thresholdSizer.Add(self._thresholdControl, 0)

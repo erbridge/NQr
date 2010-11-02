@@ -8,7 +8,7 @@ class XMMS(MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser):
         MediaPlayer.__init__(self, loggerFactory, "NQr.XMMS", noQueue,
                              configParser)
-                    
+
     def getShuffle(self):
         # is_shuffle() returns 0 or 1 instead of true or false
         return not not xmms.control.is_shuffle()
@@ -37,10 +37,10 @@ class XMMS(MediaPlayer):
 
     def play(self):
         xmms.control.play()
-        
+
     def pause(self):
         xmms.control.pause()
-        
+
     def nextTrack(self):
         xmms.control.playlist_next()
 

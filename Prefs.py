@@ -27,8 +27,6 @@ class PrefsWindow(wx.Frame):
             self._modules.insert(0, parent)
         self._configParser = configParser
         self._filename = filename
-        
-##        self._configParser.read(self._filename)
 
         wx.Frame.__init__(self, parent, title="Preferences",
                           style=wx.CAPTION|wx.FRAME_NO_TASKBAR|
@@ -45,7 +43,7 @@ class PrefsWindow(wx.Frame):
         closeButton = wx.Button(panel, wx.ID_CLOSE)
 
         self.Bind(wx.EVT_BUTTON, self._onClose, closeButton)
-        
+
         buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
         ## FIXME: doesn't align right...
         buttonSizer.Add(closeButton, 0, wx.ALIGN_RIGHT)
@@ -58,11 +56,8 @@ class PrefsWindow(wx.Frame):
 
     def _onClose(self, e):
         self._logger.debug("Closing preferences window.")
-        self.savePrefs() 
+        self.savePrefs()
         self.Close(True)
-
-##    def getLogger(self):
-##        return self._logger
 
     def addPage(self, page, pageName, position=None):
         self._logger.debug("Adding preference page.")
@@ -70,9 +65,6 @@ class PrefsWindow(wx.Frame):
             position = len(self._pages)
         self._pages[pageName] = page
         self._prefs.InsertPage(position, page, pageName)
-
-##    def getNotebook(self):
-##        return self._prefs
 
     def savePrefs(self):
         self._logger.info("Saving preferences.")

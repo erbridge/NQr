@@ -34,10 +34,10 @@ if __name__ == '__main__':
 
     configParser = ConfigParser.RawConfigParser()
     configParser.read(prefsFile)
-    
+
     noQueue = False
     debugMode = False
-    
+
     opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
     for opt, arg in opts:
         if opt in ("-n", "--no-queue"):
@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     loggerFactory = Logger.LoggerFactory(debugMode=debugMode)
     logger = loggerFactory.getLogger("NQr", "debug")
-    
+
     # Do platform-dependent imports, and choose a player type. For
     # now, we just choose it based on the platform...
     system = platform.system()
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     modules = [player, trackFactory, db, randomizer]
     prefsFactory = Prefs.PrefsFactory(prefsFile, loggerFactory, modules,
                                       configParser)
-    
+
     app = wx.App(False)
     logger.debug("Initializing GUI.")
     title = "NQr"

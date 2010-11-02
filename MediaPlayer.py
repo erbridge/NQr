@@ -90,8 +90,3 @@ class PrefsPage(wx.Panel):
 
     def _loadSettings(self):
         pass
-##        try:
-##            self._defaultScore = self._configParser.getint("Database",
-##                                                           "defaultScore")
-##        except ConfigParser.NoOptionError:
-##            self._defaultScore = "10"

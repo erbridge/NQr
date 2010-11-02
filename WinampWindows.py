@@ -43,7 +43,7 @@ class WinampWindows(MediaPlayer):
                              configParser)
         self._winamp = winampImport.Winamp()
         self.launchBackground()
-        
+
     def launch(self):
         self._logger.debug("Launching Winamp.")
         if self._winamp.getRunning() == False:
@@ -62,7 +62,6 @@ class WinampWindows(MediaPlayer):
                 time.sleep(.25)
                 if self._winamp.getRunning() == True:
                     self._logger.info("Winamp has been launched.")
-##                    print "Winamp has been launched."
                     return
 
     def close(self):
@@ -133,12 +132,6 @@ class WinampWindows(MediaPlayer):
         if status == False or status == 0:
             self._winamp.setShuffle(0)
             self._logger.info("Shuffle turned off.")
-##        else:
-##            self._winamp.setShuffle(status)
-##            if type(status) == str:
-##                self._logger.info("Shuffle status set to \'"+status+"\'.")
-##            else:
-##                self._logger.info("Shuffle status set to "+str(status)+".")
 
     def getPlaylistLength(self):
         self.launchBackground()
@@ -178,7 +171,6 @@ class WinampWindows(MediaPlayer):
         hexlist = []
         for n in range(256):
             hexlist.append(hex(n))
-##        path = os.path.abspath(memoryBuffer.raw.split('\x00')[0])
         try:
             rawPath = win32api.GetFullPathName(
                 memoryBuffer.raw.split("\x00")[0])

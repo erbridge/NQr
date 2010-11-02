@@ -44,7 +44,6 @@ import wx
 ##import wx.lib.agw.multidirdialog as wxMDD
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
-##ID_EVT_TRACK_QUEUE = wx.NewId()
 
 def EVT_TRACK_CHANGE(window, func):
     window.Connect(-1, -1, ID_EVT_TRACK_CHANGE, func)
@@ -59,14 +58,6 @@ class TrackChangeEvent(wx.PyEvent):
 
     def getTrack(self):
         return self._trackFactory.getTrackFromPath(self._db, self._path)
-
-##def EVT_TRACK_QUEUE(window, func):
-##    window.Connect(-1, -1, ID_EVT_TRACK_QUEUE, func)
-##
-##class TrackQueueEvent(wx.PyEvent):
-##    def __init__(self):
-##        wx.PyEvent.__init__(self)
-##        self.SetEventType(ID_EVT_TRACK_QUEUE)
 
 ## must be aborted when closing!
 class TrackMonitor(Thread):
@@ -106,55 +97,12 @@ class TrackMonitor(Thread):
                                                             self._trackFactory,
                                                             currentTrack))
                 logging = True
-##                changeCount += 1
-##            if changeCount == 3:
-##                wx.PostEvent(self._window, TrackQueueEvent())
-##                changeCount = 0
             if self._abortFlag == True:
                 self._logger.info("Stopping track monitor.")
                 return
 
     def abort(self):
         self._abortFlag = True
-
-
-## doesn't yet unlock GUI
-##class DatabaseThread(Thread):
-##    def __init__(self, db):
-##        Thread.__init__(self)
-##        self._db = db
-##        self.start()
-##
-##    def run(self):
-##        pass
-##
-##    def rescanDirectories(self):
-##        self._db.rescanDirectories()
-
-#### TODO: poss create popup dialog when complete
-#### continues even if NQr is closed
-##class DatabaseOperationThread(Thread):
-##    def __init__(self, db, operation, path):
-##        Thread.__init__(self)
-##        self.setDaemon(True)
-##        self._db = db
-##        self._operation = operation
-##        self.path = path
-##        self.start()
-##
-##    def run(self):
-##        if self._operation == 0 or self._operation == "addTrack":
-##            self._db.addTrack(self.path)
-##        if self._operation == 1 or self._operation == "addDirectory":
-##            self._db.addDirectory(self.path)
-##        if self._operation == 2 or self._operation == "addDirecoryOnce":
-##            self._db.addDirectoryNoWatch(self.path)
-##        if self._operation == 3 or self._operation == "removeDirectory":
-##            self._db.removeDirectory(self.path)
-##        if self._operation == 4 or self._operation == "rescanDirectories":
-##            self._db.rescanDirectories()
-##        else:
-##            print "No such operation."
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
@@ -182,8 +130,7 @@ class MainWindow(wx.Frame):
         self._ID_PLAYTIMER = wx.NewId()
         self._ID_INACTIVITYTIMER = wx.NewId()
         self._ID_REFRESHTIMER = wx.NewId()
-    
-##        self._db = DatabaseThread(db).database
+
         self._db = db
         self._randomizer = randomizer
         self._player = player
@@ -204,7 +151,6 @@ class MainWindow(wx.Frame):
         self._defaultIgnore = defaultIgnore
         self.loadSettings()
 
-##        self._trackMonitor = None
         self._index = None
 
         wx.Frame.__init__(self, parent, title=title)
@@ -230,7 +176,6 @@ class MainWindow(wx.Frame):
                      self._onInactivityTimerDing)
         wx.EVT_TIMER(self, self._ID_REFRESHTIMER, self._onRefreshTimerDing)
         EVT_TRACK_CHANGE(self, self._onTrackChange)
-##        EVT_TRACK_QUEUE(self, self._onEnqueueTracks)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
         if self._restorePlaylist == True:
@@ -245,7 +190,7 @@ class MainWindow(wx.Frame):
 
         self._logger.debug("Drawing main window.")
         self.Show(True)
-        
+
         self._logger.info("Starting track monitor.")
         self._trackMonitor = TrackMonitor(self, self._db, self._player,
                                           self._trackFactory, loggerFactory)
@@ -395,57 +340,6 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e, score=-10: self._onRate(e, score),
                   menuRateNeg10)
 
-##        self._rateMenu.Check(self._ID_menuRate0, True)
-##        try:
-##            score = self._db.getScoreValueFromID(self._trackID)
-##            if score == 10:
-##                self._rateMenu.Check(menuRatePos10, True)
-##            elif score == 9:
-##                self._rateMenu.Check(menuRatePos9, True)
-##            elif score == 8:
-##                self._rateMenu.Check(menuRatePos8, True)
-##            elif score == 7:
-##                self._rateMenu.Check(menuRatePos7, True)
-##            elif score == 6:
-##                self._rateMenu.Check(menuRatePos6, True)
-##            elif score == 5:
-##                self._rateMenu.Check(menuRatePos5, True)
-##            elif score == 4:
-##                self._rateMenu.Check(menuRatePos4, True)
-##            elif score == 3:
-##                self._rateMenu.Check(menuRatePos3, True)
-##            elif score == 2:
-##                self._rateMenu.Check(menuRatePos2, True)
-##            elif score == 1:
-##                self._rateMenu.Check(menuRatePos1, True)
-##            elif score == 0:
-##                self._rateMenu.Check(menuRate0, True)
-##            elif score == 1:
-##                self._rateMenu.Check(menuRateNeg1, True)
-##            elif score == 2:
-##                self._rateMenu.Check(menuRateNeg2, True)
-##            elif score == 3:
-##                self._rateMenu.Check(menuRateNeg3, True)
-##            elif score == 4:
-##                self._rateMenu.Check(menuRateNeg4, True)
-##            elif score == 5:
-##                self._rateMenu.Check(menuRateNeg5, True)
-##            elif score == 6:
-##                self._rateMenu.Check(menuRateNeg6, True)
-##            elif score == 7:
-##                self._rateMenu.Check(menuRateNeg7, True)
-##            elif score == 8:
-##                self._rateMenu.Check(menuRateNeg8, True)
-##            elif score == 9:
-##                self._rateMenu.Check(menuRateNeg9, True)
-##            elif score == 10:
-##                self._rateMenu.Check(menuRateNeg10, True)
-##        except AttributeError as err:
-##            if str(err) != "'MainWindow' object has no attribute 'trackID'":
-##                raise err
-##            print "No track selected."
-##            return
-
     ## TODO: change up in "Rate Up" to an arrow
     def _initCreatePlayerMenu(self):
         self._logger.debug("Creating player menu.")
@@ -496,14 +390,14 @@ class MainWindow(wx.Frame):
         newTagMenu = self._tagMenu.Append(
             -1, "&New...", " Create new tag and tag track with it")
         self._tagMenu.AppendSeparator()
-        
+
         self._allTags = {}
         for tag in self._db.getAllTagNames():
             tagID = wx.NewId()
             self._allTags[tagID] = tag
             tagMenu = self._tagMenu.AppendCheckItem(tagID, tag,
                                                     " Tag track with " + tag)
-            
+
             self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
 
         self.Bind(wx.EVT_MENU, self._onNewTag, newTagMenu)
@@ -617,7 +511,7 @@ class MainWindow(wx.Frame):
     def _initCreateTrackRightClickMenu(self):
         self._logger.debug("Creating track right click menu.")
         self._initCreateRightClickRateMenu()
-        
+
         self._trackRightClickMenu = wx.Menu()
         menuTrackRightClickRateUp = self._trackRightClickMenu.Append(
             -1, "Rate &Up", " Increase the score of the current track by one")
@@ -642,7 +536,6 @@ class MainWindow(wx.Frame):
         self._panel = wx.Panel(self)
         self._initCreatePlayerControls()
         self._initCreateDetails()
-##        self._initCreateTagSizer()
         self._initCreateTrackSizer()
 
         self._mainSizer = wx.BoxSizer(wx.VERTICAL)
@@ -651,7 +544,6 @@ class MainWindow(wx.Frame):
                             wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
         self._mainSizer.Add(self._details, 0, wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT,
                             3)
-##        self._mainSizer.Add(self._tagSizer, 0, wx.EXPAND|wx.ALL, 3)
 
         self._panel.SetSizerAndFit(self._mainSizer)
         self._panel.SetAutoLayout(True)
@@ -689,35 +581,6 @@ class MainWindow(wx.Frame):
         self._details = wx.TextCtrl(self._panel, self._ID_DETAILS,
                                     style=wx.TE_READONLY|wx.TE_MULTILINE|
                                     wx.TE_DONTWRAP, size=(-1,140))
-
-##    def _initCreateTagSizer(self):
-##        self._logger.debug("Creating tag panel.")
-##        self._initCreateTagList()
-##        self._initCreateTagLabel()
-##        self._initCreateTagSetButton()
-##
-##        self._tagSizer = wx.BoxSizer(wx.HORIZONTAL)
-##        self._tagSizer.Add(self._tagLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-##        self._tagSizer.Add(self._tagList, 1, wx.EXPAND)
-##        self._tagSizer.Add(self._tagSetButtonPanel, 0, wx.LEFT, 3)
-##
-##    def _initCreateTagList(self):
-##        self._logger.debug("Creating tag list box.")
-##        self._tagList = wx.TextCtrl(self._panel, self._ID_TAGS, size=(-1,-1))
-##
-##        self._tagList.Bind(wx.EVT_TEXT_ENTER, self._onTagSet)
-##
-##    def _initCreateTagLabel(self):
-##        self._tagLabel = wx.StaticText(self._panel, wx.NewId(),
-##                                       style=wx.ST_NO_AUTORESIZE)
-##        self._tagLabel.SetLabel("Tags: ")
-##
-##    def _initCreateTagSetButton(self):
-##        self._tagSetButtonPanel = wx.Panel(self._panel)
-##        tagSetButton = wx.Button(self._tagSetButtonPanel, wx.ID_ANY,
-##                                       "Set")
-##
-##        self.Bind(wx.EVT_BUTTON, self._onTagSet, tagSetButton)
 
     def _initCreateTrackSizer(self):
         self._logger.debug("Creating track panel.")
@@ -795,28 +658,8 @@ class MainWindow(wx.Frame):
         self.resetInactivityTimer()
         self._logger.debug("Popping up track right click menu.")
         point = e.GetPoint()
-##        self._initCreateRateMenu()
-##        trackRightClickMenu = wx.Menu()
-##        menuTrackRightClickRateUp = trackRightClickMenu.Append(
-##            -1, "Rate &Up", " Increase the score of the current track by one")
-##        menuTrackRightClickRateDown = trackRightClickMenu.Append(
-##            -1, "Rate &Down", " Decrease the score of the current track by one")
-##        rateRightClickMenu = trackRightClickMenu.AppendMenu(
-##            -1, "&Rate", self._rateMenu)
-##        trackRightClickMenu.AppendSeparator()
-##        menuTrackRightClickRequeue = trackRightClickMenu.Append(
-##            -1, "Re&queue Track", " Add the selected track to the playlist")
-####        menuTrackRightClickResetScore = trackRightClickMenu.Append(
-####            -1, "Reset Sc&ore", " Reset the score of the current track")
-##
-##        self.Bind(wx.EVT_MENU, self._onRateUp, menuTrackRightClickRateUp)
-##        self.Bind(wx.EVT_MENU, self._onRateDown, menuTrackRightClickRateDown)
-##        self.Bind(wx.EVT_MENU, self._onRequeue, menuTrackRightClickRequeue)
-####        self.Bind(wx.EVT_MENU, self._onResetScore, menuTrackRightClickResetScore)
 
         self.PopupMenu(self._trackRightClickMenu, point)
-##        rateRightClickMenu.Destroy()
-##        trackRightClickMenu.Destroy()
 
     def _onAbout(self, e):
         self._logger.debug("Opening about dialog.")
@@ -1046,7 +889,6 @@ class MainWindow(wx.Frame):
             else:
                 self.unsetTag(self._track, tagID)
             self.populateDetails(self._track)
-##            self.refreshSelectedTrack()
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -1067,8 +909,7 @@ class MainWindow(wx.Frame):
                     tagID, tag, " Tag track with " + tag)
                 self.setTag(self._track, tagID)
                 self.populateDetails(self._track)
-##                self.refreshSelectedTrack()
-                
+
                 self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
             dialog.Destroy()
             self.resetInactivityTimer()
@@ -1078,25 +919,6 @@ class MainWindow(wx.Frame):
             self._logger.error("No track selected.")
             self.resetInactivityTimer()
             return
-        
-##    def _onTagSet(self, e):
-##        try:
-##            self._logger.info("Tagging track.")
-##            tagString = self._tagList.GetLineText(0)
-##            tags = tagString.split(",")
-##            index = 0
-##            for tag in tags:
-##                tag = tag.strip()
-##                tags[index] = tag
-##                index += 1
-##            tags = filter(None, tags)
-##            self._track.setTags(tags)
-##            self.refreshSelectedTrack()
-##        except AttributeError as err:
-##            if str(err) != "'MainWindow' object has no attribute '_track'":
-##                raise err
-##            self._logger.error("No track selected.")
-##            return        
 
     def _onExit(self, e):
         self._logger.debug("Exiting NQr.")
@@ -1186,7 +1008,6 @@ class MainWindow(wx.Frame):
             trackID = self._trackList.GetItemData(index)
             track = self._trackFactory.getTrackFromID(self._db, trackID)
             self.refreshPreviousPlay(index, track)
-##        self._trackList.Refresh()
 
     def resetInactivityTimer(self):
         self._logger.debug("Restarting inactivity timer.")
@@ -1219,17 +1040,11 @@ class MainWindow(wx.Frame):
         self._logger.debug("Track has been deselected.")
         self.clearDetails()
 
-#### should queue the correct number of tracks
-##    def _onEnqueueTracks(self, e=None):
-##        track = self._randomizer.chooseTrack()
-##        self.enqueueTrack(track)
-
     def addTrack(self, track):
         self.addTrackAtPos(track, 0)
 
     def addTrackAtPos(self, track, index):
         self._logger.debug("Adding track to track playlist.")
-##        if IsCurrentTrack()==False:
         isScored = track.getIsScored()
         if isScored == False:
             score = "("+str(track.getScoreValue())+")"
@@ -1264,7 +1079,7 @@ class MainWindow(wx.Frame):
         self._db.addEnqueue(track)
 
 ## TODO: would be better for NQr to create a queue during idle time and pop from
-##       it when enqueuing        
+##       it when enqueuing
     def enqueueRandomTracks(self, number):
         try:
             self._logger.debug("Enqueueing "+str(number)+" random track"
@@ -1274,7 +1089,6 @@ class MainWindow(wx.Frame):
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
             self._logger.debug("Checking tracks for links.")
             for track in tracks:
-##                self.enqueueTrack(track)
                 linkIDs = self._db.getLinkIDs(track)
                 if linkIDs == None:
                     self.enqueueTrack(track)
@@ -1287,8 +1101,6 @@ class MainWindow(wx.Frame):
                     secondTrack = self._trackFactory.getTrackFromID(
                         self._db, secondTrackID)
                     trackQueue = deque([firstTrack, secondTrack])
-##                    self.enqueueTrack(firstTrack)
-##                    self.enqueueTrack(secondTrack)
                     linkIDs = self._db.getLinkIDs(firstTrack)
                     oldLinkIDs = originalLinkID
                     ## finds earlier tracks
@@ -1320,17 +1132,6 @@ class MainWindow(wx.Frame):
                                 linkIDs = self._db.getLinkIDs(track)
                         if oldLinkIDs == linkIDs:
                                 break
-##                    oldTrackID = firstTrackID
-##                    while linkIDs != None:
-##                        for linkID in linkIDs:
-##                            (trackID,
-##                             newTrackID) = self._db.getLinkedTrackIDs(linkID)
-##                            if trackID != oldTrackID:
-##                                track = self._trackFactory.getTrackFromID(self._db,
-##                                                                         newTrackID)
-##                                trackQueue.append(track)
-##                                oldTrackID = trackID
-##                        linkIDs = self._db.getLinkIDs(track)
                     for track in trackQueue:
                         self.enqueueTrack(track)
 ##                    if secondLinkID != None:
@@ -1411,7 +1212,6 @@ class MainWindow(wx.Frame):
         if lastPlayed == None:
             lastPlayed = "-"
         self.clearDetails()
-##        self.clearTags()
         self.addDetail("Artist:   "+track.getArtist())
         self.addDetail("Title:   "+track.getTitle())
         self.addDetail("Track:   "+track.getTrackNumber()\
@@ -1431,7 +1231,6 @@ class MainWindow(wx.Frame):
             tagString += tag + ", "
             tagID = self._getTagID(tag)
             self._tagMenu.Check(tagID, True)
-##            self.addTag(tag)
         self.addDetail("Tags:   "+tagString[:-2])
 
     def addDetail(self, detail):
@@ -1455,18 +1254,11 @@ class MainWindow(wx.Frame):
         for tag in self._db.getAllTagNames():
             tagID = self._getTagID(tag)
             self._tagMenu.Check(tagID, False)
-            
+
     def _getTagID(self, tag):
         for (tagID, tagName) in self._allTags.iteritems():
             if tag == tagName:
                 return tagID
-
-##    def addTag(self, tag):
-##        self._tagList.AppendText(tag+", ")
-
-##    def clearTags(self):
-##        self._logger.debug("Clearing tag list.")
-##        self._tagList.Clear()
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(
@@ -1524,7 +1316,7 @@ class PrefsPage(wx.Panel):
 
         playDelayLabel = wx.StaticText(self, -1, "Play Record Delay: ")
         self._playDelaySizer.Add(playDelayLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-        
+
         self._playDelayControl = wx.TextCtrl(
             self, -1, str(self._settings["playDelay"]), size=(40,-1))
         self._playDelaySizer.Add(self._playDelayControl, 0)
@@ -1542,7 +1334,7 @@ class PrefsPage(wx.Panel):
         inactivityTimeLabel = wx.StaticText(self, -1, "Idle Time: ")
         self._inactivityTimeSizer.Add(inactivityTimeLabel, 0,
                                       wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-        
+
         self._inactivityTimeControl = wx.TextCtrl(
             self, -1, str(self._settings["inactivityTime"]), size=(50,-1))
         self._inactivityTimeSizer.Add(self._inactivityTimeControl, 0)
@@ -1554,7 +1346,7 @@ class PrefsPage(wx.Panel):
         self.Bind(wx.EVT_TEXT, self._onInactivityTimeChange,
                   self._inactivityTimeControl)
 
-    def _initCreateIgnoreCheckBox(self):        
+    def _initCreateIgnoreCheckBox(self):
         self._ignoreCheckBox = wx.CheckBox(self, -1,
                                            "Ignore Tracks not in Database")
         if self._settings["ignoreNewTracks"] == True:
@@ -1584,7 +1376,7 @@ class PrefsPage(wx.Panel):
         self._logger.debug("Saving GUI preferences.")
         for (name, value) in self._settings.items():
             self.setSetting(name, value)
-        
+
     def setSetting(self, name, value):
         self._configParser.set("GUI", name, value)
 
