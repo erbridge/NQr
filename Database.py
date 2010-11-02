@@ -201,6 +201,19 @@ class Database:
                 raise err
             self._logger.debug("Tags table found.")
         c.close()
+
+    def _execute_and_fetchone_or_null(self, stmt, args = ()):
+        self._cursor.execute(stmt, args)
+        result = self._cursor.fetchone()
+        if result is None:
+            return None
+        return result[0]
+
+    def _execute_and_fetchone(self, stmt, args = ()):
+        result = self._execute_and_fetchone_or_null(stmt, args)
+        if result is None:
+            raise NoResultError()
+        return result
         
     def addTrack(self, path, hasTrackID=True):
         self._logger.debug("Adding \'"+path+"\' to the library.")
@@ -216,7 +229,7 @@ class Database:
         if hasTrackID == False or trackID == None:
             c.execute("""insert into tracks (path, artist, album, title,
                       tracknumber, unscored, length, bpm) values (?, ?, ?, ?, ?,
-                      1, ?)""", (path, track.getArtist(), track.getAlbum(),
+                      1, ?, ?)""", (path, track.getArtist(), track.getAlbum(),
                                  track.getTitle(), track.getTrackNumber(),
                                  track.getLength(), track.getBPM()))
             trackID = c.lastrowid
@@ -240,19 +253,6 @@ class Database:
         c.execute("select trackid from tracks")
         result = c.fetchall()
         c.close()
-        return result
-
-    def _execute_and_fetchone_or_null(self, stmt, args = ()):
-        self._cursor.execute(stmt, args)
-        result = self._cursor.fetchone()
-        if result is None:
-            return None
-        return result[0]
-
-    def _execute_and_fetchone(self, stmt, args = ()):
-        result = self._execute_and_fetchone_or_null(stmt, args)
-        if result is None:
-            raise NoResultError()
         return result
 
     def _getTrackID(self, track):
@@ -494,7 +494,7 @@ class Database:
         else:
             if self._debugMode == True:
                 self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
-                               +"\' has never been played.")
+                                   +"\' has never been played.")
             return None
 
     def getLastPlayed(self, track):
