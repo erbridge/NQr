@@ -1,21 +1,23 @@
 ## GUI
-## TODO: add library viewer with scoring and queueing funcionality
+##
+## TODO: add library viewer with scoring, queueing and search funcionality using
+##       splitter window: top left - artist, top right - album, centre - tracks,
+##       bottom - details
 ## TODO: debug message window with levels of messages (basic score up/down
 ##       etc for users and more complex for devs) using "logging" module?
 ## TODO: add delete file/directory menus, with confirmation?
-## TODO: add support for mulitple selections
+## TODO: add support for mulitple track selections
 ## TODO: add play button and menu item to play selected track? and add to
 ##       right click menu
-## TODO: add menu option to turn NQr queueing on/off. When off change trackList
-##       behaviour to only show played tracks, not to represent unplayed tracks,
-##       or show only 3 future tracks?
+## TODO: display unplayed tracks with option to remove and rearrange playlist
+## TODO: when NQr queueing off, change trackList behaviour to only show played
+##       tracks, not to represent unplayed tracks, or show only 3 future tracks?
 ## TODO: set up rescan on startup?
 ## TODO: make add/rescan directory/files a background operation: poss create a
 ##       thread to check the directory and queue the database to add the file.
-## TODO: allow ignoring of tracks played not in database
+## TODO: implement ignoring of tracks played not in database
+##       (option already created)
 ## TODO: add keyboard shortcuts
-## TODO: after a timeout period, NQr should select current track
-## TODO: remember playlist contents for when NQr is toggled off.
 ## TODO: leftmost column of track list no longer needed?
 ## TODO: check if there is a next track in the playlist, and if not queue one
 ## TODO: pressing next track should select it
@@ -161,7 +163,7 @@ class MainWindow(wx.Frame):
                  rescanOnStartup=False, defaultPlaylistLength=11,
                  defaultPlayDelay=4000, defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|"+\
-                 "All files|*.*", defaultDirectory=""):
+                 "All files|*.*", defaultDirectory="", defaultIgnore=False):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -199,6 +201,7 @@ class MainWindow(wx.Frame):
         self._defaultInactivityTime = defaultInactivityTime
         self._wildcards = wildcards
         self._defaultDirectory = defaultDirectory
+        self._defaultIgnore = defaultIgnore
         self.loadSettings()
 
 ##        self._trackMonitor = None
@@ -1458,10 +1461,17 @@ class MainWindow(wx.Frame):
             if tag == tagName:
                 return tagID
 
+##    def addTag(self, tag):
+##        self._tagList.AppendText(tag+", ")
+
+##    def clearTags(self):
+##        self._logger.debug("Clearing tag list.")
+##        self._tagList.Clear()
+
     def getPrefsPage(self, parent, logger):
         return PrefsPage(
             parent, self._configParser, logger, self._defaultPlayDelay,
-            self._defaultInactivityTime), "GUI"
+            self._defaultInactivityTime, self._defaultIgnore), "GUI"
 
     def loadSettings(self):
         try:
@@ -1477,80 +1487,20 @@ class MainWindow(wx.Frame):
                                                              "inactivityTime")
         except ConfigParser.NoOptionError:
             self._inactivityTime = self._defaultInactivityTime
-
-##    def addTag(self, tag):
-##        self._tagList.AppendText(tag+", ")
-
-##    def clearTags(self):
-##        self._logger.debug("Clearing tag list.")
-##        self._tagList.Clear()
-
-##class PrefsWindow(wx.Frame):
-##    def __init__(self, parent, logger):
-##        self._logger = logger
-##
-##        wx.Frame.__init__(self, parent, title="Preferences",
-##                          style=wx.CAPTION|wx.FRAME_NO_TASKBAR|
-##                          wx.FRAME_FLOAT_ON_PARENT)
-##        panel = wx.Panel(self)
-##        prefs = wx.Notebook(panel, size=(400,400))
-##
-##        self.general = PrefsGeneralPage(prefs)
-##        self.randomizer = PrefsRandomizerPage(prefs)
-##        self.database = PrefsDatabasePage(prefs)
-##        self.player = PrefsPlayerPage(prefs)
-##        self.advanced = PrefsAdvancedPage(prefs)
-##        
-##        prefs.AddPage(self.general, "General")
-##        prefs.AddPage(self.randomizer, "Randomizer")
-##        prefs.AddPage(self.database, "Database")
-##        prefs.AddPage(self.player, "Player")
-##        prefs.AddPage(self.advanced, "Advanced")
-##
-##        closeButton = wx.Button(panel, wx.ID_CLOSE)
-##
-##        self.Bind(wx.EVT_BUTTON, self._onClose, closeButton)
-##        
-##        buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
-##        ## FIXME: doesn't align right...
-##        buttonSizer.Add(closeButton, 0, wx.ALIGN_RIGHT)
-##
-##        mainSizer = wx.BoxSizer(wx.VERTICAL)
-##        mainSizer.Add(prefs, 1, wx.EXPAND)
-##        mainSizer.Add(buttonSizer, 0)
-##        panel.SetSizerAndFit(mainSizer)
-##
-##    def _onClose(self, e):
-##        self._logger.debug("Closing preferences window.")
-##        self.Close(True)
-##
-##class PrefsGeneralPage(wx.Panel):
-##    def __init__(self, parent):
-##        wx.Panel.__init__(self, parent)
-##
-##class PrefsRandomizerPage(wx.Panel):
-##    def __init__(self, parent):
-##        wx.Panel.__init__(self, parent)
-##
-##class PrefsDatabasePage(wx.Panel):
-##    def __init__(self, parent):
-##        wx.Panel.__init__(self, parent)
-##
-##class PrefsPlayerPage(wx.Panel):
-##    def __init__(self, parent):
-##        wx.Panel.__init__(self, parent)
-##
-##class PrefsAdvancedPage(wx.Panel):
-##    def __init__(self, parent):
-##        wx.Panel.__init__(self, parent)
+        try:
+            self._ignoreNewTracks = bool(self._configParser.get(
+                "GUI", "ignoreNewTracks"))
+        except ConfigParser.NoOptionError:
+            self._ignoreNewTracks = self._defaultIgnore
 
 class PrefsPage(wx.Panel):
     def __init__(self, parent, configParser, logger, defaultPlayDelay,
-                 defaultInactivityTime):
+                 defaultInactivityTime, defaultIgnore):
         wx.Panel.__init__(self, parent)
         self._logger = logger
         self._defaultPlayDelay = defaultPlayDelay
         self._defaultInactivityTime = defaultInactivityTime
+        self._defaultIgnore = defaultIgnore
         self._settings = {}
         self._configParser = configParser
         try:
@@ -1560,10 +1510,12 @@ class PrefsPage(wx.Panel):
         self._loadSettings()
         self._initCreatePlayDelaySizer()
         self._initCreateInactivityTimeSizer()
+        self._initCreateIgnoreCheckBox()
 
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         mainSizer.Add(self._playDelaySizer, 0)
         mainSizer.Add(self._inactivityTimeSizer, 0)
+        mainSizer.Add(self._ignoreCheckBox, 0)
 
         self.SetSizer(mainSizer)
 
@@ -1602,6 +1554,16 @@ class PrefsPage(wx.Panel):
         self.Bind(wx.EVT_TEXT, self._onInactivityTimeChange,
                   self._inactivityTimeControl)
 
+    def _initCreateIgnoreCheckBox(self):        
+        self._ignoreCheckBox = wx.CheckBox(self, -1,
+                                           "Ignore Tracks not in Database")
+        if self._settings["ignoreNewTracks"] == True:
+            self._ignoreCheckBox.SetValue(True)
+        else:
+            self._ignoreCheckBox.SetValue(False)
+
+        self.Bind(wx.EVT_CHECKBOX, self._onIgnoreChange, self._ignoreCheckBox)
+
     def _onPlayDelayChange(self, e):
         playDelay = self._playDelayControl.GetLineText(0)
         if playDelay != "":
@@ -1611,6 +1573,12 @@ class PrefsPage(wx.Panel):
         inactivityTime = self._inactivityTimeControl.GetLineText(0)
         if inactivityTime != "":
             self._settings["inactivityTime"] = int(inactivityTime)
+
+    def _onIgnoreChange(self, e):
+        if self._ignoreCheckBox.IsChecked():
+            self._settings["ignoreNewTracks"] = True
+        else:
+            self._settings["ignoreNewTracks"] = False
 
     def savePrefs(self):
         self._logger.debug("Saving GUI preferences.")
@@ -1631,3 +1599,8 @@ class PrefsPage(wx.Panel):
             self._settings["inactivityTime"] = inactivityTime
         except ConfigParser.NoOptionError:
             self._settings["inactivityTime"] = self._defaultInactivityTime
+        try:
+            ignore = bool(self._configParser.get("GUI", "ignoreNewTracks"))
+            self._settings["ignoreNewTracks"] = ignore
+        except ConfigParser.NoOptionError:
+            self._settings["ignoreNewTracks"] = self._defaultIgnore
