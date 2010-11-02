@@ -1467,12 +1467,12 @@ class MainWindow(wx.Frame):
         except ConfigParser.DuplicateSectionError:
             pass
         try:
-            self._playDelay = self._configParser.get("GUI", "playDelay")
+            self._playDelay = self._configParser.getint("GUI", "playDelay")
         except ConfigParser.NoOptionError:
             self._playDelay = self._defaultPlayDelay
         try:
-            self._inactivityTime = self._configParser.get("GUI",
-                                                          "inactivityTime")
+            self._inactivityTime = self._configParser.getint("GUI",
+                                                             "inactivityTime")
         except ConfigParser.NoOptionError:
             self._inactivityTime = self._defaultInactivityTime
 
