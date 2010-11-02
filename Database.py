@@ -3,7 +3,7 @@
 ## TODO: use a hash as a track identifier instead of path to allow for path
 ##       changes.
 ## TODO: add a function to remove the last play record (to undo the play)?
-## TODO: add ignore list
+## TODO: add functions to populate ignore list
 ## TODO: check if track table already exists first to confirm whether or not
 ##       to create other tables (poss corruption)
 

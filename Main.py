@@ -1,17 +1,15 @@
 ## NQr
-## TODO: sort out ' and unicode in filenames
+##
+## TODO: sort out ' and unicode in filenames (done?)
 ## TODO: allow use of bpm for music queueing (from ID3)
-## TODO: allow user to choose default rating of unheard tracks
 ## TODO: on startup rescan directories for new files or make an option
 ## TODO: allow import of directories with a score
 ## TODO: ORGANIZE CODE
 ## TODO: make all errors go to a log (including python errors)
 ## TODO: add track with tag retrieval?
-##
-## FIXME: sometimes when changing the score of a track which was selected a
-##        while ago, the track replaces the current track in the track list
-##        (poss now fixed)
-## FIXME: scores added twice to scores table
+## TODO: prevent multiple instances of NQr
+## TODO: populate prefs window including customizable score range (with
+##       database converter)?
 
 import ConfigParser
 import Database
@@ -30,7 +28,7 @@ def usage():
     print
     print "-n      Don't queue tracks"
 
-## this info should be read from a settings file
+## TODO: this info should be read from a settings file
 if __name__ == '__main__':
     prefsFile = "settings"
 
