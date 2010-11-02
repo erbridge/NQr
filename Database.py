@@ -255,17 +255,19 @@ class Database:
         c.close()
         return result
 
-    def _getTrackID(self, track):
+    def _getTrackID(self, track, update=False):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
         result = self._execute_and_fetchone_or_null(
             "select trackid from tracks where path = ?", (path, ))
         if result == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
+            if update == True:
+                raise NoTrackError
         return result
 
-    def getTrackID(self, track):
-        trackID = self._getTrackID(track)
+    def getTrackID(self, track, update=False):
+        trackID = self._getTrackID(track, update)
         if trackID == None:
             return self.addTrack(track.getPath(), hasTrackID=False)
         return trackID
@@ -574,7 +576,7 @@ class Database:
         path = track.getPath()
         self._logger.debug("Updating \'"+path+"\' in the library.")
         c = self._conn.cursor()
-        trackID = self._getTrackID(track)
+        trackID = self._getTrackID(track, update=True)
         if trackID != None:
             c.execute("""update tracks set path = ?, artist = ?, album = ?,
                       title = ?, tracknumber = ?, length = ?, bpm = ? where
@@ -591,7 +593,7 @@ class Database:
 
     def _getTrackDetailsChange(self, track):
         self._logger.debug("Checking whether track details have changed.")
-        details = self._getTrackDetails(track=track)
+        details = self._getTrackDetails(track=track, update=True)
         newDetails = {}
         newDetails[self.pathIndex] = track.getPath()
         newDetails[self.artistIndex] = track.getArtist()
@@ -608,7 +610,7 @@ class Database:
                 continue
         return False
 
-    def _getTrackDetails(self, track=None, trackID=None):
+    def _getTrackDetails(self, track=None, trackID=None, update=False):
         (self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
          self.trackNumberIndex, self.unscoredIndex, self.lengthIndex,
          self.bpmIndex) = range(8)
@@ -616,7 +618,7 @@ class Database:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
-            trackID = track.getID()
+            trackID = track.getID(update)
         c = self._conn.cursor()
         c.execute("""select path, artist, album, title, tracknumber, unscored,
                   length, bpm from tracks where trackid = ?""", (trackID, ))

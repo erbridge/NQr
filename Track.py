@@ -118,9 +118,9 @@ class Track:
         return self._path
 
 ## poss should add to cache?
-    def getID(self):
+    def getID(self, update=False):
         if self._id == None:
-            return self._db.getTrackID(self)
+            return self._db.getTrackID(self, update)
         return self._id
 
     def setID(self, factory, id):
@@ -213,7 +213,10 @@ class AudioTrack(Track):
             raise UnknownTrackType
         self._logger.debug("Track created.")
         self._initGetAttributes()
-        self._db.maybeUpdateTrackDetails(self)
+        try:
+            self._db.maybeUpdateTrackDetails(self)
+        except NoTrackError:
+            pass
 
     ## tags are of the form [u'artistName']
     def _initGetAttributes(self):
