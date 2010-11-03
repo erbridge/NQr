@@ -160,6 +160,7 @@ class Track:
 
     def setUnscored(self):
         self._isScored = False
+        self._score = None
         self._db.setUnscored(self)
 
     def getIsScored(self):
