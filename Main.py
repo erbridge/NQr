@@ -5,7 +5,6 @@
 ## TODO: on startup rescan directories for new files or make an option
 ## TODO: allow import of directories with a score
 ## TODO: ORGANIZE CODE
-## TODO: make all errors go to a log (including python errors)
 ## TODO: add track with tag retrieval?
 ## TODO: prevent multiple instances of NQr
 ## TODO: populate prefs window including customizable score range (with

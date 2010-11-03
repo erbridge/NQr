@@ -19,7 +19,6 @@
 ##       (option already created)
 ## TODO: add keyboard shortcuts
 ## TODO: leftmost column of track list no longer needed?
-## TODO: check if there is a next track in the playlist, and if not queue one
 ## TODO: pressing next track should select it
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
@@ -195,6 +194,7 @@ class MainWindow(wx.Frame):
         self._trackMonitor = TrackMonitor(self, self._db, self._player,
                                           self._trackFactory, loggerFactory)
 
+        self.maintainPlaylist()
         self.selectTrack(0)
 
     def _initCreateMenuBar(self):
