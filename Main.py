@@ -10,6 +10,7 @@
 ## TODO: prevent multiple instances of NQr
 ## TODO: populate prefs window including customizable score range (with
 ##       database converter)?
+## TODO: read settings from settings file
 
 import ConfigParser
 import Database
@@ -20,79 +21,98 @@ import platform
 import Prefs
 import Randomizer
 import sys
+import traceback
 import Track
 import wx
 
-def usage():
-    print sys.argv[0], "[-h|--help] [-n|--no-queue]"
-    print
-    print "-n      Don't queue tracks"
+class Main:
+    def __init__(self):
+        self._prefsFile = "settings"
 
-## TODO: this info should be read from a settings file
+        self._configParser = ConfigParser.RawConfigParser()
+        self._configParser.read(self._prefsFile)
+
+        self._noQueue = False
+        self._debugMode = False
+        
+        self._loggerFactory = Logger.LoggerFactory(debugMode=self._debugMode)
+        self._logger = self._loggerFactory.getLogger("NQr", "debug")
+
+        sys.excepthook = self._exceptHook
+
+        opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
+        for opt, arg in opts:
+            if opt in ("-n", "--no-queue"):
+                self._noQueue = True
+            else:
+                self._usage()
+                sys.exit()
+
+    def _usage(self):
+        print sys.argv[0], "[-h|--help] [-n|--no-queue]"
+        print
+        print "-n      Don't queue tracks"
+
+    def _exceptHook(self, type, value, traceBack):
+        self._logger.critical("Uncaught exception:\n\n"+"".join([
+            line for line in traceback.format_exception(type, value, traceBack)
+            ]))
+##        sys.__excepthook__(type, value, traceBack)
+                
+    def run(self):
+        # Do platform-dependent imports, and choose a player type. For
+        # now, we just choose it based on the platform...
+        system = platform.system()
+        self._logger.debug("Running on "+system+".")
+        player = None
+        if system == 'Windows':
+            self._logger.debug("Loading Winamp module.")
+            import WinampWindows
+            player = WinampWindows.WinampWindows(self._loggerFactory,
+                                                 self._noQueue,
+                                                 self._configParser)
+            ## should be called early
+        elif system == 'FreeBSD':
+            self._logger.debug("Loading XMMS module.")
+            import XMMS
+            player = XMMS.XMMS(self._loggerFactory, self._noQueue,
+                               self._configParser)
+        elif system == 'Mac OS X':
+            self._logger.debug("Loading iTunes module")
+            import iTunesMacOS
+            player = iTunesMacOS.iTunesMacOS(self._noQueue)
+
+        self._logger.debug("Initializing track factory.")
+        trackFactory = Track.TrackFactory(self._loggerFactory,
+                                          self._configParser,
+                                          debugMode=self._debugMode)
+
+        self._logger.debug("Initializing database.")
+        db = Database.Database(trackFactory, self._loggerFactory,
+                               self._configParser, debugMode=self._debugMode)
+
+        self._logger.debug("Initializing randomizer.")
+        randomizer = Randomizer.Randomizer(db, trackFactory,
+                                           self._loggerFactory,
+                                           self._configParser)
+
+        modules = [player, trackFactory, db, randomizer]
+        prefsFactory = Prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
+                                          modules, self._configParser)
+        
+        app = wx.App(False)
+        self._logger.debug("Initializing GUI.")
+        title = "NQr"
+        if self._noQueue:
+            title = title + " (no queue)"
+        gui = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
+                             self._loggerFactory, prefsFactory,
+                             self._configParser, title=title)
+        gui.Center()
+        self._logger.info("Initialization complete.")
+        self._logger.info("Starting main loop.")
+        app.MainLoop()
+        
 if __name__ == '__main__':
-    prefsFile = "settings"
-
-    configParser = ConfigParser.RawConfigParser()
-    configParser.read(prefsFile)
-
-    noQueue = False
-    debugMode = False
-
-    opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
-    for opt, arg in opts:
-        if opt in ("-n", "--no-queue"):
-            noQueue = True
-        else:
-            usage()
-            sys.exit()
-
-    loggerFactory = Logger.LoggerFactory(debugMode=debugMode)
-    logger = loggerFactory.getLogger("NQr", "debug")
-
-    # Do platform-dependent imports, and choose a player type. For
-    # now, we just choose it based on the platform...
-    system = platform.system()
-    logger.debug("Running on "+system+".")
-    player = None
-    if system == 'Windows':
-        logger.debug("Loading Winamp module.")
-        import WinampWindows
-        player = WinampWindows.WinampWindows(loggerFactory, noQueue,
-                                             configParser)
-        ## should be called early
-    elif system == 'FreeBSD':
-        logger.debug("Loading XMMS module.")
-        import XMMS
-        player = XMMS.XMMS(loggerFactory, noQueue, configParser)
-    elif system == 'Mac OS X':
-        logger.debug("Loading iTunes module")
-        import iTunesMacOS
-        player = iTunesMacOS.iTunesMacOS(noQueue)
-
-    logger.debug("Initializing track factory.")
-    trackFactory = Track.TrackFactory(loggerFactory, configParser,
-                                      debugMode=debugMode)
-
-    logger.debug("Initializing database.")
-    db = Database.Database(trackFactory, loggerFactory, configParser,
-                           debugMode=debugMode)
-
-    logger.debug("Initializing randomizer.")
-    randomizer = Randomizer.Randomizer(db, trackFactory, loggerFactory,
-                                       configParser)
-
-    modules = [player, trackFactory, db, randomizer]
-    prefsFactory = Prefs.PrefsFactory(prefsFile, loggerFactory, modules,
-                                      configParser)
-
-    app = wx.App(False)
-    logger.debug("Initializing GUI.")
-    title = "NQr"
-    if noQueue:
-        title = title + " (no queue)"
-    gui = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
-                         loggerFactory, prefsFactory, configParser, title=title)
-    gui.Center()
-    logger.info("Initialization complete.")
-    logger.info("Starting main loop.")
-    app.MainLoop()
+    NQr = Main()
+    NQr.run()
