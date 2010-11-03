@@ -57,6 +57,7 @@ class Main:
         self._logger.critical("Uncaught exception:\n\n"+"".join([
             line for line in traceback.format_exception(type, value, traceBack)
             ]))
+        sys.exit(1)## poss remove for non-dev versions?
 ##        sys.__excepthook__(type, value, traceBack)
                 
     def run(self):
