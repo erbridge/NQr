@@ -5,7 +5,7 @@ import datetime
 
 class LoggerFactory:
     def __init__(self, debugMode=False):
-        self.debugMode = debugMode
+        self._debugMode = debugMode
 
         dateString = str(
             datetime.datetime.strftime(datetime.datetime.utcnow(),
@@ -24,7 +24,7 @@ class LoggerFactory:
         commandLineHandler.setFormatter(formatter)
         logging.getLogger("NQr").addHandler(commandLineHandler)
 
-        if self.debugMode == True:
+        if self._debugMode == True:
             debugFileHandler = logging.FileHandler(debugLogFilename, delay=True)
             debugFileHandler.setLevel(logging.DEBUG)
             debugFileHandler.setFormatter(formatter)
@@ -45,9 +45,9 @@ class LoggerFactory:
     def getLogger(self, name, level):
         logger = logging.getLogger(name)
         if level == "debug":
-            if self.debugMode == True:
+            if self._debugMode == True:
                 logger.setLevel(logging.DEBUG)
-            elif self.debugMode == False:
+            elif self._debugMode == False:
                 logger.setLevel(logging.INFO)
             else:
                 self._logger.error(str(self.debugMode)\
