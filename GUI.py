@@ -156,7 +156,7 @@ class MainWindow(wx.Frame):
         self._index = None
 
         wx.Frame.__init__(self, parent, title=title)
-        
+
         self._logger.debug("Creating status bar.")
         self.CreateStatusBar()
         self._initCreateMenuBar()
@@ -254,95 +254,10 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onRemoveLink, menuRemoveLink)
         self.Bind(wx.EVT_MENU, self._onExit, menuExit)
 
-## could be better with a for loop?
     def _initCreateRateMenu(self):
         self._logger.debug("Creating rate menu.")
         self._rateMenu = wx.Menu()
-        menuRatePos10 = self._rateMenu.Append(
-            -1, "Rate as 10", " Set the score of the selected track to 10")
-        menuRatePos9 = self._rateMenu.Append(
-            -1, "Rate as 9", " Set the score of the selected track to 9")
-        menuRatePos8 = self._rateMenu.Append(
-            -1, "Rate as 8", " Set the score of the selected track to 8")
-        menuRatePos7 = self._rateMenu.Append(
-            -1, "Rate as 7", " Set the score of the selected track to 7")
-        menuRatePos6 = self._rateMenu.Append(
-            -1, "Rate as 6", " Set the score of the selected track to 6")
-        menuRatePos5 = self._rateMenu.Append(
-            -1, "Rate as 5", " Set the score of the selected track to 5")
-        menuRatePos4 = self._rateMenu.Append(
-            -1, "Rate as 4", " Set the score of the selected track to 4")
-        menuRatePos3 = self._rateMenu.Append(
-            -1, "Rate as 3", " Set the score of the selected track to 3")
-        menuRatePos2 = self._rateMenu.Append(
-            -1, "Rate as 2", " Set the score of the selected track to 2")
-        menuRatePos1 = self._rateMenu.Append(
-            -1, "Rate as 1", " Set the score of the selected track to 1")
-        menuRate0 = self._rateMenu.Append(
-            -1, "Rate as 0", " Set the score of the selected track to 0")
-        menuRateNeg1 = self._rateMenu.Append(
-            -1, "Rate as -1", " Set the score of the selected track to -1")
-        menuRateNeg2 = self._rateMenu.Append(
-            -1, "Rate as -2", " Set the score of the selected track to -2")
-        menuRateNeg3 = self._rateMenu.Append(
-            -1, "Rate as -3", " Set the score of the selected track to -3")
-        menuRateNeg4 = self._rateMenu.Append(
-            -1, "Rate as -4", " Set the score of the selected track to -4")
-        menuRateNeg5 = self._rateMenu.Append(
-            -1, "Rate as -5", " Set the score of the selected track to -5")
-        menuRateNeg6 = self._rateMenu.Append(
-            -1, "Rate as -6", " Set the score of the selected track to -6")
-        menuRateNeg7 = self._rateMenu.Append(
-            -1, "Rate as -7", " Set the score of the selected track to -7")
-        menuRateNeg8 = self._rateMenu.Append(
-            -1, "Rate as -8", " Set the score of the selected track to -8")
-        menuRateNeg9 = self._rateMenu.Append(
-            -1, "Rate as -9", " Set the score of the selected track to -9")
-        menuRateNeg10 = self._rateMenu.Append(
-            -1, "Rate as -10", " Set the score of the selected track to -10")
-
-        self.Bind(wx.EVT_MENU, lambda e, score=10: self._onRate(e, score),
-                  menuRatePos10)
-        self.Bind(wx.EVT_MENU, lambda e, score=9: self._onRate(e, score),
-                  menuRatePos9)
-        self.Bind(wx.EVT_MENU, lambda e, score=8: self._onRate(e, score),
-                  menuRatePos8)
-        self.Bind(wx.EVT_MENU, lambda e, score=7: self._onRate(e, score),
-                  menuRatePos7)
-        self.Bind(wx.EVT_MENU, lambda e, score=6: self._onRate(e, score),
-                  menuRatePos6)
-        self.Bind(wx.EVT_MENU, lambda e, score=5: self._onRate(e, score),
-                  menuRatePos5)
-        self.Bind(wx.EVT_MENU, lambda e, score=4: self._onRate(e, score),
-                  menuRatePos4)
-        self.Bind(wx.EVT_MENU, lambda e, score=3: self._onRate(e, score),
-                  menuRatePos3)
-        self.Bind(wx.EVT_MENU, lambda e, score=2: self._onRate(e, score),
-                  menuRatePos2)
-        self.Bind(wx.EVT_MENU, lambda e, score=1: self._onRate(e, score),
-                  menuRatePos1)
-        self.Bind(wx.EVT_MENU, lambda e, score=0: self._onRate(e, score),
-                  menuRate0)
-        self.Bind(wx.EVT_MENU, lambda e, score=-1: self._onRate(e, score),
-                  menuRateNeg1)
-        self.Bind(wx.EVT_MENU, lambda e, score=-2: self._onRate(e, score),
-                  menuRateNeg2)
-        self.Bind(wx.EVT_MENU, lambda e, score=-3: self._onRate(e, score),
-                  menuRateNeg3)
-        self.Bind(wx.EVT_MENU, lambda e, score=-4: self._onRate(e, score),
-                  menuRateNeg4)
-        self.Bind(wx.EVT_MENU, lambda e, score=-5: self._onRate(e, score),
-                  menuRateNeg5)
-        self.Bind(wx.EVT_MENU, lambda e, score=-6: self._onRate(e, score),
-                  menuRateNeg6)
-        self.Bind(wx.EVT_MENU, lambda e, score=-7: self._onRate(e, score),
-                  menuRateNeg7)
-        self.Bind(wx.EVT_MENU, lambda e, score=-8: self._onRate(e, score),
-                  menuRateNeg8)
-        self.Bind(wx.EVT_MENU, lambda e, score=-9: self._onRate(e, score),
-                  menuRateNeg9)
-        self.Bind(wx.EVT_MENU, lambda e, score=-10: self._onRate(e, score),
-                  menuRateNeg10)
+        self._populateRateMenu(self._rateMenu)
 
     ## TODO: change up in "Rate Up" to an arrow
     def _initCreatePlayerMenu(self):
@@ -426,91 +341,7 @@ class MainWindow(wx.Frame):
     def _initCreateRightClickRateMenu(self):
         self._logger.debug("Creating rate menu.")
         self._rightClickRateMenu = wx.Menu()
-        menuRatePos10 = self._rightClickRateMenu.Append(
-            -1, "Rate as 10", " Set the score of the selected track to 10")
-        menuRatePos9 = self._rightClickRateMenu.Append(
-            -1, "Rate as 9", " Set the score of the selected track to 9")
-        menuRatePos8 = self._rightClickRateMenu.Append(
-            -1, "Rate as 8", " Set the score of the selected track to 8")
-        menuRatePos7 = self._rightClickRateMenu.Append(
-            -1, "Rate as 7", " Set the score of the selected track to 7")
-        menuRatePos6 = self._rightClickRateMenu.Append(
-            -1, "Rate as 6", " Set the score of the selected track to 6")
-        menuRatePos5 = self._rightClickRateMenu.Append(
-            -1, "Rate as 5", " Set the score of the selected track to 5")
-        menuRatePos4 = self._rightClickRateMenu.Append(
-            -1, "Rate as 4", " Set the score of the selected track to 4")
-        menuRatePos3 = self._rightClickRateMenu.Append(
-            -1, "Rate as 3", " Set the score of the selected track to 3")
-        menuRatePos2 = self._rightClickRateMenu.Append(
-            -1, "Rate as 2", " Set the score of the selected track to 2")
-        menuRatePos1 = self._rightClickRateMenu.Append(
-            -1, "Rate as 1", " Set the score of the selected track to 1")
-        menuRate0 = self._rightClickRateMenu.Append(
-            -1, "Rate as 0", " Set the score of the selected track to 0")
-        menuRateNeg1 = self._rightClickRateMenu.Append(
-            -1, "Rate as -1", " Set the score of the selected track to -1")
-        menuRateNeg2 = self._rightClickRateMenu.Append(
-            -1, "Rate as -2", " Set the score of the selected track to -2")
-        menuRateNeg3 = self._rightClickRateMenu.Append(
-            -1, "Rate as -3", " Set the score of the selected track to -3")
-        menuRateNeg4 = self._rightClickRateMenu.Append(
-            -1, "Rate as -4", " Set the score of the selected track to -4")
-        menuRateNeg5 = self._rightClickRateMenu.Append(
-            -1, "Rate as -5", " Set the score of the selected track to -5")
-        menuRateNeg6 = self._rightClickRateMenu.Append(
-            -1, "Rate as -6", " Set the score of the selected track to -6")
-        menuRateNeg7 = self._rightClickRateMenu.Append(
-            -1, "Rate as -7", " Set the score of the selected track to -7")
-        menuRateNeg8 = self._rightClickRateMenu.Append(
-            -1, "Rate as -8", " Set the score of the selected track to -8")
-        menuRateNeg9 = self._rightClickRateMenu.Append(
-            -1, "Rate as -9", " Set the score of the selected track to -9")
-        menuRateNeg10 = self._rightClickRateMenu.Append(
-            -1, "Rate as -10", " Set the score of the selected track to -10")
-
-        self.Bind(wx.EVT_MENU, lambda e, score=10: self._onRate(e, score),
-                  menuRatePos10)
-        self.Bind(wx.EVT_MENU, lambda e, score=9: self._onRate(e, score),
-                  menuRatePos9)
-        self.Bind(wx.EVT_MENU, lambda e, score=8: self._onRate(e, score),
-                  menuRatePos8)
-        self.Bind(wx.EVT_MENU, lambda e, score=7: self._onRate(e, score),
-                  menuRatePos7)
-        self.Bind(wx.EVT_MENU, lambda e, score=6: self._onRate(e, score),
-                  menuRatePos6)
-        self.Bind(wx.EVT_MENU, lambda e, score=5: self._onRate(e, score),
-                  menuRatePos5)
-        self.Bind(wx.EVT_MENU, lambda e, score=4: self._onRate(e, score),
-                  menuRatePos4)
-        self.Bind(wx.EVT_MENU, lambda e, score=3: self._onRate(e, score),
-                  menuRatePos3)
-        self.Bind(wx.EVT_MENU, lambda e, score=2: self._onRate(e, score),
-                  menuRatePos2)
-        self.Bind(wx.EVT_MENU, lambda e, score=1: self._onRate(e, score),
-                  menuRatePos1)
-        self.Bind(wx.EVT_MENU, lambda e, score=0: self._onRate(e, score),
-                  menuRate0)
-        self.Bind(wx.EVT_MENU, lambda e, score=-1: self._onRate(e, score),
-                  menuRateNeg1)
-        self.Bind(wx.EVT_MENU, lambda e, score=-2: self._onRate(e, score),
-                  menuRateNeg2)
-        self.Bind(wx.EVT_MENU, lambda e, score=-3: self._onRate(e, score),
-                  menuRateNeg3)
-        self.Bind(wx.EVT_MENU, lambda e, score=-4: self._onRate(e, score),
-                  menuRateNeg4)
-        self.Bind(wx.EVT_MENU, lambda e, score=-5: self._onRate(e, score),
-                  menuRateNeg5)
-        self.Bind(wx.EVT_MENU, lambda e, score=-6: self._onRate(e, score),
-                  menuRateNeg6)
-        self.Bind(wx.EVT_MENU, lambda e, score=-7: self._onRate(e, score),
-                  menuRateNeg7)
-        self.Bind(wx.EVT_MENU, lambda e, score=-8: self._onRate(e, score),
-                  menuRateNeg8)
-        self.Bind(wx.EVT_MENU, lambda e, score=-9: self._onRate(e, score),
-                  menuRateNeg9)
-        self.Bind(wx.EVT_MENU, lambda e, score=-10: self._onRate(e, score),
-                  menuRateNeg10)
+        self._populateRateMenu(self._rightClickRateMenu)
 
     def _initCreateTrackRightClickMenu(self):
         self._logger.debug("Creating track right click menu.")
@@ -685,6 +516,16 @@ class MainWindow(wx.Frame):
 ##    raise PyDeadObjectError(self.attrStr % self._name)
 ##PyDeadObjectError: The C++ part of the TextCtrl object has been deleted, attribute access no longer allowed.
 ##Logged from file gui.py, line 102
+
+    def _populateRateMenu(self, menu):
+        scores = range(-10, 11)
+        for score in scores:
+            menuItem = menu.Append(-1, "Rate as "+str(score),
+                                   " Set the score of the selected track to "+\
+                                   str(score))
+
+            self.Bind(wx.EVT_MENU, lambda e, score=score:
+                      self._onRate(e, score), menuItem)
 
     def _onTrackRightClick(self, e):
         self.resetInactivityTimer()
