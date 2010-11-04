@@ -31,10 +31,11 @@ from collections import deque
 import ConfigParser
 from Errors import *
 import os
+import sys
 from threading import *
 import time
 from Time import RoughAge
-from Util import plural
+from Util import *
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -110,7 +111,8 @@ class MainWindow(wx.Frame):
                  rescanOnStartup=False, defaultPlaylistLength=11,
                  defaultPlayDelay=4000, defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|"+\
-                 "All files|*.*", defaultDirectory="", defaultIgnore=False):
+                 "All files|*.*", defaultDirectory="", defaultIgnore=False,
+                 defaultHaveLogPanel=True):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -148,11 +150,13 @@ class MainWindow(wx.Frame):
         self._wildcards = wildcards
         self._defaultDirectory = defaultDirectory
         self._defaultIgnore = defaultIgnore
+        self._defaultHaveLogPanel = defaultHaveLogPanel
         self.loadSettings()
 
         self._index = None
 
         wx.Frame.__init__(self, parent, title=title)
+        
         self._logger.debug("Creating status bar.")
         self.CreateStatusBar()
         self._initCreateMenuBar()
@@ -544,6 +548,10 @@ class MainWindow(wx.Frame):
                             wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 4)
         self._mainSizer.Add(self._details, 0, wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT,
                             3)
+        if self._haveLogPanel == True:
+            self._initCreateLogPanel()
+            self._mainSizer.Add(self._logPanel, 0,
+                                wx.EXPAND|wx.LEFT|wx.TOP|wx.RIGHT, 3)
 
         self._panel.SetSizerAndFit(self._mainSizer)
         self._panel.SetAutoLayout(True)
@@ -653,6 +661,30 @@ class MainWindow(wx.Frame):
                   self._scoreSlider)
         self.Bind(wx.EVT_SCROLL_THUMBRELEASE, self._onScoreSliderMove,
                   self._scoreSlider)
+
+    def _initCreateLogPanel(self):
+        self._logger.debug("Creating log panel.")
+        self._logPanel = wx.TextCtrl(self._panel, -1, style=wx.TE_READONLY|
+                                     wx.TE_MULTILINE|wx.TE_DONTWRAP,
+                                     size=(-1,80))
+
+        font = wx.Font(9, wx.MODERN, wx.NORMAL, wx.NORMAL)
+        self._logPanel.SetFont(font)
+
+        redirect = RedirectText(self._logPanel)
+        sys.stdout = redirect
+        sys.stderr = redirect
+
+## FIXME: on exit (due to self._logPanel being destroyed)
+##Traceback (most recent call last):
+##  File "C:\Python27\lib\logging\__init__.py", line 859, in emit
+##    stream.write(fs % msg)
+##  File "C:\Users\Felix\Documents\Projects\nqr\GUI.py", line 113, in write
+##    self._out.WriteText(string)
+##  File "C:\Python27\lib\site-packages\wx-2.8-msw-unicode\wx\_core.py", line 14590, in __getattr__
+##    raise PyDeadObjectError(self.attrStr % self._name)
+##PyDeadObjectError: The C++ part of the TextCtrl object has been deleted, attribute access no longer allowed.
+##Logged from file gui.py, line 102
 
     def _onTrackRightClick(self, e):
         self.resetInactivityTimer()
@@ -1284,6 +1316,7 @@ class MainWindow(wx.Frame):
                 "GUI", "ignoreNewTracks"))
         except ConfigParser.NoOptionError:
             self._ignoreNewTracks = self._defaultIgnore
+        self._haveLogPanel = self._defaultHaveLogPanel
 
 class PrefsPage(wx.Panel):
     def __init__(self, parent, configParser, logger, defaultPlayDelay,

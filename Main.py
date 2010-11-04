@@ -24,8 +24,9 @@ import traceback
 import Track
 import wx
 
-class Main:
+class Main(wx.App):
     def __init__(self):
+        wx.App.__init__(self, False)
         self._prefsFile = "settings"
 
         self._configParser = ConfigParser.RawConfigParser()
@@ -100,7 +101,6 @@ class Main:
         prefsFactory = Prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
                                           modules, self._configParser)
         
-        app = wx.App(False)
         self._logger.debug("Initializing GUI.")
         title = "NQr"
         if self._noQueue:
@@ -111,7 +111,8 @@ class Main:
         gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
-        app.MainLoop()
+        self._loggerFactory.refreshStreamHandler()
+        self.MainLoop()
         
 if __name__ == '__main__':
     NQr = Main()
