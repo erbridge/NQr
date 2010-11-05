@@ -1012,7 +1012,7 @@ class MainWindow(wx.Frame):
             return
 
 ## FIXME: seems to give an outlined focus on track 2 (poss does nothing except
-##        look confusing)
+##        look confusing) - seems to have stopped...
     def refreshSelectedTrack(self):
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track)

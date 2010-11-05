@@ -8,6 +8,7 @@
 ##       to create other tables (poss corruption)
 
 import ConfigParser
+import datetime
 from Errors import *
 import os
 import sqlite3
@@ -417,16 +418,16 @@ class Database:
                from enqueues where trackid = ? order by enqueueid desc""",
             (trackID, ))
 
-    ## FIXME: should take delay from time before adding
-    def addPlay(self, track, delay=0):
+    def addPlay(self, track, msDelay=0):
         self._logger.debug("Adding play.")
-        c = self._conn.cursor()
         trackID = track.getID()
         track.setPreviousPlay(self.getLastPlayedInSeconds(track))
-        c.execute("""insert into plays (trackid, datetime) values
-                     (?, datetime('now'))""", (trackID, ))
-        c.close()
-        self._conn.commit()
+        
+        delay = datetime.timedelta(0, 0, 0, msDelay)
+        now = datetime.datetime.now()
+        playTime = now - delay
+        self._cursor.execute("""insert into plays (trackid, datetime) values
+                                (?, datetime(?))""", (trackID, playTime))
 
     def getLastPlayedTrackID(self):
         result = self._executeAndFetchoneOrNull(
