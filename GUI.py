@@ -17,12 +17,13 @@
 ##       thread to check the directory and queue the database to add the file.
 ## TODO: implement ignoring of tracks played not in database
 ##       (option already created)
-## TODO: add keyboard shortcuts
+## TODO: make keyboard shortcuts make sense for Macs
 ## TODO: leftmost column of track list no longer needed?
 ## TODO: pressing next track should select it
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
+## TODO: gives scores a drop down menu in the track list.
 
 from collections import deque
 import ConfigParser
@@ -127,6 +128,14 @@ class MainWindow(wx.Frame):
         self._ID_PLAYTIMER = wx.NewId()
         self._ID_INACTIVITYTIMER = wx.NewId()
         self._ID_REFRESHTIMER = wx.NewId()
+        self._ID_PLAY = wx.NewId()
+        self._ID_STOP = wx.NewId()
+        self._ID_PAUSE = wx.NewId()
+        self._ID_PREV = wx.NewId()
+        self._ID_NEXT = wx.NewId()
+        self._ID_SELECTCURRENT = wx.NewId()
+        self._ID_RATEUP = wx.NewId()
+        self._ID_RATEDOWN = wx.NewId()
 
         self._db = db
         self._randomizer = randomizer
@@ -152,6 +161,7 @@ class MainWindow(wx.Frame):
         self._index = None
         self._stdout = sys.stdout
         self._stderr = sys.stderr
+        self._hotKeys = []
 
         wx.Frame.__init__(self, parent, title=title)
 
@@ -167,6 +177,7 @@ class MainWindow(wx.Frame):
         self._logger.debug("Creating and starting inactivity timer.")
         self._inactivityTimer = wx.Timer(self, self._ID_INACTIVITYTIMER)
         self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
+        self._addHotKey(None, "T", self._ID_INACTIVITYTIMER)
 
         self._logger.debug("Creating and starting track list refresh timer.")
         self._refreshTimer = wx.Timer(self, self._ID_REFRESHTIMER)
@@ -190,6 +201,7 @@ class MainWindow(wx.Frame):
             self._onRescan()
 
         self._logger.debug("Drawing main window.")
+        self._initCreateHotKeyTable()
         self.Show(True)
 
         self._logger.info("Starting track monitor.")
@@ -219,13 +231,23 @@ class MainWindow(wx.Frame):
         self._logger.debug("Creating file menu.")
         self._fileMenu = wx.Menu()
         menuAbout = self._fileMenu.Append(
-            wx.ID_ABOUT, "&About NQr", " Information about NQr")
+            wx.ID_ABOUT, "&About NQr\tF1", " Information about NQr")
+        
+        self._addHotKey(None, wx.WXK_F1, wx.ID_ABOUT)
+        
         self._fileMenu.AppendSeparator()
         menuAddFile = self._fileMenu.Append(
-            self._ID_ADDFILE, "Add &File...", " Add a file to the library")
+            self._ID_ADDFILE, "Add &File...\tCtrl+F",
+            " Add a file to the library")
+        
+        self._addHotKey("ctrl", "F", self._ID_ADDFILE)
+        
         menuAddDirectory = self._fileMenu.Append(
-            self._ID_ADDDIRECTORY, "Add &Directory...",
+            self._ID_ADDDIRECTORY, "Add &Directory...\tCtrl+D",
             " Add a directory to the library and watch list")
+        
+        self._addHotKey("ctrl", "D", self._ID_ADDDIRECTORY)
+        
         menuAddDirectoryOnce = self._fileMenu.Append(
             -1, "Add Directory &Once...",
             " Add a directory to the library but not the watch list")
@@ -240,7 +262,10 @@ class MainWindow(wx.Frame):
         menuRemoveLink = self._fileMenu.Append(
             -1, "Remo&ve Link...", " Remove the link between two tracks")
         self._fileMenu.AppendSeparator()
-        menuExit = self._fileMenu.Append(wx.ID_EXIT, "E&xit", " Terminate NQr")
+        menuExit = self._fileMenu.Append(wx.ID_EXIT, "E&xit\tCtrl+Q",
+                                         " Terminate NQr")
+        
+        self._addHotKey("ctrl", "Q", wx.ID_EXIT)
 
         self.Bind(wx.EVT_MENU, self._onAbout, menuAbout)
         self.Bind(wx.EVT_MENU, self._onAddFile, menuAddFile)
@@ -260,22 +285,45 @@ class MainWindow(wx.Frame):
     def _initCreatePlayerMenu(self):
         self._logger.debug("Creating player menu.")
         self._playerMenu = wx.Menu()
-        menuPlay = self._playerMenu.Append(-1, "&Play",
+        menuPlay = self._playerMenu.Append(self._ID_PLAY, "&Play\tX",
                                            " Play or restart the current track")
+        
+        self._addHotKey(None, "X", self._ID_PLAY)
+        
         menuPause = self._playerMenu.Append(
-       			-1, "P&ause", " Pause or resume the current track")
-        menuNext = self._playerMenu.Append(-1, "&Next Track",
+            self._ID_PAUSE, "P&ause\tC", " Pause or resume the current track")
+        
+        self._addHotKey(None, "C", self._ID_PAUSE)
+        
+        menuNext = self._playerMenu.Append(self._ID_NEXT, "&Next Track\tB",
                                            " Play the next track")
-        menuPrevious = self._playerMenu.Append(-1, "Pre&vious Track",
+        
+        self._addHotKey(None, "B", self._ID_NEXT)
+        
+        menuPrevious = self._playerMenu.Append(self._ID_PREV,
+                                               "Pre&vious Track\tZ",
                                                " Play the previous track")
-        menuStop = self._playerMenu.Append(-1, "&Stop",
+        
+        self._addHotKey(None, "Z", self._ID_PREV)
+        
+        menuStop = self._playerMenu.Append(self._ID_STOP, "&Stop\tV",
                                            " Stop the current track")
+        
+        self._addHotKey(None, "V", self._ID_STOP)
+        
         self._playerMenu.AppendSeparator()
         menuRateUp = self._playerMenu.Append(
-            -1, "Rate &Up", " Increase the score of the selected track by one")
+            self._ID_RATEUP, "Rate &Up\tCtrl+PgUp",
+            " Increase the score of the selected track by one")
+        
+        self._addHotKey("ctrl", wx.WXK_PAGEUP, self._ID_PLAY)
+        
         menuRateDown = self._playerMenu.Append(
-            -1, "Rate &Down",
+            self._ID_RATEDOWN, "Rate &Down\tCtrl+PgDn",
             " Decrease the score of the selected track by one")
+        
+        self._addHotKey("ctrl", wx.WXK_PAGEDOWN, self._ID_PLAY)
+        
         self._playerMenu.AppendMenu(-1, "&Rate", self._rateMenu)
         self._playerMenu.AppendSeparator()
         menuRequeue = self._playerMenu.Append(
@@ -321,15 +369,21 @@ class MainWindow(wx.Frame):
     def _initCreateOptionsMenu(self):
         self._logger.debug("Creating options menu.")
         self._optionsMenu = wx.Menu()
-        menuPrefs = self._optionsMenu.Append(self._ID_PREFS, "&Preferences...",
-                                            " Change NQr's settings")
+        menuPrefs = self._optionsMenu.Append(self._ID_PREFS,
+                                             "&Preferences...\tCtrl+P",
+                                             " Change NQr's settings")
+        
+        self._addHotKey("ctrl", "P", self._ID_PREFS)
+        
         menuRescan = self._optionsMenu.Append(
             -1, "&Rescan Library",
             " Search previously added directories for new files")
         self._optionsMenu.AppendSeparator()
         self.menuToggleNQr = self._optionsMenu.AppendCheckItem(
-            self._ID_TOGGLENQR, "En&queue with NQr",
+            self._ID_TOGGLENQR, "En&queue with NQr\tCtrl+E",
             " Use NQr to enqueue tracks")
+        
+        self._addHotKey("ctrl", "E", self._ID_TOGGLENQR)
 
         self.Bind(wx.EVT_MENU, self._onPrefs, menuPrefs)
         self.Bind(wx.EVT_MENU, self._onRescan, menuRescan)
@@ -502,7 +556,27 @@ class MainWindow(wx.Frame):
         self._redirect = RedirectText(self._logPanel)
         sys.stdout = self._redirect
         sys.stderr = self._redirect
+        
+    def _initCreateHotKeyTable(self):
+        self._hotKeyTable = wx.AcceleratorTable(self._hotKeys)
+        self.SetAcceleratorTable(self._hotKeyTable)
 
+    def _addHotKey(self, modifier, key, targetID):
+        if modifier == "ctrl":
+            flag = wx.ACCEL_CTRL
+        elif modifier == "alt":
+            flag = wx.ACCEL_ALT
+        elif modifier == "shift":
+            flag = wx.ACCEL_SHIFT
+        else:
+            flag = wx.ACCEL_NORMAL
+        if isinstance(key, str):
+            keyCode = ord(key)
+        else:
+            keyCode = key
+        
+        self._hotKeys.append((flag, keyCode, targetID))
+        
     def _populateRateMenu(self, menu):
         scores = range(-10, 11)
         for score in scores:
