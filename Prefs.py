@@ -40,13 +40,16 @@ class PrefsWindow(wx.Frame):
                                                              self._logger)
             self.addPage(prefsPage, prefsPageName)
 
-        closeButton = wx.Button(panel, wx.ID_CLOSE)
+        saveButton = wx.Button(panel, wx.ID_SAVE)
+        cancelButton = wx.Button(panel, wx.ID_CANCEL)
 
-        self.Bind(wx.EVT_BUTTON, self._onClose, closeButton)
+        self.Bind(wx.EVT_BUTTON, self._onSave, saveButton)
+        self.Bind(wx.EVT_BUTTON, self._onCancel, cancelButton)
 
         buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
         ## FIXME: doesn't align right...
-        buttonSizer.Add(closeButton, 0, wx.ALIGN_RIGHT)
+        buttonSizer.Add(saveButton, 0, wx.ALIGN_RIGHT)
+        buttonSizer.Add(cancelButton, 0, wx.ALIGN_RIGHT)
 
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         mainSizer.Add(self._prefs, 1, wx.EXPAND)
@@ -54,9 +57,12 @@ class PrefsWindow(wx.Frame):
         panel.SetSizerAndFit(mainSizer)
         panel.SetAutoLayout(True)
 
-    def _onClose(self, e):
-        self._logger.debug("Closing preferences window.")
+    def _onSave(self, e):
         self.savePrefs()
+        self._onCancel(e)
+    
+    def _onCancel(self, e):
+        self._logger.debug("Closing preferences window.")
         self.Close(True)
 
     def addPage(self, page, pageName, position=None):
