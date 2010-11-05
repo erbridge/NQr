@@ -1146,8 +1146,8 @@ class MainWindow(wx.Frame):
         except ConfigParser.NoOptionError:
             self._inactivityTime = self._defaultInactivityTime
         try:
-            self._ignoreNewTracks = bool(self._configParser.get(
-                "GUI", "ignoreNewTracks"))
+            self._ignoreNewTracks = self._configParser.getboolean(
+                "GUI", "ignoreNewTracks")
         except ConfigParser.NoOptionError:
             self._ignoreNewTracks = self._defaultIgnore
         self._haveLogPanel = self._defaultHaveLogPanel
@@ -1259,7 +1259,7 @@ class PrefsPage(wx.Panel):
         except ConfigParser.NoOptionError:
             self._settings["inactivityTime"] = self._defaultInactivityTime
         try:
-            ignore = bool(self._configParser.get("GUI", "ignoreNewTracks"))
+            ignore = self._configParser.getboolean("GUI", "ignoreNewTracks")
             self._settings["ignoreNewTracks"] = ignore
         except ConfigParser.NoOptionError:
             self._settings["ignoreNewTracks"] = self._defaultIgnore
