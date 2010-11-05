@@ -144,11 +144,11 @@ class WinampWindows(MediaPlayer):
         trackPosition = self._winamp.getCurrentTrack()
         return trackPosition
 
-## poss insecure: should always be checked for trackness
-## gets track at a playlist position
-    # FIXME: Why does this get told whether to log or not?
+    ## poss insecure: should always be checked for trackness
+    ## gets track at a playlist position
+    ## Has logging option so track monitor can call it without spamming the
+    ## debug log.
     def getTrackPathAtPos(self, trackPosition, logging=True):
-##        trackPosition = self.getCurrentTrackPos()+relativePosition
         if logging == True:
             self._logger.debug("Retrieving path of track at position "\
                                +str(trackPosition)+".")
