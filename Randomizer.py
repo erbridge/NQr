@@ -71,9 +71,12 @@ class Randomizer:
         trackIDs = self._chooseTrackIDs(number, exclude)
         tracks = []
         for [trackID, weight] in trackIDs:
-            track = self._trackFactory.getTrackFromID(self._db, trackID)
-            track.setWeight(weight)
-            tracks.append(track)
+            try:
+                track = self._trackFactory.getTrackFromID(self._db, trackID)
+                track.setWeight(weight)
+                tracks.append(track)
+            except NoTrackError:
+                self._db.setHistorical(True, track)
         return tracks
 
 ## will throw exception if database is empty?

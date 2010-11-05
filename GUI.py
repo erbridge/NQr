@@ -111,7 +111,7 @@ class MainWindow(wx.Frame):
                  defaultPlayDelay=4000, defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|"+\
                  "All files|*.*", defaultDirectory="", defaultIgnore=False,
-                 defaultHaveLogPanel=True):
+                 defaultHaveLogPanel=False):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()

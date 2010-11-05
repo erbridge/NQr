@@ -54,7 +54,7 @@ class Database:
                                               artist text, album text,
                                               title text, tracknumber text,
                                               unscored integer, length real, bpm
-                                              integer)""")
+                                              integer, historical integer)""")
             self._logger.info("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":
@@ -71,6 +71,10 @@ class Database:
             if columnNames.count('bpm') == 0:
                 self._logger.debug("Adding bpm column to track table.")
                 c.execute("alter table tracks add column bpm integer")
+            if columnNames.count('historical') == 0:
+                self._logger.debug("Adding historical column to track table.")
+                c.execute("alter table tracks add column historical integer")
+                c.execute("update tracks set historical = 0")
         c.close()
 
     def _initMaybeCreateDirectoryTable(self):
@@ -210,11 +214,11 @@ class Database:
         path = track.getPath()
         if hasTrackID == False or trackID == None:
             c.execute("""insert into tracks (path, artist, album, title,
-                         tracknumber, unscored, length, bpm) values (?, ?, ?, ?,
-                         ?, 1, ?, ?)""", (path, track.getArtist(),
-                                          track.getAlbum(), track.getTitle(),
-                                          track.getTrackNumber(),
-                                          track.getLength(), track.getBPM()))
+                         tracknumber, unscored, length, bpm, historical) values
+                         (?, ?, ?, ?, ?, 1, ?, ?, 0)""",
+                      (path, track.getArtist(), track.getAlbum(),
+                       track.getTitle(), track.getTrackNumber(),
+                       track.getLength(), track.getBPM()))
             trackID = c.lastrowid
             self._logger.info("\'"+path+"\' has been added to the library.")
         else:
@@ -385,7 +389,7 @@ class Database:
         linkID = self.getLinkID(firstTrack, secondTrack)
         if linkID != None:
             c.execute("""delete from links where firsttrackid = ? and
-                      secondtrackid = ?""", (firstTrackID, secondTrackID))
+                         secondtrackid = ?""", (firstTrackID, secondTrackID))
             self._logger.info("\'"+firstTrackPath\
                               +"\' is no longer linked to \'"+secondTrackPath\
                               +"\'.")
@@ -487,13 +491,19 @@ class Database:
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     # played again, this will get stuck. We need to keep track of
-    # whether entries are current or historical.
+    # whether entries are current or historical. Partially fixed: 
+    # currently bad tracks rely on being chosen by randomizer to update 
+    # historical status.
     def getOldestLastPlayed(self):
         try:
             return self._executeAndFetchone(
                 """select strftime('%s', 'now') - strftime('%s', min(datetime))
-                   from (select max(playid) as id from plays group by trackid)
-                   as maxplays, plays where maxplays.id = plays.playid""")
+                   from (select max(playid) as id, trackid from plays,
+                         (select trackid as historicalid from tracks where
+                          historical = 0) as historicaltracks where
+                         plays.trackid = historicaltracks.historicalid group by
+                         trackid) as maxplays, plays where maxplays.id =
+                   plays.playid""")
         except NoResultError:
             return 0
 
@@ -549,7 +559,7 @@ class Database:
         newDetails[self._trackNumberIndex] = track.getTrackNumber()
         newDetails[self._lengthIndex] = track.getLength()
         newDetails[self._bpmIndex] = track.getBPM()
-        for n in range(8):
+        for n in range(9):
             try:
                 if details[n] != newDetails[n]:
                     return True
@@ -560,7 +570,7 @@ class Database:
     def _getTrackDetails(self, track=None, trackID=None, update=False):
         (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
          self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
-         self._bpmIndex) = range(8)
+         self._bpmIndex, self._historicalIndex) = range(9)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
@@ -568,7 +578,8 @@ class Database:
             trackID = track.getID(update)
         c = self._conn.cursor()
         c.execute("""select path, artist, album, title, tracknumber, unscored,
-                     length, bpm from tracks where trackid = ?""", (trackID, ))
+                     length, bpm, historical from tracks where trackid = ?""",
+                  (trackID, ))
         result = c.fetchone()
         c.close()
         return result
@@ -637,6 +648,26 @@ class Database:
         trackID = track.getID()
         c = self._conn.cursor()
         c.execute("update tracks set bpm = ? where trackID = ?", (bpm, trackID))
+        c.close()
+        self._conn.commit()
+        
+    def getHistorical(self, track):
+        self._logger.debug("Retrieving track's currency.")
+        details = self._getTrackDetails(track=track)
+        if details == None:
+            return None
+        return details[self._historicalIndex]
+    
+    def setHistorical(self, historical, track):
+        self._logger.debug("Making track non-current.")
+        trackID = track.getID()
+        c = self._conn.cursor()
+        if historical == True:
+            historical = 1
+        elif historical == False:
+            historical = 0
+        c.execute("update tracks set historical = ? where trackID = ?",
+                  (historical, trackID))
         c.close()
         self._conn.commit()
 

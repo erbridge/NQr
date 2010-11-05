@@ -45,17 +45,20 @@ class TrackFactory:
             return track
         try:
             track = AudioTrack(db, path, self._logger)
+            db.setHistorical(False, track)
         except UnknownTrackType:
-            return None
+            raise NoTrackError
+#            return None
         except NoMetadataError:
-            return None
+            raise NoTrackError
+#            return None
 ##            track = VideoTrack()
 ##            if track == None:
 ##                return None
         return track
 
     def _getTrackFromCache(self, trackID):
-        self._logger.debug("Retrieveing track from cache.")
+        self._logger.debug("Retrieving track from cache.")
         if type(trackID) is not int:
             self._logger.error(str(trackID)+" is not a valid track ID")
             raise TypeError(str(trackID)+" is not a valid track ID")
@@ -174,11 +177,11 @@ class AudioTrack(Track):
         self._path = self.getPath()
         try:
             self._logger.debug("Creating track from \'"+self._path+"\'.")
-            self.track = mutagen.File(path, easy=True)
+            self._track = mutagen.File(path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
             self._logger.error("File has no metadata.")
             raise NoMetadataError
-        if self.track is None:
+        if self._track is None:
             self._logger.error("File is not a supported audio file.")
             raise UnknownTrackType
         self._logger.debug("Track created.")
@@ -200,7 +203,7 @@ class AudioTrack(Track):
 
     def _getAttribute(self, attr):
         try:
-            attribute = self.track[attr][0]
+            attribute = self._track[attr][0]
             return attribute
         except KeyError as err:
             # if 'artist' is thrown then the track doesn't have any ID3
