@@ -4,6 +4,8 @@
 ## TODO: create clearCache function for when user has changed metadata?
 ##       * I would actually make tracks update themselves and the
 ##       database when you spot a metadata change. (Ben)
+##       * but how would you get them to find out that their metadata
+##       has changed without querying the file all the time? (Felix)
 
 import ConfigParser
 from Errors import *
