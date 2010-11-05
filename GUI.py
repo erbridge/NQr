@@ -779,6 +779,7 @@ class MainWindow(wx.Frame):
         self.Close(True)
 
     def _onClose(self, e):
+        self._optionsMenu.Check(self._ID_TOGGLENQR, False)
         if self._trackMonitor:
             self._trackMonitor.abort()
         self._inactivityTimer.Stop()
@@ -825,14 +826,14 @@ class MainWindow(wx.Frame):
     def _onToggleNQr(self, e=None):
         self._logger.debug("Toggling NQr.")
         if self.menuToggleNQr.IsChecked() == False:
-            self.toggleNQr = False
+            self._toggleNQr = False
             self._logger.info("Restoring shuffle status.")
             self._player.setShuffle(self._oldShuffleStatus)
             if self._restorePlaylist == True and self._oldPlaylist != None:
                 self._player.loadPlaylist(self._oldPlaylist)
             self._logger.info("Enqueueing turned off.")
         elif self.menuToggleNQr.IsChecked() == True:
-            self.toggleNQr = True
+            self._toggleNQr = True
             self._logger.info("Storing shuffle status.")
             self._oldShuffleStatus = self._player.getShuffle()
             self._player.setShuffle(False)
@@ -881,7 +882,7 @@ class MainWindow(wx.Frame):
         self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
 
     def maintainPlaylist(self):
-        if self.toggleNQr == True:
+        if self._toggleNQr == True:
             self._logger.debug("Maintaining playlist.")
             trackPosition = self._player.getCurrentTrackPos()
             if trackPosition > self._defaultTrackPosition:
