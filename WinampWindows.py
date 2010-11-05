@@ -4,9 +4,9 @@
 
 import ctypes
 from Errors import *
-##import os
 import subprocess
 import time
+from Util import *
 import win32api
 import win32con
 import win32process
@@ -182,24 +182,4 @@ class WinampWindows(MediaPlayer):
             raise NoTrackError
         if logging == True:
             self._logger.debug("Converting path into unicode.")
-        path = u""
-        try:
-            path = unicode(rawPath)
-        except UnicodeDecodeError:
-            if logging == True:
-                self._logger.warning(
-                    "Found bad characters. Attempting to resolve.")
-            for char in rawPath:
-                try:
-                    path += unicode(char)
-                except UnicodeDecodeError as err:
-                    errStr = str(err)
-                    startIndex = errStr.index("0x")
-                    endIndex = errStr.index(" ", startIndex)
-                    hexStr = ""
-                    for i in range(startIndex, endIndex):
-                        hexStr += errStr[i]
-                    path += unichr(int(hexStr, 16))
-            if logging == True:
-                self._logger.warning("Bad characters resolved.")
-        return path
+        return convertToUnicode(rawPath, self._logger, logging)

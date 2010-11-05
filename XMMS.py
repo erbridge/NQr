@@ -20,7 +20,7 @@ class XMMS(MediaPlayer):
     def getPlaylistLength(self):
         return xmms.control.get_playlist_length()
 
-    def getTrackPathAtPos(self, trackPosition, logging = True):
+    def getTrackPathAtPos(self, trackPosition, logging=True):
         return xmms.control.get_playlist_file(trackPosition)
 
     def getCurrentTrackPos(self):

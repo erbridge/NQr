@@ -5,7 +5,7 @@
 
 import ConfigParser
 from Errors import *
-from Time import RoughAge
+from Time import roughAge
 from Util import plural
 import random
 import time
@@ -41,8 +41,8 @@ class Randomizer:
         except ConfigParser.DuplicateSectionError:
             pass
         try:
-            rawWeightAlgorithm = self._configParser.get("Randomizer",
-                                                           "weightAlgorithm")
+            rawWeightAlgorithm = self._configParser.get("Randomizer", 
+                                                        "weightAlgorithm")
         except ConfigParser.NoOptionError:
             rawWeightAlgorithm = self._defaultWeight
         for part in rawWeightAlgorithm.split(" "):
@@ -52,8 +52,8 @@ class Randomizer:
                     continue
                 except ValueError:
                     pass
-                self._logger.error("Unsafe weight algorithm imported: \'"+\
-                                   rawWeightAlgorithm+"\'.")
+                self._logger.error("Unsafe weight algorithm imported: \'"\
+                                   +rawWeightAlgorithm+"\'.")
                 raise UnsafeInputError
         self._weightAlgorithm = rawWeightAlgorithm
         try:
@@ -67,8 +67,7 @@ class Randomizer:
         return track
 
     def chooseTracks(self, number, exclude):
-        self._logger.debug("Selecting "+str(number)+" track" + plural(number)
-                           + ".")
+        self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
         trackIDs = self._chooseTrackIDs(number, exclude)
         tracks = []
         for [trackID, weight] in trackIDs:
@@ -91,9 +90,10 @@ class Randomizer:
                 selector -= weight
                 if selector < 0:
                     norm = float(weight) * len(trackWeightList) / totalWeight
-                    self._logger.info("Selected " + str(trackID) + " weight " \
-                                      + str(weight) + " total " \
-                                      + str(totalWeight) + " norm " + str(norm))
+                    self._logger.info("Selected "+str(trackID)+" with weight: "\
+                                      +str(weight)+" of a total: "\
+                                      +str(totalWeight)+" (norm "+str(norm)\
+                                      +").")
                     trackIDs.append([trackID, norm])
                     break
         return trackIDs
@@ -101,8 +101,8 @@ class Randomizer:
     def createLists(self, exclude):
         self._logger.debug("Creating weighted list of tracks.")
         oldest = self._db.getOldestLastPlayed()
-        self._logger.info("Oldest is " + str(oldest) + " (" + RoughAge(oldest)
-                          + ")")
+        self._logger.info("Oldest is "+str(oldest)+" seconds old ("\
+                          +roughAge(oldest)+" old).")
         rawTrackIDList = self._db.getAllTrackIDs()
         if rawTrackIDList == []:
             self._logger.error("No tracks in database.")
@@ -178,8 +178,8 @@ class PrefsPage(wx.Panel):
         weightHelpVariablesBox = wx.StaticBox(self, -1, "Variables:")
         weightHelpVariablesSizer = wx.StaticBoxSizer(weightHelpVariablesBox)
 
-        weightHelpVariablesText = "score = track score + 11        \n"+\
-                                  "time  = seconds since last play "
+        weightHelpVariablesText = "score = track score + 11        \n"\
+            +"time  = seconds since last play "
         weightHelpVariables = wx.StaticText(self, -1, weightHelpVariablesText)
         weightHelpVariables.SetFont(weightHelpFont)
         weightHelpVariablesSizer.Add(weightHelpVariables, 0)
@@ -188,11 +188,11 @@ class PrefsPage(wx.Panel):
         weightHelpOperatorsBox = wx.StaticBox(self, -1, "Operators:")
         weightHelpOperatorsSizer = wx.StaticBoxSizer(weightHelpOperatorsBox)
 
-        weightHelpOperatorsText = "** = to the power of \n"+\
-                                  "*  = multiplied by   \n"+\
-                                  "/  = divided by      \n"+\
-                                  "+  = plus            \n"+\
-                                  "-  = minus           "
+        weightHelpOperatorsText = "** = to the power of \n"\
+            +"*  = multiplied by   \n"\
+            +"/  = divided by      \n"\
+            +"+  = plus            \n"\
+            +"-  = minus           "
         weightHelpOperators = wx.StaticText(self, -1, weightHelpOperatorsText)
         weightHelpOperators.SetFont(weightHelpFont)
         weightHelpOperatorsSizer.Add(weightHelpOperators, 0)

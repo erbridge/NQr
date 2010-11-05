@@ -34,7 +34,7 @@ import os
 import sys
 from threading import *
 import time
-from Time import RoughAge
+from Time import roughAge
 from Util import *
 
 import wxversion
@@ -82,7 +82,6 @@ class TrackMonitor(Thread):
             currentTrack = self._player.getCurrentTrackPath(logging=logging)
         except NoTrackError:
             currentTrack = None
-##        changeCount = 3
         while True:
             time.sleep(.5)
             try:
@@ -240,8 +239,7 @@ class MainWindow(wx.Frame):
             -1, "&Link Tracks...",
             " Link two tracks so they always play together")
         menuRemoveLink = self._fileMenu.Append(
-            -1, "Remo&ve Link...",
-            " Remove the link between two tracks")
+            -1, "Remo&ve Link...", " Remove the link between two tracks")
         self._fileMenu.AppendSeparator()
         menuExit = self._fileMenu.Append(wx.ID_EXIT, "E&xit", " Terminate NQr")
 
@@ -264,15 +262,15 @@ class MainWindow(wx.Frame):
         self._logger.debug("Creating player menu.")
         self._playerMenu = wx.Menu()
         menuPlay = self._playerMenu.Append(-1, "&Play",
-                                          " Play or restart the current track")
-        menuPause = self._playerMenu.Append(-1, "P&ause",
-                                           " Pause or resume the current track")
+                                           " Play or restart the current track")
+        menuPause = self._playerMenu.Append(
+       			-1, "P&ause", " Pause or resume the current track")
         menuNext = self._playerMenu.Append(-1, "&Next Track",
-                                          " Play the next track")
+                                           " Play the next track")
         menuPrevious = self._playerMenu.Append(-1, "Pre&vious Track",
-                                              " Play the previous track")
+                                               " Play the previous track")
         menuStop = self._playerMenu.Append(-1, "&Stop",
-                                          " Stop the current track")
+                                           " Stop the current track")
         self._playerMenu.AppendSeparator()
         menuRateUp = self._playerMenu.Append(
             -1, "Rate &Up", " Increase the score of the selected track by one")
@@ -315,7 +313,7 @@ class MainWindow(wx.Frame):
             tagID = wx.NewId()
             self._allTags[tagID] = tag
             tagMenu = self._tagMenu.AppendCheckItem(tagID, tag,
-                                                    " Tag track with " + tag)
+                                                    " Tag track with "+tag)
 
             self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
 
@@ -352,8 +350,8 @@ class MainWindow(wx.Frame):
             -1, "Rate &Up", " Increase the score of the current track by one")
         menuTrackRightClickRateDown = self._trackRightClickMenu.Append(
             -1, "Rate &Down", " Decrease the score of the current track by one")
-        rateRightClickMenu = self._trackRightClickMenu.AppendMenu(
-            -1, "&Rate", self._rightClickRateMenu)
+        self._trackRightClickMenu.AppendMenu(-1, "&Rate",
+                                             self._rightClickRateMenu)
         self._trackRightClickMenu.AppendSeparator()
         menuTrackRightClickRequeue = self._trackRightClickMenu.Append(
             -1, "Re&queue Track", " Add the selected track to the playlist")
@@ -521,8 +519,8 @@ class MainWindow(wx.Frame):
         scores = range(-10, 11)
         for score in scores:
             menuItem = menu.Append(-1, "Rate as "+str(score),
-                                   " Set the score of the selected track to "+\
-                                   str(score))
+                                   " Set the score of the selected track to "\
+                                   +str(score))
 
             self.Bind(wx.EVT_MENU, lambda e, score=score:
                       self._onRate(e, score), menuItem)
@@ -537,15 +535,14 @@ class MainWindow(wx.Frame):
     def _onAbout(self, e):
         self._logger.debug("Opening about dialog.")
         text = "For all your NQing needs\n\n"
-        text += str(self._db.getNumberOfTracks()) + " tracks in library\n"
-        text += str(self._db.getNumberOfUnplayedTracks()) + " unplayed\n\n"
+        text += str(self._db.getNumberOfTracks())+" tracks in library\n"
+        text += str(self._db.getNumberOfUnplayedTracks())+" unplayed\n\n"
 
         totals = self._db.getScoreTotals()
         for total in totals:
-            text += str(total[0]) + " | " + str(total[1]) + "\n"
+            text += str(total[0])+" | "+str(total[1])+"\n"
 
-        dialog = wx.MessageDialog(self, text, "NQr",
-                                  wx.OK)
+        dialog = wx.MessageDialog(self, text, "NQr", wx.OK)
         dialog.ShowModal()
         dialog.Destroy()
 
@@ -559,8 +556,7 @@ class MainWindow(wx.Frame):
         self._logger.debug("Opening add file dialog.")
         dialog = wx.FileDialog(
             self, "Choose some files...", self._defaultDirectory, "",
-            self._wildcards, wx.FD_OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR
-            )
+            self._wildcards, wx.FD_OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR)
         if dialog.ShowModal() == wx.ID_OK:
             paths = dialog.GetPaths()
             for path in paths:
@@ -625,8 +621,7 @@ class MainWindow(wx.Frame):
         self._logger.debug("Opening first file dialog.")
         firstDialog = wx.FileDialog(
             self, "Choose the first file...", self._defaultDirectory, "",
-            self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR
-            )
+            self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR)
         if firstDialog.ShowModal() == wx.ID_OK:
             firstPath = firstDialog.GetPath()
             firstTrack = self._trackFactory.getTrackFromPath(
@@ -635,8 +630,7 @@ class MainWindow(wx.Frame):
             directory = os.path.dirname(firstPath)
             secondDialog = wx.FileDialog(
                 self, "Choose the second file...", directory, "",
-                self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR
-                )
+                self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR)
             if secondDialog.ShowModal() == wx.ID_OK:
                 secondPath = secondDialog.GetPath()
                 secondTrack = self._trackFactory.getTrackFromPath(
@@ -651,8 +645,7 @@ class MainWindow(wx.Frame):
         self._logger.debug("Opening first file dialog.")
         firstDialog = wx.FileDialog(
             self, "Choose the first file...", self._defaultDirectory, "",
-            self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR
-            )
+            self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR)
         if firstDialog.ShowModal() == wx.ID_OK:
             firstPath = firstDialog.GetPath()
             firstTrack = self._trackFactory.getTrackFromPath(
@@ -779,7 +772,7 @@ class MainWindow(wx.Frame):
                 tagID = wx.NewId()
                 self._allTags[tagID] = tag
                 tagMenu = self._tagMenu.AppendCheckItem(
-                    tagID, tag, " Tag track with " + tag)
+                    tagID, tag, " Tag track with "+tag)
                 self.setTag(self._track, tagID)
                 self.populateDetails(self._track)
 
@@ -938,7 +931,7 @@ class MainWindow(wx.Frame):
         self._trackList.SetStringItem(index, 4, lastPlayed)
         if previous != None:
             self._trackList.SetStringItem(index, 5,
-                                          RoughAge(time.time() - previous))
+                                          roughAge(time.time() - previous))
         if weight != None:
             self._trackList.SetStringItem(index, 6, str(weight))
         self._trackList.SetItemData(index, track.getID())
@@ -955,8 +948,8 @@ class MainWindow(wx.Frame):
 ##       it when enqueuing
     def enqueueRandomTracks(self, number):
         try:
-            self._logger.debug("Enqueueing "+str(number)+" random track"
-                               + plural(number) + '.')
+            self._logger.debug("Enqueueing "+str(number)+" random track"\
+                               +plural(number)+'.')
             exclude = self._player.getUnplayedTrackIDs(self._db)
             tracks = self._randomizer.chooseTracks(number, exclude)
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
@@ -970,7 +963,7 @@ class MainWindow(wx.Frame):
                     (firstTrackID,
                      secondTrackID) = self._db.getLinkedTrackIDs(originalLinkID)
                     firstTrack = self._trackFactory.getTrackFromID(self._db,
-                                                                  firstTrackID)
+                                                                   firstTrackID)
                     secondTrack = self._trackFactory.getTrackFromID(
                         self._db, secondTrackID)
                     trackQueue = deque([firstTrack, secondTrack])
@@ -1068,7 +1061,7 @@ class MainWindow(wx.Frame):
         previous = track.getPreviousPlay()
         if previous != None:
             self._trackList.SetStringItem(index, 5,
-                                          RoughAge(time.time() - previous))
+                                          roughAge(time.time() - previous))
         self._trackList.RefreshItem(index)
 
     def selectTrack(self, index):

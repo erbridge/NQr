@@ -9,9 +9,9 @@
 
 import ConfigParser
 from Errors import *
-import math
 import os
 import sqlite3
+from Util import *
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -184,15 +184,15 @@ class Database:
             self._logger.debug("Tags table found.")
         c.close()
 
-    def _execute_and_fetchone_or_null(self, stmt, args = ()):
+    def _executeAndFetchoneOrNull(self, stmt, args = ()):
         self._cursor.execute(stmt, args)
         result = self._cursor.fetchone()
         if result is None:
             return None
         return result[0]
 
-    def _execute_and_fetchone(self, stmt, args = ()):
-        result = self._execute_and_fetchone_or_null(stmt, args)
+    def _executeAndFetchone(self, stmt, args = ()):
+        result = self._executeAndFetchoneOrNull(stmt, args)
         if result is None:
             raise NoResultError()
         return result
@@ -210,10 +210,11 @@ class Database:
         path = track.getPath()
         if hasTrackID == False or trackID == None:
             c.execute("""insert into tracks (path, artist, album, title,
-                      tracknumber, unscored, length, bpm) values (?, ?, ?, ?, ?,
-                      1, ?, ?)""", (path, track.getArtist(), track.getAlbum(),
-                                 track.getTitle(), track.getTrackNumber(),
-                                 track.getLength(), track.getBPM()))
+                         tracknumber, unscored, length, bpm) values (?, ?, ?, ?,
+                         ?, 1, ?, ?)""", (path, track.getArtist(),
+                                          track.getAlbum(), track.getTitle(),
+                                          track.getTrackNumber(),
+                                          track.getLength(), track.getBPM()))
             trackID = c.lastrowid
             self._logger.info("\'"+path+"\' has been added to the library.")
         else:
@@ -240,7 +241,7 @@ class Database:
     def _getTrackID(self, track, update=False):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
-        result = self._execute_and_fetchone_or_null(
+        result = self._executeAndFetchoneOrNull(
             "select trackid from tracks where path = ?", (path, ))
         if result == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
@@ -262,7 +263,7 @@ class Database:
             c.execute("insert into directories (path) values (?)",
                       (directory, ))
             self._logger.info("\'"+directory\
-                               +"\' has been added to the watch list.")
+                              +"\' has been added to the watch list.")
         else:
             self._logger.debug("\'"+directory\
                                +"\' is already in the watch list.")
@@ -272,7 +273,7 @@ class Database:
 
     def getDirectoryID(self, directory):
         self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
-        result = self._execute_and_fetchone_or_null(
+        result = self._executeAndFetchoneOrNull(
             "select directoryid from directories where path = ?", (directory, ))
         if result == None:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
@@ -295,7 +296,7 @@ class Database:
         if directoryID != None:
             c.execute("delete from directories where path = ?", (directory, ))
             self._logger.info("\'"+directory\
-                               +"\' has been removed from the watch list.")
+                              +"\' has been removed from the watch list.")
         else:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
         c.close()
@@ -321,9 +322,9 @@ class Database:
         linkID = self.getLinkID(firstTrack, secondTrack)
         if linkID == None:
             c.execute("""insert into links (firsttrackid, secondtrackid) values
-                      (?, ?)""", (firstTrackID, secondTrackID))
+                         (?, ?)""", (firstTrackID, secondTrackID))
             self._logger.info("\'"+firstTrackPath+"\' has been linked to \'"\
-                               +secondTrackPath+"\'.")
+                              +secondTrackPath+"\'.")
         else:
             self._logger.debug("\'"+firstTrackPath+"\' is already linked to \'"\
                                +secondTrackPath+"\'.")
@@ -336,7 +337,7 @@ class Database:
         secondTrackID = secondTrack.getID()
         firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
         secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-        result = self._execute_and_fetchone_or_null(
+        result = self._executeAndFetchoneOrNull(
             """select linkid from links where firsttrackid = ? and
                secondtrackid = ?""", (firstTrackID, secondTrackID))
         if result == None:
@@ -350,9 +351,9 @@ class Database:
         self._logger.debug("Retrieving link IDs.")
         trackID = track.getID()
         path = self.getPathFromIDNoDebug(trackID)
-        firstResult = self._execute_and_fetchone_or_null(
+        firstResult = self._executeAndFetchoneOrNull(
             "select linkid from links where secondtrackid = ?", (trackID, ))
-        secondResult = self._execute_and_fetchone_or_null(
+        secondResult = self._executeAndFetchoneOrNull(
             "select linkid from links where firsttrackid = ?", (trackID, ))
         if firstResult == None:
             if secondResult == None:
@@ -367,9 +368,9 @@ class Database:
 
     def getLinkedTrackIDs(self, linkID):
         self._logger.debug("Retrieving track IDs for linked tracks.")
-        self._execute_and_fetchone_or_null(
-            """select firsttrackid, secondtrackid from links where
-               linkid = ?""", (linkID, ))
+        result = self._executeAndFetchoneOrNull(
+            "select firsttrackid, secondtrackid from links where linkid = ?",
+            (linkID, ))
         if result == None:
             self._logger.debug("No such link exists.")
         return result
@@ -399,7 +400,7 @@ class Database:
         c = self._conn.cursor()
         trackID = track.getID()
         c.execute("""insert into enqueues (trackid, datetime) values
-                  (?, datetime('now'))""", (trackID, ))
+                     (?, datetime('now'))""", (trackID, ))
         c.close()
         self._conn.commit()
 
@@ -407,7 +408,7 @@ class Database:
         if trackID == None:
             self._logger.error("No track has been identified.")
             raise NoTrackError
-        return self._execute_and_fetchone_or_null(
+        return self._executeAndFetchoneOrNull(
             """select strftime('%s', 'now') - strftime('%s', datetime)
                from enqueues where trackid = ? order by enqueueid desc""",
             (trackID, ))
@@ -419,12 +420,12 @@ class Database:
         trackID = track.getID()
         track.setPreviousPlay(self.getLastPlayedInSeconds(track))
         c.execute("""insert into plays (trackid, datetime) values
-                  (?, datetime('now'))""", (trackID, ))
+                     (?, datetime('now'))""", (trackID, ))
         c.close()
         self._conn.commit()
 
     def getLastPlayedTrackID(self):
-        result = self._execute_and_fetchone_or_null(
+        result = self._executeAndFetchoneOrNull(
             "select trackid from plays order by playid desc")
         if result != None:
             return result
@@ -443,9 +444,9 @@ class Database:
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select datetime, datetime(datetime, 'localtime'),
-                  strftime('%s', 'now') - strftime('%s', datetime),
-                  strftime('%s', datetime) from plays
-                  where trackid = ? order by playid desc""", (trackID, ))
+                     strftime('%s', 'now') - strftime('%s', datetime),
+                     strftime('%s', datetime) from plays
+                     where trackid = ? order by playid desc""", (trackID, ))
         result = c.fetchone()
         c.close()
         if result != None:
@@ -489,12 +490,10 @@ class Database:
     # whether entries are current or historical.
     def getOldestLastPlayed(self):
         try:
-            return self._execute_and_fetchone(
+            return self._executeAndFetchone(
                 """select strftime('%s', 'now') - strftime('%s', min(datetime))
                    from (select max(playid) as id from plays group by trackid)
-                           as maxplays,
-                     plays
-                   where maxplays.id = plays.playid""")
+                   as maxplays, plays where maxplays.id = plays.playid""")
         except NoResultError:
             return 0
 
@@ -508,7 +507,7 @@ class Database:
             trackID = track.getID()
         c = self._conn.cursor()
         c.execute("""select datetime from plays where trackid = ? order by
-                  playid desc""", (trackID, ))
+                     playid desc""", (trackID, ))
         result = c.fetchall()
         c.close()
         if result == None:
@@ -527,12 +526,12 @@ class Database:
         trackID = self._getTrackID(track, update=True)
         if trackID != None:
             c.execute("""update tracks set path = ?, artist = ?, album = ?,
-                      title = ?, tracknumber = ?, length = ?, bpm = ? where
-                      trackid = ?""", (path, track.getArtist(),
-                                       track.getAlbum(), track.getTitle(),
-                                       track.getTrackNumber(),
-                                       track.getLength(), track.getBPM(),
-                                       trackID))
+                         title = ?, tracknumber = ?, length = ?, bpm = ? where
+                         trackid = ?""", (path, track.getArtist(),
+                                          track.getAlbum(), track.getTitle(),
+                                          track.getTrackNumber(),
+                                          track.getLength(), track.getBPM(),
+                                          trackID))
             self._logger.info("\'"+path+"\' has been updated in the library.")
         else:
             self._logger.debug("\'"+path+"\' is not in the library.")
@@ -543,13 +542,13 @@ class Database:
         self._logger.debug("Checking whether track details have changed.")
         details = self._getTrackDetails(track=track, update=True)
         newDetails = {}
-        newDetails[self.pathIndex] = track.getPath()
-        newDetails[self.artistIndex] = track.getArtist()
-        newDetails[self.albumIndex] = track.getAlbum()
-        newDetails[self.titleIndex] = track.getTitle()
-        newDetails[self.trackNumberIndex] = track.getTrackNumber()
-        newDetails[self.lengthIndex] = track.getLength()
-        newDetails[self.bpmIndex] = track.getBPM()
+        newDetails[self._pathIndex] = track.getPath()
+        newDetails[self._artistIndex] = track.getArtist()
+        newDetails[self._albumIndex] = track.getAlbum()
+        newDetails[self._titleIndex] = track.getTitle()
+        newDetails[self._trackNumberIndex] = track.getTrackNumber()
+        newDetails[self._lengthIndex] = track.getLength()
+        newDetails[self._bpmIndex] = track.getBPM()
         for n in range(8):
             try:
                 if details[n] != newDetails[n]:
@@ -559,9 +558,9 @@ class Database:
         return False
 
     def _getTrackDetails(self, track=None, trackID=None, update=False):
-        (self.pathIndex, self.artistIndex, self.albumIndex, self.titleIndex,
-         self.trackNumberIndex, self.unscoredIndex, self.lengthIndex,
-         self.bpmIndex) = range(8)
+        (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
+         self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
+         self._bpmIndex) = range(8)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
@@ -569,7 +568,7 @@ class Database:
             trackID = track.getID(update)
         c = self._conn.cursor()
         c.execute("""select path, artist, album, title, tracknumber, unscored,
-                  length, bpm from tracks where trackid = ?""", (trackID, ))
+                     length, bpm from tracks where trackid = ?""", (trackID, ))
         result = c.fetchone()
         c.close()
         return result
@@ -582,7 +581,7 @@ class Database:
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[self.pathIndex]
+        return details[self._pathIndex]
 
     def getPathFromID(self, trackID):
         self._logger.debug("Retrieving track's path.")
@@ -592,42 +591,42 @@ class Database:
         details = self._getTrackDetails(trackID=trackID)
         if details == None:
             return None
-        return details[self.pathIndex]
+        return details[self._pathIndex]
 
     def getArtist(self, track):
         self._logger.debug("Retrieving track's artist.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[self.artistIndex]
+        return details[self._artistIndex]
 
     def getAlbum(self, track):
         self._logger.debug("Retrieving track's album.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[self.albumIndex]
+        return details[self._albumIndex]
 
     def getTitle(self, track):
         self._logger.debug("Retrieving track's title.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[self.titleIndex]
+        return details[self._titleIndex]
 
     def getTrackNumber(self, track):
         self._logger.debug("Retrieving track's number.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        return details[self.trackNumberIndex]
+        return details[self._trackNumberIndex]
 
     def getBPM(self, track):
         self._logger.debug("Retrieving track's bpm.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        bpm = details[self.bpmIndex]
+        bpm = details[self._bpmIndex]
         if bpm == None:
             bpm = track.getBPM()
             self.setBPM(bpm, track)
@@ -646,7 +645,7 @@ class Database:
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        length = details[self.lengthIndex]
+        length = details[self._lengthIndex]
         if length == None:
             length = track.getLength()
             self.setLength(length, track)
@@ -654,13 +653,7 @@ class Database:
 
     def getLengthString(self, track):
         rawLength = self.getLength(track)
-        (minutes, seconds) = (math.floor(rawLength/60),
-                              math.floor(rawLength-math.floor(rawLength/60)*60))
-        if seconds not in range(10):
-            length = str(int(minutes))+":"+str(int(seconds))
-        else:
-            length = str(int(minutes))+":0"+str(int(seconds))
-        return length
+        return formatLength(rawLength)
 
     def setLength(self, length, track):
         self._logger.debug("Adding length to track.")
@@ -688,23 +681,23 @@ class Database:
         return tagNames
 
     def getTagNameID(self, tagName):
-        return self._execute_and_fetchone(
+        return self._executeAndFetchone(
             "select tagnameid from tagnames where name = ?", (tagName, ))
 
     def setTag(self, track, tagName):
-        self._logger.info("Tagging track with '" + tagName + "'.")
+        self._logger.info("Tagging track with '"+tagName+"'.")
         trackID = track.getID()
         tagNames = self.getTags(track)
         if tagName not in tagNames:
             tagNameID = self.getTagNameID(tagName)
             self._cursor.execute("""insert into tags (trackid, tagnameid) values
-                                 (?, ?)""", (trackID, tagNameID))
+									(?, ?)""", (trackID, tagNameID))
 
     def unsetTag(self, track, tagName):
         trackID = track.getID()
         tagNameID = self.getTagNameID(tagName)
         self._cursor.execute("""delete from tags where tagnameid = ? and
-                             trackid = ?""", (tagNameID, trackID))
+                                trackid = ?""", (tagNameID, trackID))
 
     def getTags(self, track):
         trackID = track.getID()
@@ -720,7 +713,7 @@ class Database:
             return []
         tagNames = []
         for tagNameID in tagNameIDs:
-            tagNames.append(self._execute_and_fetchone(
+            tagNames.append(self._executeAndFetchone(
                 "select name from tagnames where tagnameid = ?",
                 (tagNameID[0], )))
         return tagNames
@@ -735,9 +728,9 @@ class Database:
             details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        if details[self.unscoredIndex] == 1:
+        if details[self._unscoredIndex] == 1:
             return False
-        elif details[self.unscoredIndex] == 0:
+        elif details[self._unscoredIndex] == 0:
             return True
 
     def getIsScored(self, track):
@@ -764,7 +757,7 @@ class Database:
         c.execute("update tracks set unscored = 0 where trackid = ?",
                   (trackID, ))
         c.execute("""insert into scores (trackid, score, datetime) values
-                  (?, ?, datetime('now'))""", (trackID, score, ))
+                     (?, ?, datetime('now'))""", (trackID, score, ))
         c.close()
         self._conn.commit()
 
@@ -775,7 +768,7 @@ class Database:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
             trackID = track.getID()
-        return self._execute_and_fetchone_or_null(
+        return self._executeAndFetchoneOrNull(
             "select score from scores where trackid = ? order by scoreid desc",
             (trackID, ))
 
@@ -795,7 +788,7 @@ class Database:
         return self._getScore(trackID=trackID)
 
     def maybeGetIDFromPath(self, path):
-        return self._execute_and_fetchone_or_null(
+        return self._executeAndFetchoneOrNull(
             "select trackid from tracks where path = ?", (path, ))
 
     def getIDFromPath(self, path):
@@ -804,12 +797,12 @@ class Database:
             raise PathNotFoundError()
 
     def getNumberOfTracks(self):
-        return self._execute_and_fetchone("select count(*) from tracks")
+        return self._executeAndFetchone("select count(*) from tracks")
 
     # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
     # or this is slow!
     def getNumberOfUnplayedTracks(self):
-        return self._execute_and_fetchone(
+        return self._executeAndFetchone(
             """select count(*) from tracks left outer join plays using(trackid)
                where plays.trackid is null""")
 

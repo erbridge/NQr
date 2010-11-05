@@ -7,9 +7,9 @@
 
 import ConfigParser
 from Errors import *
-import math
 import mutagen
 import os
+from Util import *
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -168,16 +168,6 @@ class Track:
             self._isScored = self._db.getIsScored(self)
         return self._isScored
 
-    def getLengthString(self):
-        rawLength = self._getLength()
-        (minutes, seconds) = (math.floor(rawLength/60),
-                              math.floor(rawLength-math.floor(rawLength/60)*60))
-        if seconds not in range(10):
-            self._lengthString = str(int(minutes))+":"+str(int(seconds))
-        else:
-            self._lengthString = str(int(minutes))+":0"+str(int(seconds))
-        return self._lengthString
-
 class AudioTrack(Track):
     def __init__(self, db, path, logger):
         Track.__init__(self, db, path, logger)
@@ -244,6 +234,10 @@ class AudioTrack(Track):
 
     def getLength(self):
         return self._length
+    
+    def getLengthString(self):
+        self._lengthString = formatLength(self._length)
+        return self._lengthString
 
 class PrefsPage(wx.Panel):
     def __init__(self, parent, configParser, logger):

@@ -111,6 +111,8 @@ class Main(wx.App):
         gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
+        ## TODO: remove command window at this point and stop logging to stream
+        ##       if we are not in dev mode
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
         

@@ -1,10 +1,13 @@
 ## Mac OS, iTunes interface
+##
 ## TODO: talk applescript directly
 ## TODO: allow user to choose playlistname
 
 import subprocess
 
-class iTunesMacOS:
+from MediaPlayer import MediaPlayer
+
+class iTunesMacOS(MediaPlayer):
     def __init__(self, playlistname="\"NQr\""):
         self.playlistname = playlistname
 
@@ -28,7 +31,8 @@ class iTunesMacOS:
     ## 'Macintosh HD:Users:ben:Documents:Felix:NQr:TestDir:02 - Monument.mp3'
     def addTrack(self, filepath):
         filepath = '"'+filepath+'"'
-        command = "tell application \"iTunes\"\n add "+filepath+" to user playlist "+self.playlistname+"\n end tell"
+        command = "tell application \"iTunes\"\n add "+filepath\
+                  +" to user playlist "+self.playlistname+"\n end tell"
         self.runCommand(command)
 
     def playTrack(self, filepath):
@@ -36,14 +40,10 @@ class iTunesMacOS:
         command = "tell application \"iTunes\"\n play "+filepath+"\n end tell"
         self.runCommand(command)
 
-    ## TODO: make it remove the correct number of tracks to maintain the right
-    ##       number of tracks without deleting the currently playing (or
-    ##       subsequent) tracks. Perhaps make it leave 3 before the current
-    ##       track.
-    def cropPlaylist(self, number):
-        for n in range(number):
-            command = "tell application \"iTunes\"\n delete track 1 of "+self.playlistname+"\n end tell"
-            self.runCommand(command)
+    def deleteTrack(self, position):
+        command = "tell application \"iTunes\"\n delete track "+str(position+1)\
+                  +" of "+self.playlistname+"\n end tell"
+        self.runCommand(command)
 
     def nextTrack(self):
         command = "tell application \"iTunes\"\n next track\n play\n end tell"
@@ -80,7 +80,8 @@ class iTunesMacOS:
 ##    def addTrack(self, trackname):
 ##        trackname = '"'+trackname+'"'
 ##        command = """tell application "iTunes"
-##                    duplicate track """+trackname+""" to user playlist """+self.playlistname+"""
+##                    duplicate track """+trackname+""" to user playlist """\
+##                    +self.playlistname+"""
 ##                    end tell"""
 ##        self.runCommand(command)
 
