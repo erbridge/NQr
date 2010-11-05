@@ -786,7 +786,6 @@ class MainWindow(wx.Frame):
         self._refreshTimer.Stop()
         sys.stdout = self._stdout
         sys.stderr = self._stderr
-        self._redirect.flush()
         
         self.Destroy()
 
@@ -822,7 +821,6 @@ class MainWindow(wx.Frame):
             self._logger.error("No track selected.")
             return
 
-## FIXME: toggle should be turned off when NQr is closed
     def _onToggleNQr(self, e=None):
         self._logger.debug("Toggling NQr.")
         if self.menuToggleNQr.IsChecked() == False:
