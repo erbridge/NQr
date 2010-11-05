@@ -23,9 +23,6 @@
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
-##
-## FIXME: play timer may add the wrong track if track changes at same time as
-##        timer dinging
 
 from collections import deque
 import ConfigParser
@@ -856,9 +853,18 @@ class MainWindow(wx.Frame):
         self.maintainPlaylist()
 
     def _onPlayTimerDing(self, e):
-        self._playingTrack.addPlay(self._playDelay)
-        self.refreshLastPlayed(0, self._playingTrack)
-        self.refreshPreviousPlay(0, self._playingTrack)
+        track = self._playingTrack
+        track.addPlay(self._playDelay)
+        if track == self._playingTrack:
+            self.refreshLastPlayed(0, track)
+            if track == self._playingTrack:
+                self.refreshPreviousPlay(0, track)
+            else:
+                self.refreshPreviousPlay(1, track)
+        else:
+            self.refreshLastPlayed(1, track)
+            self.refreshPreviousPlay(1, track)
+        
 
     def _onInactivityTimerDing(self, e):
         if self._index != 0:

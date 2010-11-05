@@ -10,6 +10,8 @@
 ## TODO: populate prefs window including customizable score range (with
 ##       database converter)?
 ## TODO: read settings from settings file
+##
+## FIXME: queues wrong track if track changes at time of start up
 
 import ConfigParser
 import Database
