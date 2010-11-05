@@ -111,7 +111,7 @@ class MainWindow(wx.Frame):
                  defaultPlayDelay=4000, defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|"+\
                  "All files|*.*", defaultDirectory="", defaultIgnore=False,
-                 defaultHaveLogPanel=False):
+                 defaultHaveLogPanel=True):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -153,6 +153,8 @@ class MainWindow(wx.Frame):
         self.loadSettings()
 
         self._index = None
+        self._stdout = sys.stdout
+        self._stderr = sys.stderr
 
         wx.Frame.__init__(self, parent, title=title)
 
@@ -500,20 +502,9 @@ class MainWindow(wx.Frame):
         font = wx.Font(9, wx.MODERN, wx.NORMAL, wx.NORMAL)
         self._logPanel.SetFont(font)
 
-        redirect = RedirectText(self._logPanel)
-        sys.stdout = redirect
-        sys.stderr = redirect
-
-## FIXME: on exit (due to self._logPanel being destroyed)
-##Traceback (most recent call last):
-##  File "C:\Python27\lib\logging\__init__.py", line 859, in emit
-##    stream.write(fs % msg)
-##  File "C:\Users\Felix\Documents\Projects\nqr\GUI.py", line 113, in write
-##    self._out.WriteText(string)
-##  File "C:\Python27\lib\site-packages\wx-2.8-msw-unicode\wx\_core.py", line 14590, in __getattr__
-##    raise PyDeadObjectError(self.attrStr % self._name)
-##PyDeadObjectError: The C++ part of the TextCtrl object has been deleted, attribute access no longer allowed.
-##Logged from file gui.py, line 102
+        self._redirect = RedirectText(self._logPanel)
+        sys.stdout = self._redirect
+        sys.stderr = self._redirect
 
     def _populateRateMenu(self, menu):
         scores = range(-10, 11)
@@ -795,6 +786,10 @@ class MainWindow(wx.Frame):
             self._trackMonitor.abort()
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
+        sys.stdout = self._stdout
+        sys.stderr = self._stderr
+        self._redirect.flush()
+        
         self.Destroy()
 
     def _onLaunchPlayer(self, e):
