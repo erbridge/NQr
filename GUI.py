@@ -328,6 +328,9 @@ class MainWindow(wx.Frame):
         self._playerMenu.AppendSeparator()
         menuRequeue = self._playerMenu.Append(
             -1, "Re&queue Track", " Add the selected track to the playlist")
+        menuRequeueAndPlay = self._playerMenu.Append(
+            -1, "Requeue and &Play Track",
+            " Add the selected track to the playlist and play it")
         menuResetScore = self._playerMenu.Append(
             -1, "Reset Sc&ore", " Reset the score of the selected track")
         self._playerMenu.AppendSeparator()
@@ -344,6 +347,7 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onRateUp, menuRateUp)
         self.Bind(wx.EVT_MENU, self._onRateDown, menuRateDown)
         self.Bind(wx.EVT_MENU, self._onRequeue, menuRequeue)
+        self.Bind(wx.EVT_MENU, self._onRequeueAndPlay, menuRequeueAndPlay)
         self.Bind(wx.EVT_MENU, self._onResetScore, menuResetScore)
         self.Bind(wx.EVT_MENU, self._onLaunchPlayer, menuLaunchPlayer)
         self.Bind(wx.EVT_MENU, self._onExitPlayer, menuExitPlayer)
@@ -408,6 +412,9 @@ class MainWindow(wx.Frame):
         self._trackRightClickMenu.AppendSeparator()
         menuTrackRightClickRequeue = self._trackRightClickMenu.Append(
             -1, "Re&queue Track", " Add the selected track to the playlist")
+        menuTrackRightClickRequeueAndPlay = self._trackRightClickMenu.Append(
+            -1, "Requeue and &Play Track",
+            " Add the selected track to the playlist and play it")
         self._trackRightClickMenu.AppendSeparator()
         menuTrackRightClickResetScore = self._trackRightClickMenu.Append(
             -1, "Reset Sc&ore", " Reset the score of the current track")
@@ -415,6 +422,8 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onRateUp, menuTrackRightClickRateUp)
         self.Bind(wx.EVT_MENU, self._onRateDown, menuTrackRightClickRateDown)
         self.Bind(wx.EVT_MENU, self._onRequeue, menuTrackRightClickRequeue)
+        self.Bind(wx.EVT_MENU, self._onRequeueAndPlay,
+                  menuTrackRightClickRequeueAndPlay)
         self.Bind(wx.EVT_MENU, self._onResetScore,
                   menuTrackRightClickResetScore)
 
@@ -889,6 +898,19 @@ class MainWindow(wx.Frame):
         try:
             self._logger.info("Requeueing track.")
             self._player.addTrack(self._track.getPath())
+        except AttributeError as err:
+            if str(err) != "'MainWindow' object has no attribute '_track'":
+                raise err
+            self._logger.error("No track selected.")
+            return
+        
+    def _onRequeueAndPlay(self, e):
+        self.resetInactivityTimer()
+        try:
+            self._logger.info("Requeueing track and playing it.")
+            position = self._player.getCurrentTrackPos() + 1
+            self._player.insertTrack(self._track.getPath(), position)
+            self._player.playAtPosition(position)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err

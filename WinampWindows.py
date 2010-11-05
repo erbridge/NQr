@@ -80,7 +80,19 @@ class WinampWindows(MediaPlayer):
         self.launchBackground()
         self._logger.info("Adding \'"+filepath+"\' to playlist.")
         self._winamp.enqueue(filepath)
-
+        
+    def _insertTrack(self, filepath, position):
+        self.launchBackground()
+        self._logger.info("Inserting \'"+filepath+"\' into playlist position "\
+                          +str(position)+".")
+        playlist = self.savePlaylist()
+        for pos in range(len(playlist), position - 1, -1):
+            self.deleteTrack(pos)
+#        self.cropPlaylist(len(playlist) - position - 1)
+        self._winamp.enqueue(filepath)
+        for path in playlist[position:]:
+            self._winamp.enqueue(path)
+            
 ##    def playTrack(self, filepath):
 
     def deleteTrack(self, position):
@@ -109,6 +121,12 @@ class WinampWindows(MediaPlayer):
         self.launchBackground()
         self._logger.debug("Resuming playback or restarting current track.")
         self._winamp.play()
+        
+    def playAtPosition(self, position):
+        self.launchBackground()
+        self._logger.debug("Playing track at position.")
+        self._winamp.setCurrentTrack(position)
+        self._winamp.play()
 
     def previousTrack(self):
         self.launchBackground()
@@ -136,13 +154,11 @@ class WinampWindows(MediaPlayer):
     def getPlaylistLength(self):
         self.launchBackground()
         self._logger.debug("Retrieving playlist length.")
-        playlistLength = self._winamp.doIpcCommand(IPC_GETLISTLENGTH)
-        return playlistLength
+        return self._winamp.getPlaylistLength()
 
     def getCurrentTrackPos(self):
         self.launchBackground()
-        trackPosition = self._winamp.getCurrentTrack()
-        return trackPosition
+        return self._winamp.getCurrentTrack()
 
     ## poss insecure: should always be checked for trackness
     ## gets track at a playlist position

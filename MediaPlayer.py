@@ -53,6 +53,7 @@ class MediaPlayer:
             if id is not None:
                 ids.append(id)
             else:
+                ## FIXME: why skip them rather than adding them to db? (Felix)
                 self._logger.info("Skipping unknown unplayed track " + path)
         return ids
 
@@ -61,6 +62,12 @@ class MediaPlayer:
             print "Not queueing", filepath
             return
         self._addTrack(filepath)
+        
+    def insertTrack(self, filepath, position):
+        if self._noQueue:
+            print "Not queueing", filepath
+            return
+        self._insertTrack(filepath, position)
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger), "Player"
