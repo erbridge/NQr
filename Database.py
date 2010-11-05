@@ -524,6 +524,15 @@ class Database:
             return 0
         count = len(result)
         return count
+    
+    def updateAllTrackDetails(self):
+        trackIDs = self.getAllTrackIDs()
+        for trackID in trackIDs:
+            try:
+                track = self._trackFactory.getTrackFromID()
+                self.maybeUpdateTrackDetails(track)
+            except NoTrackError:
+                self.setHistorical(True, trackID)
 
     def maybeUpdateTrackDetails(self, track):
         if self._getTrackDetailsChange(track) == True:
@@ -658,9 +667,8 @@ class Database:
             return None
         return details[self._historicalIndex]
     
-    def setHistorical(self, historical, track):
+    def setHistorical(self, historical, trackID):
         self._logger.debug("Making track non-current.")
-        trackID = track.getID()
         c = self._conn.cursor()
         if historical == True:
             historical = 1

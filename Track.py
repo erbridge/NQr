@@ -45,7 +45,7 @@ class TrackFactory:
             return track
         try:
             track = AudioTrack(db, path, self._logger)
-            db.setHistorical(False, track)
+            db.setHistorical(False, track.getID())
         except UnknownTrackType:
             raise NoTrackError
 #            return None

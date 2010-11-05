@@ -76,7 +76,7 @@ class Randomizer:
                 track.setWeight(weight)
                 tracks.append(track)
             except NoTrackError:
-                self._db.setHistorical(True, track)
+                self._db.setHistorical(True, trackID)
         return tracks
 
 ## will throw exception if database is empty?
