@@ -307,7 +307,7 @@ class Database(wx.EvtHandler):
     ## join scores using (trackid) left outer join plays using
     ## (trackid); with some select trackid, max(datetime) from plays
     ## group by trackid; thrown in.
-    def getAllTrackIDs(self, completion):
+    def asyncGetAllTrackIDs(self, completion):
         self._logger.debug("Retrieving all track IDs.")
         self._asyncExecuteAndFetchAll("select trackid from tracks", (),
                                       completion)

@@ -122,7 +122,7 @@ class Randomizer:
                        self._createListsCompletion(exclude, oldest,
                                                    rawTrackIDList, completion)
         if tags == None:
-            self._db.getAllTrackIDs(mycompletion)
+            self._db.asyncGetAllTrackIDs(mycompletion)
         else:
             self._db.getAllTrackIDsWithTags(mycompletion, tags)
 
