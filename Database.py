@@ -11,13 +11,40 @@ import ConfigParser
 import datetime
 from Errors import *
 import os
+import Queue
 import sqlite3
+import threading
 from Util import *
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
 import wx
+
+class DatabaseThread(threading.Thread):
+    def __init__(self, path):
+        threading.Thread.__init__(self, name="Database")
+        self._databasePath = path
+        self._queue = Queue.Queue()
+
+    def queue(self, thing):
+        self._queue.put(thing)
+
+    def run(self):
+        conn = sqlite3.connect(self._databasePath)
+        cursor = conn.cursor()
+        while True:
+            got = self._queue.get()
+            got(self, cursor)
+
+    def do_execute_fetch_one(self, cursor, stmt, args, completion):
+        cursor.execute(stmt, args)
+        result = cursor.fetchone()
+        completion(result)
+
+    def execute_fetch_one(self, stmt, args, completion):
+        self.queue(lambda thread, cursor:
+                   thread.do_execute_fetch_one(cursor, stmt, args, completion))
 
 class Database:
     def __init__(self, trackFactory, loggerFactory, configParser,
@@ -45,6 +72,11 @@ class Database:
         self._initMaybeCreateTagsTable()
         self._conn.commit()
         self._cursor = self._conn.cursor()
+        self._dbThread = DatabaseThread(self._databasePath)
+        self._dbThread.start()
+
+    def async(self, stmt, args, completion):
+        self._dbThread.execute_fetch_one(stmt, args, completion)
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
