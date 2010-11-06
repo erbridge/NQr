@@ -506,7 +506,7 @@ class MainWindow(wx.Frame):
         self._trackList.InsertColumn(self._ID_PREVIOUSPLAY, "Last Played",
                                      format=wx.LIST_FORMAT_CENTER, width=120)
         self._trackList.InsertColumn(self._ID_WEIGHT, "Weight",
-                                     format=wx.LIST_FORMAT_CENTER, width=80)
+                                     format=wx.LIST_FORMAT_LEFT, width=80)
 
 
         try:
