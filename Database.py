@@ -37,12 +37,12 @@ class DatabaseThread(threading.Thread):
             got = self._queue.get()
             got(self, cursor)
 
-    def do_execute_fetch_one(self, cursor, stmt, args, completion):
+    def doExecuteAndFetchOne(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         completion(result)
 
-    def execute_fetch_one(self, stmt, args, completion):
+    def executeAndFetchOne(self, stmt, args, completion):
         self.queue(lambda thread, cursor:
                    thread.do_execute_fetch_one(cursor, stmt, args, completion))
 
@@ -106,7 +106,7 @@ class Database(wx.EvtHandler):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.execute_fetch_one(stmt, args, mycompletion)
+        self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
 
     def _onDatabaseEvent(self, e):
         self._logger.info("got event")
