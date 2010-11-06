@@ -42,7 +42,7 @@ class Main(wx.App):
 
         sys.excepthook = self._exceptHook
 
-        opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "--help"])
+        opts, args = getopt.getopt(sys.argv[1:], "nh", ["no-queue", "help"])
         for opt, arg in opts:
             if opt in ("-n", "--no-queue"):
                 self._noQueue = True
