@@ -59,13 +59,13 @@ class MediaPlayer:
 
     def addTrack(self, filepath):
         if self._noQueue:
-            self._logger.info("Not queueing " + filepath)
+            self._logger.info("Not queuing " + filepath)
             return
         self._addTrack(filepath)
         
     def insertTrack(self, filepath, position):
         if self._noQueue:
-            self._logger.info("Not queueing " + filepath)
+            self._logger.info("Not queuing " + filepath)
             return
         self._insertTrack(filepath, position)
 
