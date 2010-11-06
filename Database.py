@@ -267,23 +267,23 @@ class Database:
     ## join scores using (trackid) left outer join plays using
     ## (trackid); with some select trackid, max(datetime) from plays
     ## group by trackid; thrown in.
-    def getAllTrackIDs(self):
+    def getAllTrackIDs(self, completion):
         self._logger.debug("Retrieving all track IDs.")
         c = self._conn.cursor()
         c.execute("select trackid from tracks")
         result = c.fetchall()
         c.close()
-        return result
+        completion(result)
     
     ## FIXME: not working yet, poss works for one tag
-    def getAllTrackIDsWithTags(self, tags):
+    def getAllTrackIDsWithTags(self, completion, tags):
         self._logger.debug("Retrieving all track IDs with tags: "+str(tags)+".")
         self._cursor.execute(
             """select trackid from tracks left outer join
                (select trackid from tags left outer join tagnames using (tagid)
                 on tagnames.tagid = tags.tagid, tagnames.name in ?) on
                 tags.trackid = tracks.trackid""", tags)
-        return self._cursor.fetchall()
+        completion(self._cursor.fetchall())
 
     def _getTrackID(self, track, update=False):
         path = track.getPath()

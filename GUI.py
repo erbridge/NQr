@@ -579,7 +579,7 @@ class MainWindow(wx.Frame):
         font = wx.Font(9, wx.MODERN, wx.NORMAL, wx.NORMAL)
         self._logPanel.SetFont(font)
 
-        self._redirect = RedirectText(self._logPanel)
+        self._redirect = RedirectText(self._logPanel, sys.stdout)
         sys.stdout = self._redirect
         sys.stderr = self._redirect
         
@@ -641,9 +641,10 @@ class MainWindow(wx.Frame):
 
     def _onTest(self, e):
         self._logger.info("Test!")
-        completion = lambda result, window=self: wx.PostEvent(window,
-                         TestEvent(result))
-        self._db.async("SELECT COUNT(*) FROM tracks", (), completion)
+#        completion = lambda result: wx.PostEvent(self,
+#                         TestEvent(result))
+#        self._db.async("SELECT COUNT(*) FROM tracks", (), completion)
+        self.enqueueRandomTracks(1)
 
     def _onTestEvent(self, e):
         self._logger.info("Test result: " + str(e.getResult()))
@@ -1068,68 +1069,68 @@ class MainWindow(wx.Frame):
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing
     def enqueueRandomTracks(self, number, tags=None):
-        try:
-            self._logger.debug("Enqueueing "+str(number)+" random track"\
-                               +plural(number)+'.')
-            exclude = self._player.getUnplayedTrackIDs(self._db)
-            tracks = self._randomizer.chooseTracks(number, exclude, tags)
+        self._logger.debug("Enqueueing "+str(number)+" random track"\
+                           +plural(number)+'.')
+        exclude = self._player.getUnplayedTrackIDs(self._db)
+        completion = lambda tracks: \
+                     self.enqueueRandomTracksCompletion(tracks)
+        self._randomizer.chooseTracks(number, exclude, completion, tags)
+
+    def enqueueRandomTracksCompletion(self, tracks):
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
-            self._logger.debug("Checking tracks for links.")
-            for track in tracks:
-                linkIDs = self._db.getLinkIDs(track)
-                if linkIDs == None:
+        self._logger.debug("Checking tracks for links.")
+        for track in tracks:
+            linkIDs = self._db.getLinkIDs(track)
+            if linkIDs == None:
+                self.enqueueTrack(track)
+            else:
+                originalLinkID = linkIDs[0]
+                (firstTrackID,
+                 secondTrackID) = self._db.getLinkedTrackIDs(originalLinkID)
+                firstTrack = self._trackFactory.getTrackFromID(self._db,
+                                                               firstTrackID)
+                secondTrack = self._trackFactory.getTrackFromID(
+                    self._db, secondTrackID)
+                trackQueue = deque([firstTrack, secondTrack])
+                linkIDs = self._db.getLinkIDs(firstTrack)
+                oldLinkIDs = originalLinkID
+                ## finds earlier tracks
+                while True:
+                    for linkID in linkIDs:
+                        if linkID not in oldLinkIDs:
+                            (newTrackID,
+                             trackID) = self._db.getLinkedTrackIDs(linkID)
+                            track = self._trackFactory.getTrackFromID(
+                                self._db, newTrackID)
+                            trackQueue.appendleft(track)
+                            oldLinkIDs = linkIDs
+                            linkIDs = self._db.getLinkIDs(track)
+                    if oldLinkIDs == linkIDs:
+                        break
+                linkIDs = self._db.getLinkIDs(secondTrack)
+                oldLinkIDs = originalLinkID
+                ## finds later tracks
+                while True:
+                    for linkID in linkIDs:
+                        if linkID not in oldLinkIDs:
+                            (trackID,
+                             newTrackID) = self._db.getLinkedTrackIDs(
+                                linkID)
+                            track = self._trackFactory.getTrackFromID(
+                                self._db, newTrackID)
+                            trackQueue.append(track)
+                            oldLinkIDs = linkIDs
+                            linkIDs = self._db.getLinkIDs(track)
+                    if oldLinkIDs == linkIDs:
+                        break
+                for track in trackQueue:
                     self.enqueueTrack(track)
-                else:
-                    originalLinkID = linkIDs[0]
-                    (firstTrackID,
-                     secondTrackID) = self._db.getLinkedTrackIDs(originalLinkID)
-                    firstTrack = self._trackFactory.getTrackFromID(self._db,
-                                                                   firstTrackID)
-                    secondTrack = self._trackFactory.getTrackFromID(
-                        self._db, secondTrackID)
-                    trackQueue = deque([firstTrack, secondTrack])
-                    linkIDs = self._db.getLinkIDs(firstTrack)
-                    oldLinkIDs = originalLinkID
-                    ## finds earlier tracks
-                    while True:
-                        for linkID in linkIDs:
-                            if linkID not in oldLinkIDs:
-                                (newTrackID,
-                                 trackID) = self._db.getLinkedTrackIDs(linkID)
-                                track = self._trackFactory.getTrackFromID(
-                                    self._db, newTrackID)
-                                trackQueue.appendleft(track)
-                                oldLinkIDs = linkIDs
-                                linkIDs = self._db.getLinkIDs(track)
-                        if oldLinkIDs == linkIDs:
-                                break
-                    linkIDs = self._db.getLinkIDs(secondTrack)
-                    oldLinkIDs = originalLinkID
-                    ## finds later tracks
-                    while True:
-                        for linkID in linkIDs:
-                            if linkID not in oldLinkIDs:
-                                (trackID,
-                                 newTrackID) = self._db.getLinkedTrackIDs(
-                                     linkID)
-                                track = self._trackFactory.getTrackFromID(
-                                    self._db, newTrackID)
-                                trackQueue.append(track)
-                                oldLinkIDs = linkIDs
-                                linkIDs = self._db.getLinkIDs(track)
-                        if oldLinkIDs == linkIDs:
-                                break
-                    for track in trackQueue:
-                        self.enqueueTrack(track)
 ##                    if secondLinkID != None:
 ##                        (secondTrackID,
 ##                         thirdTrackID) = self._db.getLinkedTrackIDs(secondLinkID)
 ##                        thirdTrack = self._trackFactory.getTrackFromID(self._db,
 ##                                                                      thirdTrackID)
 ##                        self.enqueueTrack(thirdTrack)
-        except EmptyDatabaseError:
-            self._logging.error("The database is empty.")
-            return
 
 ## FIXME: seems to give an outlined focus on track 2 (poss does nothing except
 ##        look confusing) - seems to have stopped...

@@ -66,9 +66,13 @@ class Randomizer:
         track = self.chooseTracks(1)[0]
         return track
 
-    def chooseTracks(self, number, exclude, tags=None):
+    def chooseTracks(self, number, exclude, completion, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
-        trackIDs = self._chooseTrackIDs(number, exclude, tags)
+        mycompletion = lambda trackIDs: self._chooseTracksCompletion(trackIDs,
+                                                                     completion)
+        self._chooseTrackIDs(number, exclude, mycompletion, tags)
+
+    def _chooseTracksCompletion(self, trackIDs, completion):
         tracks = []
         for [trackID, weight] in trackIDs:
             try:
@@ -77,12 +81,20 @@ class Randomizer:
                 tracks.append(track)
             except NoTrackError:
                 self._db.setHistorical(True, trackID)
-        return tracks
+        completion(tracks)
 
 ## will throw exception if database is empty?
-    def _chooseTrackIDs(self, number, exclude, tags=None):
+    def _chooseTrackIDs(self, number, exclude, completion, tags=None):
 ##        print time.time()
-        (trackWeightList, totalWeight) = self.createLists(exclude, tags)
+        mycompletion = lambda trackWeightList, totalWeight: \
+                            self._chooseTrackIDsCompletion(number,
+                                                           trackWeightList,
+                                                           totalWeight,
+                                                           completion)
+        self.createLists(exclude, mycompletion, tags)
+
+    def _chooseTrackIDsCompletion(self, number, trackWeightList, totalWeight,
+                                  completion):
         trackIDs = []
         for n in range(number):
 ##            poss should be here so tracks enqueued have times reset each time.
@@ -99,17 +111,23 @@ class Randomizer:
                                       +").")
                     trackIDs.append([trackID, norm])
                     break
-        return trackIDs
+        completion(trackIDs)
 
-    def createLists(self, exclude, tags=None):
+    def createLists(self, exclude, completion, tags=None):
         self._logger.debug("Creating weighted list of tracks.")
         oldest = self._db.getOldestLastPlayed()
         self._logger.info("Oldest is "+str(oldest)+" seconds old ("\
                           +roughAge(oldest)+" old).")
+        mycompletion = lambda rawTrackIDList: \
+                       self._createListsCompletion(exclude, oldest,
+                                                   rawTrackIDList, completion)
         if tags == None:
-            rawTrackIDList = self._db.getAllTrackIDs()
+            self._db.getAllTrackIDs(mycompletion)
         else:
-            rawTrackIDList = self._db.getAllTrackIDsWithTags(tags)
+            self._db.getAllTrackIDsWithTags(mycompletion, tags)
+
+    def _createListsCompletion(self, exclude, oldest, rawTrackIDList,
+                               completion):
         if rawTrackIDList == []:
             self._logger.error("No tracks in database.")
             raise EmptyDatabaseError
@@ -130,7 +148,7 @@ class Randomizer:
             weight = self.getWeight(score, time)
             trackWeightList.append([trackID, weight])
             totalWeight += weight
-        return trackWeightList, totalWeight
+        completion(trackWeightList, totalWeight)
 
     def getWeight(self, score, time):
         weight = eval(self._weightAlgorithm) # slow?

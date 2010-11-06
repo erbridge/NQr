@@ -39,8 +39,11 @@ def convertToUnicode(string, logger, logging=True):
     return unicodeString
 
 class RedirectText:
-    def __init__(self, textCtrl):
+    def __init__(self, textCtrl, stdout):
         self._out = textCtrl
+        self._out2 = stdout
 
     def write(self, string):
         self._out.WriteText(string)
+        self._out2.write(string)
+
