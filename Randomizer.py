@@ -62,15 +62,11 @@ class Randomizer:
         except ConfigParser.NoOptionError:
             self._scoreThreshold = self._defaultScoreThreshold
 
-    def chooseTrack(self):
-        track = self.chooseTracks(1)[0]
-        return track
-
-    def chooseTracks(self, number, exclude, completion, tags=None):
+    def asyncChooseTracks(self, number, exclude, completion, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
         mycompletion = lambda trackIDs: self._chooseTracksCompletion(trackIDs,
                                                                      completion)
-        self._chooseTrackIDs(number, exclude, mycompletion, tags)
+        self._asyncChooseTrackIDs(number, exclude, mycompletion, tags)
 
     def _chooseTracksCompletion(self, trackIDs, completion):
         tracks = []
@@ -84,14 +80,14 @@ class Randomizer:
         completion(tracks)
 
 ## will throw exception if database is empty?
-    def _chooseTrackIDs(self, number, exclude, completion, tags=None):
+    def _asyncChooseTrackIDs(self, number, exclude, completion, tags=None):
 ##        print time.time()
         mycompletion = lambda trackWeightList, totalWeight: \
                             self._chooseTrackIDsCompletion(number,
                                                            trackWeightList,
                                                            totalWeight,
                                                            completion)
-        self.createLists(exclude, mycompletion, tags)
+        self._asyncCreateLists(exclude, mycompletion, tags)
 
     def _chooseTrackIDsCompletion(self, number, trackWeightList, totalWeight,
                                   completion):
@@ -113,7 +109,7 @@ class Randomizer:
                     break
         completion(trackIDs)
 
-    def createLists(self, exclude, completion, tags=None):
+    def _asyncCreateLists(self, exclude, completion, tags=None):
         self._logger.debug("Creating weighted list of tracks.")
         oldest = self._db.getOldestLastPlayed()
         self._logger.info("Oldest is "+str(oldest)+" seconds old ("\
