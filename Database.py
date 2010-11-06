@@ -46,10 +46,26 @@ class DatabaseThread(threading.Thread):
         self.queue(lambda thread, cursor:
                    thread.do_execute_fetch_one(cursor, stmt, args, completion))
 
-class Database:
+ID_EVT_DATABASE = wx.NewId()
+
+def EVT_DATABASE(handler, func):
+    handler.Connect(-1, -1, ID_EVT_DATABASE, func)
+
+class DatabaseEvent(wx.PyEvent):
+    def __init__(self, result, completion):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_DATABASE)
+        self._result = result
+        self._completion = completion
+
+    def complete(self):
+        self._completion(self._result)
+
+class Database(wx.EvtHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,
                  debugMode=False, databasePath="database",
                  defaultDefaultScore=10):
+        wx.EvtHandler.__init__(self)
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._configParser = configParser
@@ -72,11 +88,20 @@ class Database:
         self._initMaybeCreateTagsTable()
         self._conn.commit()
         self._cursor = self._conn.cursor()
+
+        EVT_DATABASE(self, self._onDatabaseEvent)
+        
         self._dbThread = DatabaseThread(self._databasePath)
         self._dbThread.start()
 
     def async(self, stmt, args, completion):
-        self._dbThread.execute_fetch_one(stmt, args, completion)
+        mycompletion = lambda result: wx.PostEvent(self,
+                                                   DatabaseEvent(result,
+                                                                 completion))
+        self._dbThread.execute_fetch_one(stmt, args, mycompletion)
+
+    def _onDatabaseEvent(self, e):
+        e.complete()
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")

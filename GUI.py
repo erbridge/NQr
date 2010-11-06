@@ -44,11 +44,6 @@ ID_EVT_TEST = wx.NewId()
 def EVT_TEST(window, func):
     window.Connect(-1, -1, ID_EVT_TEST, func)
 
-ID_EVT_TRACK_CHANGE = wx.NewId()
-
-def EVT_TRACK_CHANGE(window, func):
-    window.Connect(-1, -1, ID_EVT_TRACK_CHANGE, func)
-
 class TestEvent(wx.PyEvent):
     def __init__(self, result):
         wx.PyEvent.__init__(self)
@@ -57,6 +52,11 @@ class TestEvent(wx.PyEvent):
 
     def getResult(self):
         return self._result
+
+ID_EVT_TRACK_CHANGE = wx.NewId()
+
+def EVT_TRACK_CHANGE(window, func):
+    window.Connect(-1, -1, ID_EVT_TRACK_CHANGE, func)
 
 class TrackChangeEvent(wx.PyEvent):
     def __init__(self, db, trackFactory, path):
@@ -641,10 +641,12 @@ class MainWindow(wx.Frame):
 
     def _onTest(self, e):
         self._logger.info("Test!")
-#        completion = lambda result: wx.PostEvent(self,
-#                         TestEvent(result))
-#        self._db.async("SELECT COUNT(*) FROM tracks", (), completion)
-        self.enqueueRandomTracks(1)
+        completion = lambda result: self._onTestCompletion(result)
+        self._db.async("SELECT COUNT(*) FROM tracks", (), completion)
+        #        self.enqueueRandomTracks(1)
+
+    def _onTestCompletion(self, result):
+        self._logger.info("Test completion: " + str(result))
 
     def _onTestEvent(self, e):
         self._logger.info("Test result: " + str(e.getResult()))
