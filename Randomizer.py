@@ -66,9 +66,9 @@ class Randomizer:
         track = self.chooseTracks(1)[0]
         return track
 
-    def chooseTracks(self, number, exclude):
+    def chooseTracks(self, number, exclude, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
-        trackIDs = self._chooseTrackIDs(number, exclude)
+        trackIDs = self._chooseTrackIDs(number, exclude, tags)
         tracks = []
         for [trackID, weight] in trackIDs:
             try:
@@ -80,9 +80,9 @@ class Randomizer:
         return tracks
 
 ## will throw exception if database is empty?
-    def _chooseTrackIDs(self, number, exclude):
+    def _chooseTrackIDs(self, number, exclude, tags=None):
 ##        print time.time()
-        (trackWeightList, totalWeight) = self.createLists(exclude)
+        (trackWeightList, totalWeight) = self.createLists(exclude, tags)
         trackIDs = []
         for n in range(number):
 ##            poss should be here so tracks enqueued have times reset each time.
@@ -101,12 +101,15 @@ class Randomizer:
                     break
         return trackIDs
 
-    def createLists(self, exclude):
+    def createLists(self, exclude, tags=None):
         self._logger.debug("Creating weighted list of tracks.")
         oldest = self._db.getOldestLastPlayed()
         self._logger.info("Oldest is "+str(oldest)+" seconds old ("\
                           +roughAge(oldest)+" old).")
-        rawTrackIDList = self._db.getAllTrackIDs()
+        if tags == None:
+            rawTrackIDList = self._db.getAllTrackIDs()
+        else:
+            rawTrackIDList = self._db.getAllTrackIDsWithTags(tags)
         if rawTrackIDList == []:
             self._logger.error("No tracks in database.")
             raise EmptyDatabaseError

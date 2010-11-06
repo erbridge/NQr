@@ -7,8 +7,6 @@
 ##       etc for users and more complex for devs) using "logging" module?
 ## TODO: add delete file/directory menus, with confirmation?
 ## TODO: add support for mulitple track selections
-## TODO: add play button and menu item to play selected track? and add to
-##       right click menu
 ## TODO: display unplayed tracks with option to remove and rearrange playlist
 ## TODO: when NQr queueing off, change trackList behaviour to only show played
 ##       tracks, not to represent unplayed tracks, or show only 3 future tracks?
@@ -450,7 +448,6 @@ class MainWindow(wx.Frame):
         self.SetSizeHints(430, self.GetSize().y);
 
 ## TODO: use svg or gd to create button images via wx.Bitmap and wx.BitmapButton
-## TODO: add requeue button and "play this" button to play selected track
     def _initCreatePlayerControls(self):
         self._logger.debug("Creating player controls.")
         self._playerControls = wx.Panel(self._panel)
@@ -959,7 +956,6 @@ class MainWindow(wx.Frame):
         else:
             self.refreshLastPlayed(1, track)
             self.refreshPreviousPlay(1, track)
-        
 
     def _onInactivityTimerDing(self, e):
         if self._index != 0:
@@ -1042,12 +1038,12 @@ class MainWindow(wx.Frame):
 
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing
-    def enqueueRandomTracks(self, number):
+    def enqueueRandomTracks(self, number, tags=None):
         try:
             self._logger.debug("Enqueueing "+str(number)+" random track"\
                                +plural(number)+'.')
             exclude = self._player.getUnplayedTrackIDs(self._db)
-            tracks = self._randomizer.chooseTracks(number, exclude)
+            tracks = self._randomizer.chooseTracks(number, exclude, tags)
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
             self._logger.debug("Checking tracks for links.")
             for track in tracks:
