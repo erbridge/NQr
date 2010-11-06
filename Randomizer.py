@@ -168,10 +168,13 @@ class PrefsPage(wx.Panel):
         weightAlgorithmSizer = wx.BoxSizer(wx.HORIZONTAL)
 
         weightLabel = wx.StaticText(self, -1, "Weight Algorithm: ")
-        weightAlgorithmSizer.Add(weightLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        weightAlgorithmSizer.Add(weightLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM
+                                 |wx.ALIGN_CENTER_VERTICAL, 3)
 
         self._weightControl = wx.TextCtrl(
-            self, -1, self._settings["weightAlgorithm"], size=(-1,-1))
+            self, -1, self._settings["weightAlgorithm"], size=(-1, -1))
+        # TODO(ben): make this expand to fill the space (doesn't on at
+        # least FreeBSD)
         weightAlgorithmSizer.Add(self._weightControl, 1)
 
         self._weightSizer.Add(weightAlgorithmSizer, 0)
