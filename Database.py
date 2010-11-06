@@ -46,6 +46,14 @@ class DatabaseThread(threading.Thread):
         self.queue(lambda thread, cursor:
                    thread.do_execute_fetch_one(cursor, stmt, args, completion))
 
+    def doExecuteAndFetchAll(self, cursor, stmt, args, completion):
+        cursor.execute(stmt, args)
+        completion(cursor.fetchall())
+
+    def executeAndFetchAll(self, stmt, args, completion):
+        self.queue(lambda thread, cursor:
+                   thread.doExecuteAndFetchAll(cursor, stmt, args, completion))
+
 ID_EVT_DATABASE = wx.NewId()
 
 def EVT_DATABASE(handler, func):
@@ -101,6 +109,7 @@ class Database(wx.EvtHandler):
         self._dbThread.execute_fetch_one(stmt, args, mycompletion)
 
     def _onDatabaseEvent(self, e):
+        self._logger.info("got event")
         e.complete()
 
     def _initMaybeCreateTrackTable(self):
@@ -259,6 +268,12 @@ class Database(wx.EvtHandler):
             raise NoResultError()
         return result
 
+    def _asyncExecuteAndFetchAll(self, stmt, args, completion):
+        mycompletion = lambda result: wx.PostEvent(self,
+                                                   DatabaseEvent(result,
+                                                                 completion))
+        self._dbThread.executeAndFetchAll(stmt, args, mycompletion)
+
     def addTrack(self, path, hasTrackID=True):
         self._logger.debug("Adding \'"+path+"\' to the library.")
         track = self._trackFactory.getTrackFromPathNoID(self, path)
@@ -294,11 +309,8 @@ class Database(wx.EvtHandler):
     ## group by trackid; thrown in.
     def getAllTrackIDs(self, completion):
         self._logger.debug("Retrieving all track IDs.")
-        c = self._conn.cursor()
-        c.execute("select trackid from tracks")
-        result = c.fetchall()
-        c.close()
-        completion(result)
+        self._asyncExecuteAndFetchAll("select trackid from tracks", (),
+                                      completion)
     
     ## FIXME: not working yet, poss works for one tag
     def getAllTrackIDsWithTags(self, completion, tags):

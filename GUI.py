@@ -175,6 +175,7 @@ class MainWindow(wx.Frame):
         self._stdout = sys.stdout
         self._stderr = sys.stderr
         self._hotKeys = []
+        self._enqueuing = False
 
         wx.Frame.__init__(self, parent, title=title)
 
@@ -641,9 +642,9 @@ class MainWindow(wx.Frame):
 
     def _onTest(self, e):
         self._logger.info("Test!")
-        completion = lambda result: self._onTestCompletion(result)
-        self._db.async("SELECT COUNT(*) FROM tracks", (), completion)
-        #        self.enqueueRandomTracks(1)
+        #completion = lambda result: self._onTestCompletion(result)
+        #self._db.async("SELECT COUNT(*) FROM tracks", (), completion)
+        self.enqueueRandomTracks(1)
 
     def _onTestCompletion(self, result):
         self._logger.info("Test completion: " + str(result))
@@ -1071,6 +1072,10 @@ class MainWindow(wx.Frame):
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing
     def enqueueRandomTracks(self, number, tags=None):
+        if self._enqueuing:
+            self._logger.info("Already enqueuing")
+            return
+        self._enqueuing = True
         self._logger.debug("Enqueueing "+str(number)+" random track"\
                            +plural(number)+'.')
         exclude = self._player.getUnplayedTrackIDs(self._db)
@@ -1081,6 +1086,8 @@ class MainWindow(wx.Frame):
     def enqueueRandomTracksCompletion(self, tracks):
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
         self._logger.debug("Checking tracks for links.")
+        # Perhaps set at the end?
+        self._enqueuing = False
         for track in tracks:
             linkIDs = self._db.getLinkIDs(track)
             if linkIDs == None:
