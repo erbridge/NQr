@@ -584,7 +584,7 @@ class MainWindow(wx.Frame):
         self._hotKeys.append((flag, keyCode, targetID))
         
     def _populateRateMenu(self, menu):
-        scores = range(-10, 11)
+        scores = range(10, -11, -1)
         for score in scores:
             menuItem = menu.Append(-1, "Rate as "+str(score),
                                    " Set the score of the selected track to "\
