@@ -26,12 +26,27 @@ import traceback
 import Track
 import wx
 
+class MyConfigParser(ConfigParser.RawConfigParser):
+    def getboolean(self, section, option):
+        result = self.get(section, option)
+        try:
+            trues = ["1", "yes", "true", "on"]
+            falses = ["0", "no", "false", "off"]
+            if result in trues:
+                return True
+            if result in falses:
+                return False
+        except AttributeError as err:
+            if str(err) == "\'bool\' object has no attribute \'lower\'":
+                return result
+            raise err
+
 class Main(wx.App):
     def __init__(self):
         wx.App.__init__(self, False)
         self._prefsFile = "settings"
 
-        self._configParser = ConfigParser.RawConfigParser()
+        self._configParser = MyConfigParser()
         self._configParser.read(self._prefsFile)
 
         self._noQueue = False
