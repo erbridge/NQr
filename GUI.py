@@ -216,8 +216,8 @@ class MainWindow(wx.Frame):
         if self._rescanOnStartup == True:
             self._onRescan()
 
-        self._logger.debug("Drawing main window.")
         self._initCreateHotKeyTable()
+        self._logger.debug("Drawing main window.")
         self.Show(True)
 
         self._logger.info("Starting track monitor.")
@@ -580,9 +580,10 @@ class MainWindow(wx.Frame):
         font = wx.Font(9, wx.MODERN, wx.NORMAL, wx.NORMAL)
         self._logPanel.SetFont(font)
 
-        self._redirect = RedirectText(self._logPanel, sys.stdout)
-        sys.stdout = self._redirect
-        sys.stderr = self._redirect
+        self._redirectOut = RedirectOut(self._logPanel, sys.stdout)
+        self._redirectErr = RedirectErr(self._logPanel, sys.stderr)
+        sys.stdout = self._redirectOut
+        sys.stderr = self._redirectErr
         
     def _initCreateHotKeyTable(self):
         self._hotKeyTable = wx.AcceleratorTable(self._hotKeys)

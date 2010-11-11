@@ -38,7 +38,16 @@ def convertToUnicode(string, logger, logging=True):
             logger.warning("Bad characters resolved.")
     return unicodeString
 
-class RedirectText:
+class RedirectErr:
+    def __init__(self, textCtrl, stderr):
+        self._out = textCtrl
+        self._out2 = stderr
+
+    def write(self, string):
+        self._out.WriteText(string)
+        self._out2.write(string)
+        
+class RedirectOut:
     def __init__(self, textCtrl, stdout):
         self._out = textCtrl
         self._out2 = stdout
