@@ -20,7 +20,7 @@ import wx
 class Randomizer:
     def __init__(self, db, trackFactory, loggerFactory, configParser,
                  defaultScoreThreshold=-9,
-                 defaultWeight="score ** 2 * time ** 2"):
+                 defaultWeight="(score ** 2) * (time ** 2)"):
         self._safeOperations = ["", "(", ")", "score", "time", "**", "*", "/",
                                 "+", "-"]
         self._db = db
@@ -53,7 +53,7 @@ class Randomizer:
                 self._logger.error("Unsafe weight algorithm imported: \'"\
                                    +rawWeightAlgorithm+"\'.")
                 raise UnsafeInputError
-        self._weightAlgorithm = rawWeightAlgorithm
+        self._setWeightAlgorithm(rawWeightAlgorithm)
         try:
             self._scoreThreshold = self._configParser.getint("Randomizer",
                                                              "scoreThreshold")
@@ -166,13 +166,15 @@ class Randomizer:
             trackWeightList.append([trackID, weight])
             totalWeight += weight
         completion(trackWeightList, totalWeight)
+        
+    def _setWeightAlgorithm(self, rawWeightAlgorithm):
+        self._weightAlgorithm = eval("lambda score, time: "+rawWeightAlgorithm)
 
     def getWeight(self, score, time):
-        weight = eval(self._weightAlgorithm) # slow?
 ##        weight = time ** (score/50.)
 ##        weight = score**2 * time**2
 ##        weight = score * time
-        return weight
+        return self._weightAlgorithm(score, time)
 
 class PrefsPage(wx.Panel):
     def __init__(self, parent, configParser, logger, defaultScoreThreshold,
