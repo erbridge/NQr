@@ -32,9 +32,9 @@ class MyConfigParser(ConfigParser.RawConfigParser):
         try:
             trues = ["1", "yes", "true", "on"]
             falses = ["0", "no", "false", "off"]
-            if result in trues:
+            if result.lower() in trues:
                 return True
-            if result in falses:
+            elif result.lower() in falses:
                 return False
         except AttributeError as err:
             if str(err) == "\'bool\' object has no attribute \'lower\'":
