@@ -21,7 +21,8 @@ class Randomizer:
     def __init__(self, db, trackFactory, loggerFactory, configParser,
                  defaultScoreThreshold=-9,
                  defaultWeight="score ** 2 * time ** 2"):
-        self._safeOperations = ["", "score", "time", "**", "*", "/", "+", "-"]
+        self._safeOperations = ["", "(", ")", "score", "time", "**", "*", "/",
+                                "+", "-"]
         self._db = db
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Randomizer", "debug")
@@ -47,11 +48,8 @@ class Randomizer:
             rawWeightAlgorithm = self._defaultWeight
         for part in rawWeightAlgorithm.split(" "):
             if part not in self._safeOperations:
-                try:
-                    float(part)
+                if self._isSafeAlgorithmPart(part):
                     continue
-                except ValueError:
-                    pass
                 self._logger.error("Unsafe weight algorithm imported: \'"\
                                    +rawWeightAlgorithm+"\'.")
                 raise UnsafeInputError
@@ -61,6 +59,29 @@ class Randomizer:
                                                              "scoreThreshold")
         except ConfigParser.NoOptionError:
             self._scoreThreshold = self._defaultScoreThreshold
+            
+    def _isSafeAlgorithmPart(self, part):
+        if part not in self._safeOperations:
+            try:
+                float(part)
+                return True
+            except ValueError:
+                pass
+            newPart = ""
+            operation = []
+            for index in range(len(part)):
+                newPart += part[index]
+                if newPart not in self._safeOperations:
+                    try:
+                        float(newPart)
+                        newPart = ""
+                    except ValueError:
+                        pass
+                    continue
+                newPart = ""
+            if newPart != "":
+                return False
+        return True
 
     def asyncChooseTracks(self, number, exclude, completion, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
@@ -194,7 +215,7 @@ class PrefsPage(wx.Panel):
         self._weightSizer.Add(weightAlgorithmSizer, 0)
 
         weightHelpBox = wx.StaticBox(self, -1,
-                                     "Acceptable Input (separate with spaces):")
+                                     "Acceptable Input:")
         weightHelpSizer = wx.StaticBoxSizer(weightHelpBox, wx.HORIZONTAL)
         weightHelpFont = wx.Font(8, wx.MODERN, wx.NORMAL, wx.NORMAL)
 
