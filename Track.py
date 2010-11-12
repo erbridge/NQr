@@ -262,7 +262,7 @@ class PrefsPage(wx.Panel):
             self.setSetting(name, value)
 
     def setSetting(self, name, value):
-        self._configParser.set("Track", name, value)
+        self._configParser.set("Track", name, str(value))
 
     def _loadSettings(self):
         pass

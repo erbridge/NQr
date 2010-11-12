@@ -59,13 +59,13 @@ class MediaPlayer:
 
     def addTrack(self, filepath):
         if self._noQueue:
-            self._logger.info("Not queuing " + filepath)
+            self._logger.info("Not queueing " + filepath)
             return
         self._addTrack(filepath)
         
     def insertTrack(self, filepath, position):
         if self._noQueue:
-            self._logger.info("Not queuing " + filepath)
+            self._logger.info("Not queueing " + filepath)
             return
         self._insertTrack(filepath, position)
 
@@ -93,7 +93,7 @@ class PrefsPage(wx.Panel):
             self.setSetting(name, value)
 
     def setSetting(self, name, value):
-        self._configParser.set("Player", name, value)
+        self._configParser.set("Player", name, str(value))
 
     def _loadSettings(self):
         pass

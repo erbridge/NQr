@@ -22,6 +22,8 @@
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
 ## TODO: gives scores a drop down menu in the track list.
+## TODO: use less processing - only refresh tracks that need it, and maybe
+##       check tracks less often.
 
 from collections import deque
 import ConfigParser
@@ -1377,7 +1379,7 @@ class PrefsPage(wx.Panel):
             self.setSetting(name, value)
 
     def setSetting(self, name, value):
-        self._configParser.set("GUI", name, value)
+        self._configParser.set("GUI", name, str(value))
 
     def _loadSettings(self):
         try:

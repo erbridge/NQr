@@ -277,7 +277,7 @@ class PrefsPage(wx.Panel):
             self.setSetting(name, value)
 
     def setSetting(self, name, value):
-        self._configParser.set("Randomizer", name, value)
+        self._configParser.set("Randomizer", name, str(value))
 
     def _loadSettings(self):
         try:
