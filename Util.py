@@ -55,4 +55,17 @@ class RedirectOut:
     def write(self, string):
         self._out.WriteText(string)
         self._out2.write(string)
-
+        
+class MultiCompletion:
+    def __init__(self, number, completion):
+        self._completion = completion
+        self._slots = [None] * number
+    
+    def put(self, slot, value):
+        self._slots[slot] = value
+        if None not in self._slots:
+            self._complete()
+        
+    def _complete(self):
+        self._completion(*self._slots)
+        

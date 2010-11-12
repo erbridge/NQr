@@ -6,7 +6,7 @@
 import ConfigParser
 from Errors import *
 from Time import roughAge
-from Util import plural
+from Util import plural, MultiCompletion
 import random
 import time
 
@@ -132,22 +132,27 @@ class Randomizer:
 
     def _asyncCreateLists(self, exclude, completion, tags=None):
         self._logger.debug("Creating weighted list of tracks.")
-        oldest = self._db.getOldestLastPlayed()
-        self._logger.info("Oldest is "+str(oldest)+" seconds old ("\
-                          +roughAge(oldest)+" old).")
-        mycompletion = lambda rawTrackIDList: \
-                       self._createListsCompletion(exclude, oldest,
-                                                   rawTrackIDList, completion)
+        mycompletion = MultiCompletion(2,
+            lambda rawTrackIDList, oldest: \
+            self._createListsCompletion(exclude, oldest, rawTrackIDList,
+                                        completion))
+        trackListCompletion = lambda rawTrackIDList: \
+                              mycompletion.put(0, rawTrackIDList)
+        oldestCompletion = lambda oldest: mycompletion.put(1, oldest)
+        
+        self._db.asyncGetOldestLastPlayed(oldestCompletion)
         if tags == None:
-            self._db.asyncGetAllTrackIDs(mycompletion)
+            self._db.asyncGetAllTrackIDs(trackListCompletion)
         else:
-            self._db.getAllTrackIDsWithTags(mycompletion, tags)
+            self._db.asyncGetAllTrackIDsWithTags(trackListCompletion, tags)
 
     def _createListsCompletion(self, exclude, oldest, rawTrackIDList,
                                completion):
         if rawTrackIDList == []:
             self._logger.error("No tracks in database.")
             raise EmptyDatabaseError
+        self._logger.info("Oldest is "+str(oldest)+" seconds old ("\
+                          +roughAge(oldest)+" old).")
         trackWeightList = []
         totalWeight = 0
         for (trackID, ) in rawTrackIDList:

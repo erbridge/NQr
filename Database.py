@@ -40,15 +40,32 @@ class DatabaseThread(threading.Thread):
     def doExecuteAndFetchOne(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
-        completion(result)
+        if result is None:
+            raise NoResultError()
+        completion(result[0])
 
     def executeAndFetchOne(self, stmt, args, completion):
         self.queue(lambda thread, cursor:
-                   thread.do_execute_fetch_one(cursor, stmt, args, completion))
+                   thread.doExecuteAndFetchOne(cursor, stmt, args, completion))
+        
+    def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion):
+        cursor.execute(stmt, args)
+        result = cursor.fetchone()
+        if result is None:
+            completion(None)
+        completion(result[0])
+
+    def executeAndFetchOneOrNull(self, stmt, args, completion):
+        self.queue(lambda thread, cursor:
+                   thread.doExecuteAndFetchOneOrNull(cursor, stmt, args,
+                                                     completion))
 
     def doExecuteAndFetchAll(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
-        completion(cursor.fetchall())
+        result = cursor.fetchall()
+        if result is None:
+            raise NoResultError()
+        completion(result)
 
     def executeAndFetchAll(self, stmt, args, completion):
         self.queue(lambda thread, cursor:
@@ -65,7 +82,7 @@ class DatabaseEvent(wx.PyEvent):
         self.SetEventType(ID_EVT_DATABASE)
         self._result = result
         self._completion = completion
-
+        
     def complete(self):
         self._completion(self._result)
 
@@ -109,7 +126,7 @@ class Database(wx.EvtHandler):
         self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
 
     def _onDatabaseEvent(self, e):
-        self._logger.info("got event")
+        self._logger.debug("Got event.")
         e.complete()
 
     def _initMaybeCreateTrackTable(self):
@@ -255,18 +272,30 @@ class Database(wx.EvtHandler):
             self._logger.debug("Tags table found.")
         c.close()
 
-    def _executeAndFetchOneOrNull(self, stmt, args = ()):
+    def _executeAndFetchOneOrNull(self, stmt, args=()):
         self._cursor.execute(stmt, args)
         result = self._cursor.fetchone()
         if result is None:
             return None
         return result[0]
+    
+    def _asyncExecuteAndFetchOneOrNull(self, stmt, args, completion):
+        mycompletion = lambda result: wx.PostEvent(self,
+                                                   DatabaseEvent(result,
+                                                                 completion))
+        self._dbThread.executeAndFetchOneOrNull(stmt, args, mycompletion)
 
-    def _executeAndFetchOne(self, stmt, args = ()):
+    def _executeAndFetchOne(self, stmt, args=()):
         result = self._executeAndFetchOneOrNull(stmt, args)
         if result is None:
             raise NoResultError()
         return result
+    
+    def _asyncExecuteAndFetchOne(self, stmt, args, completion):
+        mycompletion = lambda result: wx.PostEvent(self,
+                                                   DatabaseEvent(result,
+                                                                 completion))
+        self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
 
     def _asyncExecuteAndFetchAll(self, stmt, args, completion):
         mycompletion = lambda result: wx.PostEvent(self,
@@ -313,7 +342,7 @@ class Database(wx.EvtHandler):
                                       completion)
     
     ## FIXME: not working yet, poss works for one tag
-    def getAllTrackIDsWithTags(self, completion, tags):
+    def asyncGetAllTrackIDsWithTags(self, completion, tags):
         self._logger.debug("Retrieving all track IDs with tags: "+str(tags)+".")
         self._cursor.execute(
             """select trackid from tracks left outer join
@@ -574,18 +603,18 @@ class Database(wx.EvtHandler):
     # whether entries are current or historical. Partially fixed: 
     # currently bad tracks rely on being chosen by randomizer to update 
     # historical status.
-    def getOldestLastPlayed(self):
+    def asyncGetOldestLastPlayed(self, completion):
         try:
-            return self._executeAndFetchOne(
+            self._asyncExecuteAndFetchOne(
                 """select strftime('%s', 'now') - strftime('%s', min(datetime))
                    from (select max(playid) as id, trackid from plays,
                          (select trackid as historicalid from tracks where
                           historical = 0) as historicaltracks where
                          plays.trackid = historicaltracks.historicalid group by
                          trackid) as maxplays, plays where maxplays.id =
-                   plays.playid""")
+                   plays.playid""", (), completion)
         except NoResultError:
-            return 0
+            completion(0)
 
     def getPlayCount(self, track=None, trackID=None):
         self._logger.debug("Retrieving play count.")
