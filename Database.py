@@ -255,15 +255,15 @@ class Database(wx.EvtHandler):
             self._logger.debug("Tags table found.")
         c.close()
 
-    def _executeAndFetchoneOrNull(self, stmt, args = ()):
+    def _executeAndFetchOneOrNull(self, stmt, args = ()):
         self._cursor.execute(stmt, args)
         result = self._cursor.fetchone()
         if result is None:
             return None
         return result[0]
 
-    def _executeAndFetchone(self, stmt, args = ()):
-        result = self._executeAndFetchoneOrNull(stmt, args)
+    def _executeAndFetchOne(self, stmt, args = ()):
+        result = self._executeAndFetchOneOrNull(stmt, args)
         if result is None:
             raise NoResultError()
         return result
@@ -325,7 +325,7 @@ class Database(wx.EvtHandler):
     def _getTrackID(self, track, update=False):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
-        result = self._executeAndFetchoneOrNull(
+        result = self._executeAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ))
         if result == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
@@ -357,7 +357,7 @@ class Database(wx.EvtHandler):
 
     def getDirectoryID(self, directory):
         self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
-        result = self._executeAndFetchoneOrNull(
+        result = self._executeAndFetchOneOrNull(
             "select directoryid from directories where path = ?", (directory, ))
         if result == None:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
@@ -421,7 +421,7 @@ class Database(wx.EvtHandler):
         secondTrackID = secondTrack.getID()
         firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
         secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-        result = self._executeAndFetchoneOrNull(
+        result = self._executeAndFetchOneOrNull(
             """select linkid from links where firsttrackid = ? and
                secondtrackid = ?""", (firstTrackID, secondTrackID))
         if result == None:
@@ -435,9 +435,9 @@ class Database(wx.EvtHandler):
         self._logger.debug("Retrieving link IDs.")
         trackID = track.getID()
         path = self.getPathFromIDNoDebug(trackID)
-        firstResult = self._executeAndFetchoneOrNull(
+        firstResult = self._executeAndFetchOneOrNull(
             "select linkid from links where secondtrackid = ?", (trackID, ))
-        secondResult = self._executeAndFetchoneOrNull(
+        secondResult = self._executeAndFetchOneOrNull(
             "select linkid from links where firsttrackid = ?", (trackID, ))
         if firstResult == None:
             if secondResult == None:
@@ -452,7 +452,7 @@ class Database(wx.EvtHandler):
 
     def getLinkedTrackIDs(self, linkID):
         self._logger.debug("Retrieving track IDs for linked tracks.")
-        result = self._executeAndFetchoneOrNull(
+        result = self._executeAndFetchOneOrNull(
             "select firsttrackid, secondtrackid from links where linkid = ?",
             (linkID, ))
         if result == None:
@@ -492,7 +492,7 @@ class Database(wx.EvtHandler):
         if trackID == None:
             self._logger.error("No track has been identified.")
             raise NoTrackError
-        return self._executeAndFetchoneOrNull(
+        return self._executeAndFetchOneOrNull(
             """select strftime('%s', 'now') - strftime('%s', datetime)
                from enqueues where trackid = ? order by enqueueid desc""",
             (trackID, ))
@@ -509,7 +509,7 @@ class Database(wx.EvtHandler):
                                 (?, datetime(?))""", (trackID, playTime))
 
     def getLastPlayedTrackID(self):
-        result = self._executeAndFetchoneOrNull(
+        result = self._executeAndFetchOneOrNull(
             "select trackid from plays order by playid desc")
         if result != None:
             return result
@@ -576,7 +576,7 @@ class Database(wx.EvtHandler):
     # historical status.
     def getOldestLastPlayed(self):
         try:
-            return self._executeAndFetchone(
+            return self._executeAndFetchOne(
                 """select strftime('%s', 'now') - strftime('%s', min(datetime))
                    from (select max(playid) as id, trackid from plays,
                          (select trackid as historicalid from tracks where
@@ -800,7 +800,7 @@ class Database(wx.EvtHandler):
         return tagNames
 
     def getTagNameID(self, tagName):
-        return self._executeAndFetchone(
+        return self._executeAndFetchOne(
             "select tagnameid from tagnames where name = ?", (tagName, ))
 
     def setTag(self, track, tagName):
@@ -832,7 +832,7 @@ class Database(wx.EvtHandler):
             return []
         tagNames = []
         for tagNameID in tagNameIDs:
-            tagNames.append(self._executeAndFetchone(
+            tagNames.append(self._executeAndFetchOne(
                 "select name from tagnames where tagnameid = ?",
                 (tagNameID[0], )))
         return tagNames
@@ -887,7 +887,7 @@ class Database(wx.EvtHandler):
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
             trackID = track.getID()
-        return self._executeAndFetchoneOrNull(
+        return self._executeAndFetchOneOrNull(
             "select score from scores where trackid = ? order by scoreid desc",
             (trackID, ))
 
@@ -907,7 +907,7 @@ class Database(wx.EvtHandler):
         return self._getScore(trackID=trackID)
 
     def maybeGetIDFromPath(self, path):
-        return self._executeAndFetchoneOrNull(
+        return self._executeAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ))
 
     def getIDFromPath(self, path):
@@ -916,12 +916,12 @@ class Database(wx.EvtHandler):
             raise PathNotFoundError()
 
     def getNumberOfTracks(self):
-        return self._executeAndFetchone("select count(*) from tracks")
+        return self._executeAndFetchOne("select count(*) from tracks")
 
     # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
     # or this is slow!
     def getNumberOfUnplayedTracks(self):
-        return self._executeAndFetchone(
+        return self._executeAndFetchOne(
             """select count(*) from tracks left outer join plays using(trackid)
                where plays.trackid is null""")
 
