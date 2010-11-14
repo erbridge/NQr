@@ -303,9 +303,15 @@ class Database(wx.EvtHandler):
                                                                  completion))
         self._dbThread.executeAndFetchAll(stmt, args, mycompletion)
 
-    def addTrack(self, path, hasTrackID=True):
+    def addTrack(self, path=None, hasTrackID=True, track=None):
+        if path == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError
+            path = track.getPath()
         self._logger.debug("Adding \'"+path+"\' to the library.")
-        track = self._trackFactory.getTrackFromPathNoID(self, path)
+        if track == None:
+            track = self._trackFactory.getTrackFromPathNoID(self, path)
         if track == None:
             self._logger.debug("\'"+path+"\' is an invalid file.")
             return None
@@ -365,7 +371,7 @@ class Database(wx.EvtHandler):
     def getTrackID(self, track, update=False):
         trackID = self._getTrackID(track, update)
         if trackID == None:
-            return self.addTrack(track.getPath(), hasTrackID=False)
+            return self.addTrack(hasTrackID=False, track=track)
         return trackID
 
     def addDirectory(self, directory):
