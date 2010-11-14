@@ -303,9 +303,15 @@ class Database(wx.EvtHandler):
                                                                  completion))
         self._dbThread.executeAndFetchAll(stmt, args, mycompletion)
 
-    def addTrack(self, path, hasTrackID=True):
+    def addTrack(self, path=None, hasTrackID=True, track=None):
+        if path == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError
+            path = track.getPath()
         self._logger.debug("Adding \'"+path+"\' to the library.")
-        track = self._trackFactory.getTrackFromPathNoID(self, path)
+        if track == None:
+            track = self._trackFactory.getTrackFromPathNoID(self, path)
         if track == None:
             self._logger.debug("\'"+path+"\' is an invalid file.")
             return None
@@ -351,21 +357,21 @@ class Database(wx.EvtHandler):
                 tags.trackid = tracks.trackid""", tags)
         completion(self._cursor.fetchall())
 
-    def _getTrackID(self, track, update=False):
+    def _getTrackID(self, track):#, update=False):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
         result = self._executeAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ))
         if result == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
-            if update == True:
-                raise NoTrackError
+#            if update == True:
+#                raise NoTrackError
         return result
 
-    def getTrackID(self, track, update=False):
-        trackID = self._getTrackID(track, update)
+    def getTrackID(self, track):#, update=False):
+        trackID = self._getTrackID(track)#, update)
         if trackID == None:
-            return self.addTrack(track.getPath(), hasTrackID=False)
+            return self.addTrack(hasTrackID=False, track=track)
         return trackID
 
     def addDirectory(self, directory):
@@ -651,7 +657,7 @@ class Database(wx.EvtHandler):
         path = track.getPath()
         self._logger.debug("Updating \'"+path+"\' in the library.")
         c = self._conn.cursor()
-        trackID = self._getTrackID(track, update=True)
+        trackID = self._getTrackID(track)#, update=True)
         if trackID != None:
             c.execute("""update tracks set path = ?, artist = ?, album = ?,
                          title = ?, tracknumber = ?, length = ?, bpm = ? where
@@ -668,7 +674,7 @@ class Database(wx.EvtHandler):
 
     def _getTrackDetailsChange(self, track):
         self._logger.debug("Checking whether track details have changed.")
-        details = self._getTrackDetails(track=track, update=True)
+        details = self._getTrackDetails(track=track)#, update=True)
         newDetails = {}
         newDetails[self._pathIndex] = track.getPath()
         newDetails[self._artistIndex] = track.getArtist()
@@ -685,7 +691,7 @@ class Database(wx.EvtHandler):
                 continue
         return False
 
-    def _getTrackDetails(self, track=None, trackID=None, update=False):
+    def _getTrackDetails(self, track=None, trackID=None):#, update=False):
         (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
          self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
          self._bpmIndex, self._historicalIndex) = range(9)
@@ -693,7 +699,7 @@ class Database(wx.EvtHandler):
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
-            trackID = track.getID(update)
+            trackID = track.getID()#update)
         c = self._conn.cursor()
         c.execute("""select path, artist, album, title, tracknumber, unscored,
                      length, bpm, historical from tracks where trackid = ?""",
@@ -892,7 +898,7 @@ class Database(wx.EvtHandler):
         self._logger.debug("Setting track as unscored.")
         c = self._conn.cursor()
         trackID = track.getID()
-        c.execute("""update tracks set unscored = 1 where trackid = ?""",
+        c.execute("update tracks set unscored = 1 where trackid = ?",
                   (trackID, ))
         c.close()
         self._conn.commit()
