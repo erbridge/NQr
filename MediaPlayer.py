@@ -1,6 +1,7 @@
 ## Base class for media players
 
 import ConfigParser
+import os
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
@@ -68,6 +69,10 @@ class MediaPlayer:
             self._logger.info("Not queueing " + filepath)
             return
         self._insertTrack(filepath, position)
+        
+    def getTrackPathAtPos(self, trackPosition, logging=True):
+        path = self._getTrackPathAtPos(trackPosition, logging)
+        return os.path.abspath(path)
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger), "Player"
