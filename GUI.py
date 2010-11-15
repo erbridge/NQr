@@ -1208,34 +1208,41 @@ class MainWindow(wx.Frame):
 ## TODO: should focus on the top of the details
     def populateDetails(self, track):
         self._logger.debug("Populating details panel.")
+        
+        detailString = "Artist:  \t"+track.getArtist()\
+            +"\nTitle:  \t"+track.getTitle()\
+            +"\nAlbum:  \t"+track.getAlbum()\
+            +"\nTrack:  \t"+track.getTrackNumber()+"    \tLength:  \t"\
+            +track.getLengthString()
+            
+        bpm = track.getBPM()
+        if bpm != "-":
+            detailString += "\nBPM:  \t"+bpm
+            
+        detailString += "\nScore:  \t"+str(track.getScore())\
+            +"\nPlay Count:    "+str(track.getPlayCount())
+            
         lastPlayed = self._db.getLastPlayedLocalTime(track)
-        ## should be time from last play?
-        if lastPlayed == None:
-            lastPlayed = "-"
-        self.clearDetails()
-        self.addDetail("Artist:   "+track.getArtist())
-        self.addDetail("Title:   "+track.getTitle())
-        self.addDetail("Track:   "+track.getTrackNumber()\
-                       +"       Album:   "+track.getAlbum())
-        self.addDetail("Length:   "+track.getLengthString()\
-                       +"       BPM:   "+track.getBPM())
-        self.addDetail("Score:   "+str(track.getScore()))
-        self.addDetail("Play Count:   "+str(track.getPlayCount())\
-                       +"       Last Played:   "+lastPlayed)
-        self.addDetail("Filetrack:   "+track.getPath())
+        if lastPlayed != None:
+            detailString += "    \tLast Played:  \t"+lastPlayed
+            
         self.resetTagMenu()
         tags = track.getTags()
-        if tags == []:
-            return
         tagString = ""
         for tag in tags:
             tagString += tag + ", "
             tagID = self._getTagID(tag)
             self._tagMenu.Check(tagID, True)
-        self.addDetail("Tags:   "+tagString[:-2])
+        if tagString != "":
+            detailString += "\nTags:  \t"+tagString[:-2]
+            
+        detailString += "\nFilepath:      "+track.getPath()
+        
+        self.clearDetails()
+        self.addToDetails(detailString)
 
-    def addDetail(self, detail):
-        self._details.AppendText(detail+"\n")
+    def addToDetails(self, detail):
+        self._details.AppendText(detail)
 
     def clearDetails(self):
         self._logger.debug("Clearing details panel.")
