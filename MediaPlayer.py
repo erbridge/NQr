@@ -45,6 +45,10 @@ class MediaPlayer:
     def getCurrentTrackPath(self, logging=True):
         return self.getTrackPathAtPos(self.getCurrentTrackPos(), logging)
 
+    def getTrackPathAtPos(self, trackPosition, logging=True):
+        path = self._getTrackPathAtPos(trackPosition, logging)
+        return os.path.realpath(path)
+
     def getUnplayedTrackIDs(self, db):
         ids = []
         for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
@@ -55,24 +59,20 @@ class MediaPlayer:
                 ids.append(id)
             else:
                 ## FIXME: why skip them rather than adding them to db? (Felix)
-                self._logger.info("Skipping unknown unplayed track " + path)
+                self._logger.info("Skipping unknown unplayed track "+path)
         return ids
 
     def addTrack(self, filepath):
         if self._noQueue:
-            self._logger.info("Not queueing " + filepath)
+            self._logger.info("Not queueing "+filepath)
             return
         self._addTrack(filepath)
         
     def insertTrack(self, filepath, position):
         if self._noQueue:
-            self._logger.info("Not queueing " + filepath)
+            self._logger.info("Not queueing "+filepath)
             return
         self._insertTrack(filepath, position)
-        
-    def getTrackPathAtPos(self, trackPosition, logging=True):
-        path = self._getTrackPathAtPos(trackPosition, logging)
-        return os.path.realpath(path)
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger), "Player"

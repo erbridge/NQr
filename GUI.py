@@ -91,22 +91,22 @@ class TrackMonitor(Thread):
     def run(self):
         logging = True
         try:
-            currentTrack = self._player.getCurrentTrackPath(logging=logging)
+            currentTrackPath = self._player.getCurrentTrackPath(logging=logging)
         except NoTrackError:
-            currentTrack = None
+            currentTrackPath = None
         while True:
             time.sleep(.5)
             try:
-                newTrack = self._player.getCurrentTrackPath(logging=logging)
+                newTrackPath = self._player.getCurrentTrackPath(logging=logging)
                 logging = False
             except NoTrackError:
-                newTrack = None
-            if newTrack != currentTrack:
+                newTrackPath = None
+            if newTrackPath != currentTrackPath:
                 self._logger.debug("Track has changed.")
-                currentTrack = newTrack
+                currentTrackPath = newTrackPath
                 wx.PostEvent(self._window, TrackChangeEvent(self._db,
                                                             self._trackFactory,
-                                                            currentTrack))
+                                                            currentTrackPath))
                 logging = True
             if self._abortFlag == True:
                 self._logger.info("Stopping track monitor.")
@@ -664,7 +664,7 @@ class MainWindow(wx.Frame):
         if dialog.ShowModal() == wx.ID_OK:
             paths = dialog.GetPaths()
             for path in paths:
-                self._db.addTrack(os.path.abspath(path))
+                self._db.addTrack(path)
         dialog.Destroy()
 
     def _onAddDirectory(self, e):
@@ -677,7 +677,7 @@ class MainWindow(wx.Frame):
                                   self._defaultDirectory, wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
-            self._db.addDirectory(os.path.abspath(path))
+            self._db.addDirectory(path)
         dialog.Destroy()
 
     def _onAddDirectoryOnce(self, e):
@@ -690,7 +690,7 @@ class MainWindow(wx.Frame):
                                   self._defaultDirectory, wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
-            self._db.addDirectoryNoWatch(os.path.abspath(path))
+            self._db.addDirectoryNoWatch(path)
 ##        dialog = wxMDD.MultiDirDialog(self, title="Choose some directories...",
 ##                                      defaultPath=self._defaultDirectory,
 ##                                      agwStyle=wxMDD.DD_DIR_MUST_EXIST|
@@ -698,7 +698,7 @@ class MainWindow(wx.Frame):
 ##        if dialog.ShowModal() == wx.ID_OK:
 ##            paths = dialog.GetPaths()
 ##            for path in paths:
-##                self._db.addDirectoryNoWatch(os.path.abspath(path))
+##                self._db.addDirectoryNoWatch(path)
         dialog.Destroy()
 
     def _onRemoveDirectory(self, e):
@@ -711,7 +711,7 @@ class MainWindow(wx.Frame):
                                   self._defaultDirectory, wx.DD_DIR_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_OK:
             path = dialog.GetPath()
-            self._db.removeDirectory(os.path.abspath(path))
+            self._db.removeDirectory(path)
         dialog.Destroy()
 
     def _onRescan(self, e=None):
@@ -728,8 +728,8 @@ class MainWindow(wx.Frame):
             self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR)
         if firstDialog.ShowModal() == wx.ID_OK:
             firstPath = firstDialog.GetPath()
-            firstTrack = self._trackFactory.getTrackFromPath(
-                self._db, os.path.abspath(firstPath))
+            firstTrack = self._trackFactory.getTrackFromPath(self._db,
+                                                             firstPath)
             self._logger.debug("Opening second file dialog.")
             directory = os.path.dirname(firstPath)
             secondDialog = wx.FileDialog(
@@ -737,8 +737,8 @@ class MainWindow(wx.Frame):
                 self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR)
             if secondDialog.ShowModal() == wx.ID_OK:
                 secondPath = secondDialog.GetPath()
-                secondTrack = self._trackFactory.getTrackFromPath(
-                    self._db, os.path.abspath(secondPath))
+                secondTrack = self._trackFactory.getTrackFromPath(self._db,
+                                                                  secondPath)
                 self._db.addLink(firstTrack, secondTrack)
             secondDialog.Destroy()
         firstDialog.Destroy()
@@ -752,8 +752,8 @@ class MainWindow(wx.Frame):
             self._wildcards, wx.FD_OPEN|wx.FD_CHANGE_DIR)
         if firstDialog.ShowModal() == wx.ID_OK:
             firstPath = firstDialog.GetPath()
-            firstTrack = self._trackFactory.getTrackFromPath(
-                self._db, os.path.abspath(firstPath))
+            firstTrack = self._trackFactory.getTrackFromPath(self._db,
+                                                             firstPath)
             self._logger.debug("Opening second file dialog.")
             directory = os.path.dirname(firstPath)
             secondDialog = wx.FileDialog(
@@ -762,8 +762,8 @@ class MainWindow(wx.Frame):
                 )
             if secondDialog.ShowModal() == wx.ID_OK:
                 secondPath = secondDialog.GetPath()
-                secondTrack = self._trackFactory.getTrackFromPath(
-                    self._db, os.path.abspath(secondPath))
+                secondTrack = self._trackFactory.getTrackFromPath(self._db,
+                                                                  secondPath)
                 if self._db.getLinkID(firstTrack, secondTrack) != None:
                     self._db.removeLink(firstTrack, secondTrack)
                 else:

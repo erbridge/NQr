@@ -42,6 +42,7 @@ class TrackFactory:
         return track
 
     def getTrackFromPathNoID(self, db, path):
+        path = os.path.realpath(path)
         track = self._trackPathCache.get(path)
         if track != None:
             return track
@@ -78,17 +79,19 @@ class TrackFactory:
         self._logger.debug("Adding track to cache.")
         if len(self._trackCache) > 10000:
             del self._trackCache[self.trackIDList.pop(0)]
-        self._trackCache[track.getID()] = track
-        self._trackIDList.append(track.getID())
+        id = track.getID()
+        self._trackCache[id] = track
+        self._trackIDList.append(id)
 
         if len(self._trackPathCache) > 10000:
             del self._trackPathCache[self.trackPathList.pop(0)]
-        self._trackPathCache[track.getPath()] = track
-        self._trackPathList.append(track.getPath())
+        path = track.getPath()
+        self._trackPathCache[path] = track
+        self._trackPathList.append(path)
 
 class Track:
     def __init__(self, db, path, logger):
-        self._path = os.path.abspath(path)
+        self._path = os.path.realpath(path)
         self._db = db
         self._logger = logger
         self._id = None
@@ -176,10 +179,10 @@ class Track:
 class AudioTrack(Track):
     def __init__(self, db, path, logger):
         Track.__init__(self, db, path, logger)
-        self._path = self.getPath()
+#        self._path = self.getPath()
         try:
             self._logger.debug("Creating track from \'"+self._path+"\'.")
-            self._track = mutagen.File(path, easy=True)
+            self._track = mutagen.File(self._path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
             self._logger.error("File has no metadata.")
             raise NoMetadataError

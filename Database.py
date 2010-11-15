@@ -24,7 +24,7 @@ import wx
 class DatabaseThread(threading.Thread):
     def __init__(self, path):
         threading.Thread.__init__(self, name="Database")
-        self._databasePath = path
+        self._databasePath = os.path.realpath(path)
         self._queue = Queue.Queue()
 
     def queue(self, thing):
@@ -97,7 +97,7 @@ class Database(wx.EvtHandler):
         self._defaultDefaultScore = defaultDefaultScore
         self.loadSettings()
         self._debugMode = debugMode
-        self._databasePath = databasePath
+        self._databasePath = os.path.realpath(databasePath)
         self._logger.debug("Opening connection to database at "\
                            +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
@@ -309,6 +309,7 @@ class Database(wx.EvtHandler):
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
             path = track.getPath()
+        path = os.path.realpath(path)
         self._logger.debug("Adding \'"+path+"\' to the library.")
         if track == None:
             track = self._trackFactory.getTrackFromPathNoID(self, path)
@@ -319,7 +320,6 @@ class Database(wx.EvtHandler):
         trackID = None
         if hasTrackID == True:
             trackID = self._getTrackID(track)
-        path = track.getPath()
         if hasTrackID == False or trackID == None:
             c.execute("""insert into tracks (path, artist, album, title,
                          tracknumber, unscored, length, bpm, historical) values
@@ -375,6 +375,7 @@ class Database(wx.EvtHandler):
         return trackID
 
     def addDirectory(self, directory):
+        directory = os.path.realpath(directory)
         self._logger.debug("Adding \'"+directory+"\' to the watch list.")
         c = self._conn.cursor()
         directoryID = self.getDirectoryID(directory)
@@ -391,6 +392,7 @@ class Database(wx.EvtHandler):
         self.addDirectoryNoWatch(directory)
 
     def getDirectoryID(self, directory):
+        directory = os.path.realpath(directory)
         self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
         result = self._executeAndFetchOneOrNull(
             "select directoryid from directories where path = ?", (directory, ))
@@ -399,16 +401,18 @@ class Database(wx.EvtHandler):
         return result
 
     def addDirectoryNoWatch(self, directory):
+        directory = os.path.realpath(directory)
         self._logger.debug("Adding files in \'"+directory+"\' to the library.")
         contents = os.listdir(directory)
         for n in range(0, len(contents)):
-            path = os.path.abspath(directory+'/'+contents[n])
+            path = os.path.realpath(directory+'/'+contents[n])
             if os.path.isdir(path):
                 self.addDirectoryNoWatch(path)
             else: ## or: elif contents[n][-4:]=='.mp3':
                 self.addTrack(path)
 
     def removeDirectory(self, directory):
+        directory = os.path.realpath(directory)
         self._logger.debug("Removing \'"+directory+"\' from the watch list.")
         c = self._conn.cursor()
         directoryID = self.getDirectoryID(directory)
@@ -942,6 +946,7 @@ class Database(wx.EvtHandler):
         return self._getScore(trackID=trackID)
 
     def maybeGetIDFromPath(self, path):
+        path = os.path.realpath(path)
         return self._executeAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ))
 

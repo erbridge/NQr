@@ -18,6 +18,7 @@ import Database
 import getopt
 import GUI
 import Logger
+import os
 import platform
 import Prefs
 import Randomizer
@@ -29,7 +30,7 @@ import wx
 class Main(wx.App):
     def __init__(self):
         wx.App.__init__(self, False)
-        self._prefsFile = "settings"
+        self._prefsFile = os.path.realpath("settings")
 
         self._configParser = ConfigParser.SafeConfigParser()
         self._configParser.read(self._prefsFile)
@@ -81,7 +82,7 @@ class Main(wx.App):
             player = XMMS.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser)
         elif system == 'Mac OS X':
-            self._logger.debug("Loading iTunes module")
+            self._logger.debug("Loading iTunes module.")
             import iTunesMacOS
             player = iTunesMacOS.iTunesMacOS(self._noQueue)
 
