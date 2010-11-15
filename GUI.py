@@ -995,6 +995,7 @@ class MainWindow(wx.Frame):
 
     def _onInactivityTimerDing(self, e):
         if self._index != 0:
+            ## TODO: should also focus track list on current track.
             self.selectTrack(0)
 
     def _onRefreshTimerDing(self, e):

@@ -164,7 +164,7 @@ class WinampWindows(MediaPlayer):
     ## gets track at a playlist position
     ## Has logging option so track monitor can call it without spamming the
     ## debug log.
-    def getTrackPathAtPos(self, trackPosition, logging=True):
+    def _getTrackPathAtPos(self, trackPosition, logging=True):
         if logging == True:
             self._logger.debug("Retrieving path of track at position "\
                                +str(trackPosition)+".")
