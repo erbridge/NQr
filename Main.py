@@ -57,12 +57,19 @@ class Main(wx.App):
 		print "-n	  Don't queue tracks"
 
 	def _exceptHook(self, type, value, traceBack):
-		if value.trace != None:
-			self._logger.critical("Uncaught exception:\n\nTraceback (most "\
-				+"recent call last):\n"+"".join([
-					line for line in traceback.format_list(value.trace)\
-					+traceback.format_exception_only(type, value)]))
-		else:
+		try:
+			if value.trace != None:
+				self._logger.critical("Uncaught exception:\n\nTraceback (most "\
+					+"recent call last):\n"+"".join([
+						line for line in traceback.format_list(value.trace)\
+						+traceback.format_exception_only(type, value)]))
+			else:
+				self._logger.critical("Uncaught exception:\n\n"+"".join([
+					line for line in traceback.format_exception(type, value,
+																traceBack)]))
+		except AttributeError as err:
+			if str(err) != "\'NoTrackError\' object has no attribute \'trace\'":
+				raise
 			self._logger.critical("Uncaught exception:\n\n"+"".join([
 				line for line in traceback.format_exception(type, value,
 															traceBack)]))
