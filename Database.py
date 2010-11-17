@@ -54,6 +54,20 @@ class DatabaseThread(threading.Thread):
                    thread.doExecuteAndFetchOne(cursor, stmt, args, completion,
                                                trace))
         
+    def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace):
+        cursor.execute(stmt, args)
+        result = cursor.lastrowid
+        if result is None:
+            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+            return
+        completion(result)
+
+    def executeAndFetchLastRowID(self, stmt, args, completion):
+        trace = traceback.extract_stack()
+        self.queue(lambda thread, cursor:
+                   thread.doExecuteAndFetchLastRowID(cursor, stmt, args,
+                                                     completion, trace))
+        
     def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
@@ -323,12 +337,72 @@ class Database(wx.EvtHandler):
                                                    DatabaseEvent(result,
                                                                  completion))
         self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
+        
+    def _asyncExecuteAndFetchLastRowID(self, stmt, args, completion):
+        mycompletion = lambda result: wx.PostEvent(self,
+                                                   DatabaseEvent(result,
+                                                                 completion))
+        self._dbThread.executeAndFetchLastRowID(stmt, args, mycompletion)
 
     def _asyncExecuteAndFetchAll(self, stmt, args, completion):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
         self._dbThread.executeAndFetchAll(stmt, args, mycompletion)
+        
+    def asyncAddTrack(self, path=None, hasTrackID=True, track=None,
+                      completion=None):
+        mycompletion = lambda result: \
+            self._addTrackCompletion(path, hasTrackID, track, completion)
+        mycompletion2 = lambda thread, cursor: \
+            wx.PostEvent(self, DatabaseEvent(None, mycompletion))
+        self._dbThread.queue(mycompletion2)
+        
+    def _addTrackCompletion(self, path=None, hasTrackID=True, track=None,
+                            completion=None):
+        if path == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError
+            path = track.getPath()
+        path = os.path.realpath(path)
+        self._logger.debug("Adding \'"+path+"\' to the library.")
+        if track == None:
+            try:
+                track = self._trackFactory.getTrackFromPathNoID(self, path)
+            except NoTrackError:
+                track = None
+        if track == None:
+            self._logger.debug("\'"+path+"\' is an invalid file.")
+            return None
+        c = self._conn.cursor()
+        trackID = None
+        if hasTrackID == True:
+            trackID = self._getTrackID(track)
+        if hasTrackID == False or trackID == None:
+            mycompletion = lambda result: self._setTrackIDCompletion(track,
+                                                                     result,
+                                                                     completion)
+            self._asyncExecuteAndFetchLastRowID(
+                """insert into tracks (path, artist, album, title, tracknumber,
+                   unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
+                   ?, ?, 0)""", (path, track.getArtist(), track.getAlbum(),
+                                 track.getTitle(), track.getTrackNumber(),
+                                 track.getLength(), track.getBPM()),
+                mycompletion)
+#            trackID = c.lastrowid
+            self._logger.info("\'"+path+"\' has been added to the library.")
+        else:
+            self._logger.debug("\'"+path+"\' is already in the library.")
+#        self._conn.commit()
+#        track.setID(self._trackFactory, trackID)
+#        return trackID
+
+    def _setTrackIDCompletion(self, track, trackID, completion):
+        track.setID(self._trackFactory, trackID)
+        if completion == None:
+            return
+        completion(trackID)
 
     def addTrack(self, path=None, hasTrackID=True, track=None):
         if path == None:
@@ -429,6 +503,24 @@ class Database(wx.EvtHandler):
         if result == None:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
         return result
+    
+    def asyncAddDirectoryNoWatch(self, directory):
+        mycompletion = lambda result: \
+            self._addDirectoryNoWatchCompletion(directory)
+        mycompletion2 = lambda thread, cursor: \
+            wx.PostEvent(self, DatabaseEvent(None, mycompletion))
+        self._dbThread.queue(mycompletion2)
+        
+    def _addDirectoryNoWatchCompletion(self, directory):
+        directory = os.path.realpath(directory)
+        self._logger.debug("Adding files in \'"+directory+"\' to the library.")
+        contents = os.listdir(directory)
+        for n in range(0, len(contents)):
+            path = os.path.realpath(directory+'/'+contents[n])
+            if os.path.isdir(path):
+                self.asyncAddDirectoryNoWatch(path)
+            else: ## or: elif contents[n][-4:]=='.mp3':
+                self.asyncAddTrack(path)
 
     def addDirectoryNoWatch(self, directory):
         directory = os.path.realpath(directory)
@@ -466,7 +558,7 @@ class Database(wx.EvtHandler):
     def _rescanDirectoriesCompletion(self, result):
         self._logger.info("Rescanning the watch list for new files.")
         for (directory, ) in result:
-            self.addDirectoryNoWatch(directory)
+            self.asyncAddDirectoryNoWatch(directory)
         self._conn.commit()
 
 ## FIXME: needs to deal with two links using the same first or second track
