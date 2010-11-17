@@ -247,7 +247,7 @@ class MainWindow(wx.Frame):
 
         self._initCreateHotKeyTable()
         self._logger.debug("Drawing main window.")
-        self.Show(True)
+        self.Show(True) ## FIXME: make window draw fully before queueing
 
         self.maintainPlaylist()
         self.selectTrack(0)
@@ -739,7 +739,7 @@ class MainWindow(wx.Frame):
 
     def _onRescan(self, e=None):
         self._logger.debug("Rescanning watch list for new files.")
-        self._db.rescanDirectories()
+        self._db.asyncRescanDirectories()
 
 ## TODO: make linking files simpler, poss side by side selection or order
 ##       sensitive multiple selection?
@@ -918,13 +918,13 @@ class MainWindow(wx.Frame):
         self.Close(True)
 
     def _onClose(self, e):
+        sys.stdout = self._stdout
+        sys.stderr = self._stderr
         self._optionsMenu.Check(self._ID_TOGGLENQR, False)
         if self._trackMonitor:
             self._trackMonitor.abort()
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
-        sys.stdout = self._stdout
-        sys.stderr = self._stderr
         
         self.Destroy()
 

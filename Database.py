@@ -339,7 +339,10 @@ class Database(wx.EvtHandler):
         path = os.path.realpath(path)
         self._logger.debug("Adding \'"+path+"\' to the library.")
         if track == None:
-            track = self._trackFactory.getTrackFromPathNoID(self, path)
+            try:
+                track = self._trackFactory.getTrackFromPathNoID(self, path)
+            except NoTrackError:
+                track = None
         if track == None:
             self._logger.debug("\'"+path+"\' is an invalid file.")
             return None
@@ -452,11 +455,16 @@ class Database(wx.EvtHandler):
         c.close()
         self._conn.commit()
 
-    def rescanDirectories(self):
-        self._logger.debug("Rescanning the watch list for new files.")
-        c = self._conn.cursor()
-        c.execute("select path from directories")
-        result = c.fetchall()
+    def asyncRescanDirectories(self):
+        mycompletion = lambda result: self._rescanDirectoriesCompletion(result)
+        self._asyncExecuteAndFetchAll("select path from directories", (),
+                                      mycompletion)
+#        c = self._conn.cursor()
+#        c.execute("select path from directories")
+#        result = c.fetchall()
+        
+    def _rescanDirectoriesCompletion(self, result):
+        self._logger.info("Rescanning the watch list for new files.")
         for (directory, ) in result:
             self.addDirectoryNoWatch(directory)
         self._conn.commit()
