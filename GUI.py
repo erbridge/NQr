@@ -30,7 +30,7 @@ import ConfigParser
 from Errors import *
 import os
 import sys
-from threading import *
+import threading
 import time
 from Time import roughAge
 from Util import *
@@ -70,11 +70,21 @@ class TrackChangeEvent(wx.PyEvent):
 
     def getTrack(self):
         return self._trackFactory.getTrackFromPath(self._db, self._path)
+    
+ID_EVT_NO_NEXT_TRACK = wx.NewId()
+
+def EVT_NO_NEXT_TRACK(window, func):
+    window.Connect(-1, -1, ID_EVT_NO_NEXT_TRACK, func)
+
+class NoNextTrackEvent(wx.PyEvent):
+    def __init__(self):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_NO_NEXT_TRACK)
 
 ## must be aborted when closing!
-class TrackMonitor(Thread):
+class TrackMonitor(threading.Thread):
     def __init__(self, window, db, player, trackFactory, loggerFactory):
-        Thread.__init__(self)
+        threading.Thread.__init__(self, name="Track Monitor")
         self.setDaemon(True)
         self._window = window
         self._db = db
@@ -82,6 +92,7 @@ class TrackMonitor(Thread):
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.TrackMonitor", "debug")
         self._abortFlag = False
+        self._enqueueing = False
         self.start()
 
 ## poss should use position rather than filename?
@@ -96,6 +107,9 @@ class TrackMonitor(Thread):
             currentTrackPath = None
         while True:
             time.sleep(.5)
+            if self._abortFlag == True:
+                self._logger.info("Stopping track monitor.")
+                return
             try:
                 newTrackPath = self._player.getCurrentTrackPath(logging=logging)
                 logging = False
@@ -108,12 +122,20 @@ class TrackMonitor(Thread):
                                                             self._trackFactory,
                                                             currentTrackPath))
                 logging = True
+                self._enqueueing = True
+            if self._enqueueing == False \
+                    and self._player.hasNextTrack() == False:
+                self._logger.info("End of playlist reached.")
+                wx.PostEvent(self._window, NoNextTrackEvent())
             if self._abortFlag == True:
                 self._logger.info("Stopping track monitor.")
                 return
 
     def abort(self):
         self._abortFlag = True
+    
+    def setEnqueueing(self, status):
+        self._enqueueing = status
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
@@ -177,7 +199,7 @@ class MainWindow(wx.Frame):
         self._stdout = sys.stdout
         self._stderr = sys.stderr
         self._hotKeys = []
-        self._enqueuing = False
+        self._enqueueing = False
 
         wx.Frame.__init__(self, parent, title=title)
 
@@ -198,12 +220,17 @@ class MainWindow(wx.Frame):
         self._logger.debug("Creating and starting track list refresh timer.")
         self._refreshTimer = wx.Timer(self, self._ID_REFRESHTIMER)
         self._refreshTimer.Start(1000, oneShot=False)
+        
+        self._logger.info("Starting track monitor.")
+        self._trackMonitor = TrackMonitor(self, self._db, self._player,
+                                          self._trackFactory, loggerFactory)
 
         wx.EVT_TIMER(self, self._ID_PLAYTIMER, self._onPlayTimerDing)
         wx.EVT_TIMER(self, self._ID_INACTIVITYTIMER,
                      self._onInactivityTimerDing)
         wx.EVT_TIMER(self, self._ID_REFRESHTIMER, self._onRefreshTimerDing)
         EVT_TRACK_CHANGE(self, self._onTrackChange)
+        EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
         EVT_TEST(self, self._onTestEvent)
@@ -221,10 +248,6 @@ class MainWindow(wx.Frame):
         self._initCreateHotKeyTable()
         self._logger.debug("Drawing main window.")
         self.Show(True)
-
-        self._logger.info("Starting track monitor.")
-        self._trackMonitor = TrackMonitor(self, self._db, self._player,
-                                          self._trackFactory, loggerFactory)
 
         self.maintainPlaylist()
         self.selectTrack(0)
@@ -979,6 +1002,9 @@ class MainWindow(wx.Frame):
             self._playingTrack.addPlay()
         self.addTrack(self._playingTrack)
         self.maintainPlaylist()
+    
+    def _onNoNextTrack(self, e):
+        self.maintainPlaylist()
 
     def _onPlayTimerDing(self, e):
         track = self._playingTrack
@@ -1076,10 +1102,11 @@ class MainWindow(wx.Frame):
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing
     def enqueueRandomTracks(self, number, tags=None):
-        if self._enqueuing:
+        if self._enqueueing:
             self._logger.info("Already enqueuing")
             return
-        self._enqueuing = True
+        self._enqueueing = True
+        self._trackMonitor.setEnqueueing(True)
         self._logger.debug("Enqueueing "+str(number)+" random track"\
                            +plural(number)+'.')
         exclude = self._player.getUnplayedTrackIDs(self._db)
@@ -1091,7 +1118,8 @@ class MainWindow(wx.Frame):
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
         self._logger.debug("Checking tracks for links.")
         # Perhaps set at the end?
-        self._enqueuing = False
+        self._enqueueing = False
+        self._trackMonitor.setEnqueueing(False)
         for track in tracks:
             linkIDs = self._db.getLinkIDs(track)
             if linkIDs == None:

@@ -4,6 +4,7 @@
 
 import ctypes
 from Errors import *
+from MediaPlayer import MediaPlayer
 import subprocess
 import time
 from Util import *
@@ -11,8 +12,6 @@ import win32api
 import win32con
 import win32process
 import winamp as winampImport
-
-from MediaPlayer import MediaPlayer
 
 WM_USER = 0x400
 WM_WA_IPC = WM_USER

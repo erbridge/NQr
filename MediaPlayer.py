@@ -1,6 +1,7 @@
 ## Base class for media players
 
 import ConfigParser
+from Errors import *
 import os
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -38,6 +39,13 @@ class MediaPlayer:
             self._logger.debug("Cropping playlist by "+str(number)+" tracks.")
         for n in range(number):
             self.deleteTrack(0)
+        
+    def hasNextTrack(self):
+        try:
+            self.getTrackPathAtPos(self.getCurrentTrackPos()+1)
+            return True
+        except NoTrackError:
+            return False
 
 ## FIXME: gets confused if the playlist is empty (in winamp): sets currently
 ##        playing track to first track in the list, but continues to play the
