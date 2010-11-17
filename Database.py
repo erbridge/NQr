@@ -378,11 +378,14 @@ class Database(wx.EvtHandler):
         c = self._conn.cursor()
         trackID = None
         if hasTrackID == True:
-            trackID = self._getTrackID(track)
-        if hasTrackID == False or trackID == None:
             mycompletion = lambda result: self._setTrackIDCompletion(track,
                                                                      result,
                                                                      completion)
+            self._asyncGetTrackID(track, mycompletion)
+        elif hasTrackID == False:
+            mycompletion = lambda result: \
+                self._setTrackIDCompletion(track, result, completion,
+                                           wasAdded=True)
             self._asyncExecuteAndFetchLastRowID(
                 """insert into tracks (path, artist, album, title, tracknumber,
                    unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
@@ -390,15 +393,25 @@ class Database(wx.EvtHandler):
                                  track.getTitle(), track.getTrackNumber(),
                                  track.getLength(), track.getBPM()),
                 mycompletion)
-#            trackID = c.lastrowid
+
+    def _setTrackIDCompletion(self, track, trackID, completion, wasAdded=False):
+        path = track.getPath()
+        if trackID == None:
+            mycompletion = lambda result: \
+                self._setTrackIDCompletion(track, result, completion,
+                                           wasAdded=True)
+            self._asyncExecuteAndFetchLastRowID(
+                """insert into tracks (path, artist, album, title, tracknumber,
+                   unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
+                   ?, ?, 0)""", (path, track.getArtist(), track.getAlbum(),
+                                 track.getTitle(), track.getTrackNumber(),
+                                 track.getLength(), track.getBPM()),
+                mycompletion)
+            return
+        if wasAdded == True:
             self._logger.info("\'"+path+"\' has been added to the library.")
         else:
             self._logger.debug("\'"+path+"\' is already in the library.")
-#        self._conn.commit()
-#        track.setID(self._trackFactory, trackID)
-#        return trackID
-
-    def _setTrackIDCompletion(self, track, trackID, completion):
         track.setID(self._trackFactory, trackID)
         if completion == None:
             return
@@ -477,6 +490,30 @@ class Database(wx.EvtHandler):
         if trackID == None:
             return self.addTrack(hasTrackID=False, track=track)
         return trackID
+    
+    def asyncGetTrackID(self, track, completion):
+        mycompletion = lambda trackID: self._getTrackIDCompletion(track,
+                                                                  trackID,
+                                                                  completion)
+        self._asyncGetTrackID(track, mycompletion)
+        
+    def _asyncGetTrackID(self, track, completion):
+        path = track.getPath()
+        mycompletion = lambda result: wx.PostEvent(self,
+                                                   DatabaseEvent(result,
+                                                                 completion))
+        self._asyncExecuteAndFetchOneOrNull(
+            "select trackid from tracks where path = ?", (path, ), mycompletion)
+        
+    def _getTrackIDCompletion(self, track, trackID, completion):
+        path = track.getPath()
+        self._logger.debug("Retrieving track ID for \'"+path+"\'.")
+        if trackID == None:
+            self._logger.debug("\'"+path+"\' is not in the library.")
+            self.asyncAddTrack(path=path, hasTrackID=False, track=track,
+                               completion=completion)
+            return
+        completion(trackID)
 
     def addDirectory(self, directory):
         directory = os.path.realpath(directory)

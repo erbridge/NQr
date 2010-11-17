@@ -687,7 +687,7 @@ class MainWindow(wx.Frame):
         if dialog.ShowModal() == wx.ID_OK:
             paths = dialog.GetPaths()
             for path in paths:
-                self._db.addTrack(path)
+                self._db.asyncAddTrack(path)
         dialog.Destroy()
 
     def _onAddDirectory(self, e):
