@@ -13,7 +13,9 @@ from Errors import *
 import os
 import Queue
 import sqlite3
+import sys
 import threading
+import traceback
 from Util import *
 
 import wxversion
@@ -37,16 +39,17 @@ class DatabaseThread(threading.Thread):
             got = self._queue.get()
             got(self, cursor)
 
-    def doExecuteAndFetchOne(self, cursor, stmt, args, completion):
+    def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         if result is None:
-            raise NoResultError()
+            raise NoResultError(trace)
         completion(result[0])
 
-    def executeAndFetchOne(self, stmt, args, completion):
+    def executeAndFetchOne(self, stmt, args, completion, trace):
         self.queue(lambda thread, cursor:
-                   thread.doExecuteAndFetchOne(cursor, stmt, args, completion))
+                   thread.doExecuteAndFetchOne(cursor, stmt, args, completion,
+                                               trace))
         
     def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
@@ -60,16 +63,17 @@ class DatabaseThread(threading.Thread):
                    thread.doExecuteAndFetchOneOrNull(cursor, stmt, args,
                                                      completion))
 
-    def doExecuteAndFetchAll(self, cursor, stmt, args, completion):
+    def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
         result = cursor.fetchall()
         if result is None:
-            raise NoResultError()
+            raise NoResultError(trace)
         completion(result)
 
-    def executeAndFetchAll(self, stmt, args, completion):
+    def executeAndFetchAll(self, stmt, args, completion, trace):
         self.queue(lambda thread, cursor:
-                   thread.doExecuteAndFetchAll(cursor, stmt, args, completion))
+                   thread.doExecuteAndFetchAll(cursor, stmt, args, completion,
+                                               trace))
 
 ID_EVT_DATABASE = wx.NewId()
 
@@ -295,13 +299,15 @@ class Database(wx.EvtHandler):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
+        self._dbThread.executeAndFetchOne(stmt, args, mycompletion,
+                                          traceback.extract_stack())
 
     def _asyncExecuteAndFetchAll(self, stmt, args, completion):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.executeAndFetchAll(stmt, args, mycompletion)
+        self._dbThread.executeAndFetchAll(stmt, args, mycompletion,
+                                          traceback.extract_stack())
 
     def addTrack(self, path=None, hasTrackID=True, track=None):
         if path == None:

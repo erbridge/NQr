@@ -19,7 +19,9 @@ class PathNotFoundError(Error):
     pass
 
 class NoResultError(Error):
-    pass
+    def __init__(self, trace=None):
+        Error.__init__(self)
+        self.trace = trace
 
 class UnsafeInputError(Error):
     pass
