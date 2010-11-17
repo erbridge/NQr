@@ -60,10 +60,12 @@ class MultiCompletion:
     def __init__(self, number, completion):
         self._completion = completion
         self._slots = [None] * number
+        self._puts = [False] * number
     
     def put(self, slot, value):
         self._slots[slot] = value
-        if None not in self._slots:
+        self._puts[slot] = True
+        if False not in self._puts:
             self._complete()
         
     def _complete(self):
