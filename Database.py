@@ -48,7 +48,8 @@ class DatabaseThread(threading.Thread):
             return
         completion(result[0])
 
-    def executeAndFetchOne(self, stmt, args, completion, trace):
+    def executeAndFetchOne(self, stmt, args, completion):
+        trace = traceback.extract_stack()
         self.queue(lambda thread, cursor:
                    thread.doExecuteAndFetchOne(cursor, stmt, args, completion,
                                                trace))
@@ -73,7 +74,8 @@ class DatabaseThread(threading.Thread):
             return
         completion(result)
 
-    def executeAndFetchAll(self, stmt, args, completion, trace):
+    def executeAndFetchAll(self, stmt, args, completion):
+        trace = traceback.extract_stack()
         self.queue(lambda thread, cursor:
                    thread.doExecuteAndFetchAll(cursor, stmt, args, completion,
                                                trace))
@@ -320,15 +322,13 @@ class Database(wx.EvtHandler):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.executeAndFetchOne(stmt, args, mycompletion,
-                                          traceback.extract_stack())
+        self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
 
     def _asyncExecuteAndFetchAll(self, stmt, args, completion):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.executeAndFetchAll(stmt, args, mycompletion,
-                                          traceback.extract_stack())
+        self._dbThread.executeAndFetchAll(stmt, args, mycompletion)
 
     def addTrack(self, path=None, hasTrackID=True, track=None):
         if path == None:
