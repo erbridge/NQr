@@ -24,8 +24,9 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class DatabaseThread(threading.Thread):
-    def __init__(self, path):
+    def __init__(self, db, path):
         threading.Thread.__init__(self, name="Database")
+        self._db = db
         self._databasePath = os.path.realpath(path)
         self._queue = Queue.Queue()
 
@@ -43,7 +44,8 @@ class DatabaseThread(threading.Thread):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         if result is None:
-            raise NoResultError(trace)
+            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+            return
         completion(result[0])
 
     def executeAndFetchOne(self, stmt, args, completion, trace):
@@ -67,7 +69,8 @@ class DatabaseThread(threading.Thread):
         cursor.execute(stmt, args)
         result = cursor.fetchall()
         if result is None:
-            raise NoResultError(trace)
+            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+            return
         completion(result)
 
     def executeAndFetchAll(self, stmt, args, completion, trace):
@@ -89,6 +92,20 @@ class DatabaseEvent(wx.PyEvent):
         
     def complete(self):
         self._completion(self._result)
+        
+ID_EVT_EXCEPTION = wx.NewId()
+
+def EVT_EXCEPTION(handler, func):
+    handler.Connect(-1, -1, ID_EVT_EXCEPTION, func)
+
+class ExceptionEvent(wx.PyEvent):
+    def __init__(self, err, trace):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_EXCEPTION)
+        self._err = err(trace=trace)
+        
+    def getException(self):
+        return self._err
 
 class Database(wx.EvtHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,
@@ -119,8 +136,9 @@ class Database(wx.EvtHandler):
         self._cursor = self._conn.cursor()
 
         EVT_DATABASE(self, self._onDatabaseEvent)
+        EVT_EXCEPTION(self, self._onExceptionEvent)
         
-        self._dbThread = DatabaseThread(self._databasePath)
+        self._dbThread = DatabaseThread(self, self._databasePath)
         self._dbThread.start()
 
     def async(self, stmt, args, completion):
@@ -132,6 +150,9 @@ class Database(wx.EvtHandler):
     def _onDatabaseEvent(self, e):
         self._logger.debug("Got event.")
         e.complete()
+        
+    def _onExceptionEvent(self, e):
+        raise e.getException()
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
