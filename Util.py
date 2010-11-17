@@ -1,3 +1,4 @@
+from Errors import *
 import math
 
 def plural(count):
@@ -63,6 +64,8 @@ class MultiCompletion:
         self._puts = [False] * number
     
     def put(self, slot, value):
+        if self._puts[slot] == True:
+            raise MultiCompletionPutError
         self._slots[slot] = value
         self._puts[slot] = True
         if False not in self._puts:

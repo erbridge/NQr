@@ -25,3 +25,6 @@ class NoResultError(Error):
 
 class UnsafeInputError(Error):
     pass
+
+class MultiCompletionPutError(Error):
+    pass
