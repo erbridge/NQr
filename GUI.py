@@ -1252,7 +1252,7 @@ class MainWindow(wx.Frame):
             
         lastPlayed = self._db.getLastPlayedLocalTime(track)
         if lastPlayed != None:
-            detailString += "    \tLast Played:  \t"+lastPlayed
+            detailString += "    \tPlayed at:  \t"+lastPlayed
             
         self.resetTagMenu()
         tags = track.getTags()
