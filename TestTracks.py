@@ -4,20 +4,27 @@ import mutagen
 import os
 import sys
 
-def tryTrack(path):
-    track = mutagen.File(path, easy=True)
-    try:
-        artist = track['artist']
-        album = track['album']
-        title = track['title']
-        trackNumber = track['tracknumber']
-        bpm = track['bpm']
-    except KeyError as err:
-        if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'"):
-            print path
-#            print track
-#            print str(err)
-#            raise err
+class TrackTrier:
+    def __init__(self, path):
+        self.path_ = path
+        self.track_ = mutagen.File(path, easy=True)
+        artist = self.getAttr('artist')
+        album = self.getAttr('album')
+        title = self.getAttr('title')
+        trackNumber = self.getAttr('tracknumber')
+        bpm = self.getAttr('bpm')
+        
+    def getAttr(self, attr):
+        try:
+            got = self.track_[attr]
+        except KeyError as err:
+            if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'",
+                                "'TIT2'"):
+                print self.path_
+                print self.track_
+                print attr
+                #            print str(err)
+                raise err
 
 def recurseDir(dir):
     files = os.listdir(dir)
@@ -30,7 +37,7 @@ def recurseDir(dir):
         if os.path.isdir(f):
             recurseDir(f)
         else:
-            tryTrack(f)
+            TrackTrier(f)
 
 def main():
     dir = sys.argv[1]
