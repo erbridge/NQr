@@ -78,13 +78,13 @@ class TrackFactory:
     def addTrackToCache(self, track):
         self._logger.debug("Adding track to cache.")
         if len(self._trackCache) > 10000:
-            del self._trackCache[self.trackIDList.pop(0)]
+            del self._trackCache[self._trackIDList.pop(0)]
         id = track.getID()
         self._trackCache[id] = track
         self._trackIDList.append(id)
 
         if len(self._trackPathCache) > 10000:
-            del self._trackPathCache[self.trackPathList.pop(0)]
+            del self._trackPathCache[self._trackPathList.pop(0)]
         path = track.getPath()
         self._trackPathCache[path] = track
         self._trackPathList.append(path)
@@ -215,7 +215,8 @@ class AudioTrack(Track):
             # which is an error we should not accept - so for now, die
             ## poss should die on no title not no artist?
             ## what is key for artist?
-            if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'"):
+            if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'",
+                                "'TIT2'"):
                 raise err
             return "-"
 
