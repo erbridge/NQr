@@ -215,8 +215,7 @@ class AudioTrack(Track):
             # which is an error we should not accept - so for now, die
             ## poss should die on no title not no artist?
             ## what is key for artist?
-            if "TRCK" not in err and "TALB" not in err and "TPE1" not in err\
-               and "TBPM" not in err:
+            if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'"):
                 raise err
             return "-"
 
