@@ -80,14 +80,20 @@ class TrackFactory:
         if len(self._trackCache) > 10000:
             del self._trackCache[self._trackIDList.pop(0)]
         id = track.getID()
-        self._trackCache[id] = track
-        self._trackIDList.append(id)
+        if id not in self._trackCache:
+            self._trackCache[id] = track
+            self._trackIDList.append(id)
+        else:
+            assert track is self._trackCache[id]
 
         if len(self._trackPathCache) > 10000:
             del self._trackPathCache[self._trackPathList.pop(0)]
         path = track.getPath()
-        self._trackPathCache[path] = track
-        self._trackPathList.append(path)
+        if path not in self._trackPathCache:
+            self._trackPathCache[path] = track
+            self._trackPathList.append(path)
+        else:
+            assert track is self._trackPathCache[path]
 
 class Track:
     def __init__(self, db, path, logger):
