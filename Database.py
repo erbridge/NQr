@@ -319,12 +319,14 @@ class Database(wx.EvtHandler):
         if result is None:
             return None
         return result[0]
+
+    def _completionEvent(self, completion):
+        return lambda result: wx.PostEvent(self,
+                                           DatabaseEvent(result, completion))
     
     def _asyncExecuteAndFetchOneOrNull(self, stmt, args, completion):
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
-        self._dbThread.executeAndFetchOneOrNull(stmt, args, mycompletion)
+        self._dbThread.executeAndFetchOneOrNull(stmt, args,
+                                              self._completionEvent(completion))
 
     def _executeAndFetchOne(self, stmt, args=()):
         result = self._executeAndFetchOneOrNull(stmt, args)
@@ -333,23 +335,17 @@ class Database(wx.EvtHandler):
         return result
     
     def _asyncExecuteAndFetchOne(self, stmt, args, completion):
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
-        self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
+        self._dbThread.executeAndFetchOne(stmt, args,
+                                          self._completionEvent(completion))
         
     def _asyncExecuteAndFetchLastRowID(self, stmt, args, completion):
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
-        self._dbThread.executeAndFetchLastRowID(stmt, args, mycompletion)
+        self._dbThread.executeAndFetchLastRowID(stmt, args,
+                                              self._completionEvent(completion))
 
     def _asyncExecuteAndFetchAll(self, stmt, args, completion):
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
-        self._dbThread.executeAndFetchAll(stmt, args, mycompletion)
-        
+        self._dbThread.executeAndFetchAll(stmt, args,
+                                          self._completionEvent(completion))
+
     def asyncAddTrack(self, path=None, hasTrackID=True, track=None,
                       completion=None):
         mycompletion = lambda result: \
@@ -499,11 +495,9 @@ class Database(wx.EvtHandler):
         
     def _asyncGetTrackID(self, track, completion):
         path = track.getPath()
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
         self._asyncExecuteAndFetchOneOrNull(
-            "select trackid from tracks where path = ?", (path, ), mycompletion)
+            "select trackid from tracks where path = ?", (path, ),
+            self._completionEvent(completion))
         
     def _getTrackIDCompletion(self, track, trackID, completion):
         path = track.getPath()
