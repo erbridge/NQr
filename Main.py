@@ -13,6 +13,7 @@
 ## TODO: make refocussing on window reselect current track
 ##
 ## FIXME: queues wrong track if track changes at time of start up
+## FIXME: os.path.realpath() doesn't return a string
 
 import ConfigParser
 import Database
@@ -31,7 +32,7 @@ import wx
 class Main(wx.App):
     def __init__(self):
         wx.App.__init__(self, False)
-        self._prefsFile = os.path.realpath("settings")
+        self._prefsFile = "settings"
 
         self._configParser = ConfigParser.SafeConfigParser()
         self._configParser.read(self._prefsFile)

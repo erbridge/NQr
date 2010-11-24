@@ -340,7 +340,7 @@ class Database(wx.EvtHandler):
         self._defaultDefaultScore = defaultDefaultScore
         self.loadSettings()
         self._debugMode = debugMode
-        self._databasePath = os.path.realpath(databasePath)
+        self._databasePath = databasePath
         self._logger.debug("Opening connection to database at "\
                            +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
