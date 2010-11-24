@@ -6,6 +6,8 @@
 ## TODO: add functions to populate ignore list
 ## TODO: check if track table already exists first to confirm whether or not
 ##       to create other tables (poss corruption)
+##
+## FIXME: make tracebacks work properly for all completions?
 
 import ConfigParser
 import datetime
@@ -23,6 +25,195 @@ wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
 import wx
 
+class DirectoryWalkThread(threading.Thread):
+    def __init__(self, db, path, logger, trackFactory):
+        threading.Thread.__init__(self, name="Directory Walk")
+        self._db = db
+        self._databasePath = os.path.realpath(path)
+        self._logger = logger
+        self._trackFactory = trackFactory
+        self._queue = Queue.Queue()
+        
+    def queue(self, thing):
+        self._queue.put(thing)
+
+    def run(self):
+        conn = sqlite3.connect(self._databasePath)
+        self._cursor = conn.cursor()
+        while True:
+            got = self._queue.get()
+            got(self, self._cursor)
+            
+    def _executeAndFetchOneOrNull(self, cursor, stmt, args, completion):
+        cursor.execute(stmt, args)
+        result = cursor.fetchone()
+        if completion == None:
+            if result is None:
+                return None
+            return result[0]
+        if result is None:
+            completion(None)
+            return
+        completion(result[0])
+        
+    def _executeAndFetchAll(self, cursor, stmt, args, completion=None):
+        cursor.execute(stmt, args)
+        result = cursor.fetchall()
+        if result is None:
+            raise NoResultError
+        if completion == None:
+            return result
+        completion(result)
+        
+    def _getTrackID(self, cursor, path):
+        self._logger.debug("Retrieving track ID for \'"+unicode(path)+"\'.")
+        result = self._executeAndFetchOneOrNull(
+            cursor, "select trackid from tracks where path = ?",
+            (unicode(path), ), None)
+        if result == None:
+            self._logger.debug("\'"+unicode(path)+"\' is not in the library.")
+        return result
+    
+    def getTrackID(self, path):
+        return self._getTrackID(self._cursor, path)
+        
+    def doAddTrack(self, cursor, path):
+        self._logger.debug("Adding \'"+path+"\' to the library.")
+        try:
+            track = self._trackFactory.getTrackFromPathNoID(self, path,
+                                                            useCache=False)
+        except NoTrackError:
+#            track = None
+            self._logger.debug("\'"+path+"\' is an invalid file.")
+            return
+#        if track == None:
+#            self._logger.debug("\'"+path+"\' is an invalid file.")
+#            return None
+#        trackID = None
+#        if hasTrackID == True:
+        trackID = self._getTrackID(cursor, path)
+#        if hasTrackID == False or trackID == None:
+        if trackID == None:
+            cursor.execute("""insert into tracks (path, artist, album, title,
+                              tracknumber, unscored, length, bpm, historical)
+                              values (?, ?, ?, ?, ?, 1, ?, ?, 0)""",
+                           (path, track.getArtist(), track.getAlbum(),
+                            track.getTitle(), track.getTrackNumber(),
+                            track.getLength(), track.getBPM()))
+#            trackID = cursor.lastrowid
+            self._logger.info("\'"+path+"\' has been added to the library.")
+        else:
+            self._logger.debug("\'"+path+"\' is already in the library.")
+        track.setID(self._trackFactory, trackID)
+#        return trackID
+
+    def _addTrack(self, path):
+        self.queue(lambda thread, cursor:
+                   thread.doAddTrack(cursor, path))
+            
+    def doWalkDirectoryNoWatch(self, cursor, directory, callback):
+        self._logger.debug("Finding files from \'"+directory+"\'.")
+        contents = os.listdir(directory)
+        for n in range(len(contents)):
+            path = os.path.realpath(directory+'/'+contents[n])
+            if os.path.isdir(path):
+                self.walkDirectoryNoWatch(path, callback)
+            else:
+                callback(path)
+    
+    def walkDirectoryNoWatch(self, directory, callback):
+        directory = os.path.realpath(directory)
+        self.queue(lambda thread, cursor:
+                   thread.doWalkDirectoryNoWatch(cursor, directory, callback))
+        
+    def addDirectoryNoWatch(self, directory):
+        mycallback = lambda path: self._addTrack(path)
+        self.walkDirectoryNoWatch(directory, mycallback)
+        
+    def doGetDirectoryID(self, cursor, directory, completion):
+        self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
+        result = self._executeAndFetchOneOrNull(
+            cursor, "select directoryid from directories where path = ?",
+            (directory, ))
+        if result == None:
+            self._logger.debug("\'"+directory+"\' is not in the watch list.")
+        completion(result)
+        
+    def getDirectoryID(self, directory, completion):
+        directory = os.path.realpath(directory)
+        self.queue(lambda thread, cursor:
+                   thread.doWalkDirectory(cursor, directory, completion))
+        
+    def maybeAddToWatch(self, cursor, directory, directoryID):
+        if directoryID == None:
+            cursor.execute("insert into directories (path) values (?)",
+                      (directory, ))
+            self._logger.info("\'"+directory\
+                              +"\' has been added to the watch list.")
+        else:
+            self._logger.debug("\'"+directory\
+                               +"\' is already in the watch list.")
+    
+    def doWalkDirectory(self, cursor, directory, callback):
+        self._logger.debug("Adding \'"+directory+"\' to the watch list.")
+        mycompletion = lambda directoryID: self.maybeAddToWatch(cursor,
+                                                                directory,
+                                                                directoryID)
+        self.getDirectoryID(directory, mycompletion)
+        self.walkDirectoryNoWatch(directory, callback)
+        
+    def walkDirectory(self, directory, callback):
+        directory = os.path.realpath(directory)
+        self.queue(lambda thread, cursor:
+                   thread.doWalkDirectory(cursor, directory, callback))
+        
+    def addDirectory(self, directory):
+        mycallback = lambda path: self._addTrack(path)
+        self.walkDirectory(directory, mycallback)
+        
+    def doRescanDirectories(self, cursor):
+        self._logger.info("Rescanning the watch list for new files.")
+        try:
+            paths = self._executeAndFetchAll(cursor,
+                                             "select path from directories", ())
+        except NoResultError:
+            self._logger.info("The watch list is empty.")
+            return
+        for (directory, ) in paths:
+            self.addDirectoryNoWatch(directory)
+    
+    def rescanDirectories(self):
+        self.queue(lambda thread, cursor:
+                   thread.doRescanDirectories(cursor))
+        
+    def maybeUpdateTrackDetails(self, track):
+        self._updateTrackDetails(track)
+
+    def _updateTrackDetails(self, track):
+        path = track.getPath()
+        self._logger.debug("Updating \'"+path+"\' in the library.")
+        trackID = self._getTrackID(self._cursor, track)
+        if trackID != None:
+            self._cursor.execute(
+                """update tracks set path = ?, artist = ?, album = ?, title = ?,
+                   tracknumber = ?, length = ?, bpm = ? where trackid = ?""",
+                (path, track.getArtist(), track.getAlbum(), track.getTitle(),
+                 track.getTrackNumber(), track.getLength(), track.getBPM(),
+                 trackID))
+            self._logger.info("\'"+path+"\' has been updated in the library.")
+        else:
+            self._logger.debug("\'"+path+"\' is not in the library.")
+            
+    def setHistorical(self, historical, trackID):
+        self._logger.debug("Making track non-current.")
+        if historical == True:
+            historical = 1
+        elif historical == False:
+            historical = 0
+        self._cursor.execute(
+            "update tracks set historical = ? where trackID = ?", (historical,
+                                                                   trackID))
+
 class DatabaseThread(threading.Thread):
     def __init__(self, db, path):
         threading.Thread.__init__(self, name="Database")
@@ -39,6 +230,21 @@ class DatabaseThread(threading.Thread):
         while True:
             got = self._queue.get()
             got(self, cursor)
+            
+    def doComplete(self, completion):
+        completion()
+        
+    def complete(self, completion):
+        self.queue(lambda thread, cursor:
+                   thread.doComplete(completion))
+            
+    def doExecute(self, cursor, stmt, args, completion):
+        cursor.execute(stmt, args)
+        completion()
+
+    def execute(self, stmt, args, completion):
+        self.queue(lambda thread, cursor:
+                   thread.doExecute(cursor, stmt, args, completion))
 
     def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
@@ -156,12 +362,16 @@ class Database(wx.EvtHandler):
         
         self._dbThread = DatabaseThread(self, self._databasePath)
         self._dbThread.start()
+        
+        self._directoryWalkThread = DirectoryWalkThread(
+            self, self._databasePath, self._logger, self._trackFactory)
+        self._directoryWalkThread.start()
 
     def async(self, stmt, args, completion):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
+        self._dbThread.executeAndFetchOne(stmt, args, completion)
 
     def _onDatabaseEvent(self, e):
         self._logger.debug("Got event.")
@@ -332,6 +542,11 @@ class Database(wx.EvtHandler):
             raise NoResultError()
         return result
     
+    def _asyncExecute(self, stmt, args, completion):
+        mycompletion = lambda: wx.PostEvent(self, DatabaseEvent(None,
+                                                                completion))
+        self._dbThread.execute(stmt, args, mycompletion)
+    
     def _asyncExecuteAndFetchOne(self, stmt, args, completion):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
@@ -352,11 +567,11 @@ class Database(wx.EvtHandler):
         
     def asyncAddTrack(self, path=None, hasTrackID=True, track=None,
                       completion=None):
-        mycompletion = lambda result: \
+        mycompletion = lambda: \
             self._addTrackCompletion(path, hasTrackID, track, completion)
-        mycompletion2 = lambda thread, cursor: \
-            wx.PostEvent(self, DatabaseEvent(None, mycompletion))
-        self._dbThread.queue(mycompletion2)
+        mycompletion2 = lambda result: \
+            wx.PostEvent(self, DatabaseEvent(result, mycompletion))
+        self._dbThread.complete(mycompletion2)
         
     def _addTrackCompletion(self, path=None, hasTrackID=True, track=None,
                             completion=None):
@@ -531,6 +746,18 @@ class Database(wx.EvtHandler):
         c.close()
         self._conn.commit()
         self.addDirectoryNoWatch(directory)
+        
+    def asyncAddDirectory(self, directory):
+        self._directoryWalkThread.addDirectory(directory)
+        
+    def asyncGetDirectoryID(self, directory, completion):
+        directory = os.path.realpath(directory)
+        mycompletion = lambda result: wx.PostEvent(self,
+                                                   DatabaseEvent(result,
+                                                                 completion))
+        self._asyncExecuteAndFetchOneOrNull(
+            "select directoryid from directories where path = ?", (directory, ),
+            mycompletion)
 
     def getDirectoryID(self, directory):
         directory = os.path.realpath(directory)
@@ -542,22 +769,7 @@ class Database(wx.EvtHandler):
         return result
     
     def asyncAddDirectoryNoWatch(self, directory):
-        mycompletion = lambda result: \
-            self._addDirectoryNoWatchCompletion(directory)
-        mycompletion2 = lambda thread, cursor: \
-            wx.PostEvent(self, DatabaseEvent(None, mycompletion))
-        self._dbThread.queue(mycompletion2)
-        
-    def _addDirectoryNoWatchCompletion(self, directory):
-        directory = os.path.realpath(directory)
-        self._logger.debug("Adding files in \'"+directory+"\' to the library.")
-        contents = os.listdir(directory)
-        for n in range(0, len(contents)):
-            path = os.path.realpath(directory+'/'+contents[n])
-            if os.path.isdir(path):
-                self.asyncAddDirectoryNoWatch(path)
-            else: ## or: elif contents[n][-4:]=='.mp3':
-                self.asyncAddTrack(path)
+        self._directoryWalkThread.addDirectoryNoWatch(directory)
 
     def addDirectoryNoWatch(self, directory):
         directory = os.path.realpath(directory)
@@ -585,18 +797,7 @@ class Database(wx.EvtHandler):
         self._conn.commit()
 
     def asyncRescanDirectories(self):
-        mycompletion = lambda result: self._rescanDirectoriesCompletion(result)
-        self._asyncExecuteAndFetchAll("select path from directories", (),
-                                      mycompletion)
-#        c = self._conn.cursor()
-#        c.execute("select path from directories")
-#        result = c.fetchall()
-        
-    def _rescanDirectoriesCompletion(self, result):
-        self._logger.info("Rescanning the watch list for new files.")
-        for (directory, ) in result:
-            self.asyncAddDirectoryNoWatch(directory)
-        self._conn.commit()
+        self._directoryWalkThread.rescanDirectories()
 
 ## FIXME: needs to deal with two links using the same first or second track
     def addLink(self, firstTrack, secondTrack):
@@ -861,7 +1062,7 @@ class Database(wx.EvtHandler):
 
     def _getTrackDetails(self, track=None, trackID=None):#, update=False):
         (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
-         self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
+         self._trackNumberIndex, self.unscoredIndex, self._lengthIndex,
          self._bpmIndex, self._historicalIndex) = range(9)
         if trackID == None:
             if track == None:
@@ -1050,9 +1251,9 @@ class Database(wx.EvtHandler):
             details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        if details[self._unscoredIndex] == 1:
+        if details[self.unscoredIndex] == 1:
             return False
-        elif details[self._unscoredIndex] == 0:
+        elif details[self.unscoredIndex] == 0:
             return True
 
     def getIsScored(self, track):

@@ -41,13 +41,13 @@ class TrackFactory:
         self.addTrackToCache(track)
         return track
 
-    def getTrackFromPathNoID(self, db, path):
+    def getTrackFromPathNoID(self, db, path, useCache=True):
         path = os.path.realpath(path)
         track = self._trackPathCache.get(path)
         if track != None:
             return track
         try:
-            track = AudioTrack(db, path, self._logger)
+            track = AudioTrack(db, path, self._logger, useCache=useCache)
             db.setHistorical(False, track.getID())
         except UnknownTrackType:
             raise NoTrackError
@@ -96,10 +96,11 @@ class TrackFactory:
             assert track is self._trackPathCache[path]
 
 class Track:
-    def __init__(self, db, path, logger):
+    def __init__(self, db, path, logger, useCache=True):
         self._path = os.path.realpath(path)
         self._db = db
         self._logger = logger
+        self._useCache = useCache
         self._id = None
         self._tags = None
         self._weight = None
@@ -119,7 +120,8 @@ class Track:
     def setID(self, factory, id):
         self._logger.debug("Setting track's ID to "+str(id)+".")
         self._id = id
-        factory.addTrackToCache(self)
+        if self._useCache == True:
+            factory.addTrackToCache(self)
 
     def getTags(self):
         if self._tags == None:
@@ -183,8 +185,8 @@ class Track:
         return self._isScored
 
 class AudioTrack(Track):
-    def __init__(self, db, path, logger):
-        Track.__init__(self, db, path, logger)
+    def __init__(self, db, path, logger, useCache=True):
+        Track.__init__(self, db, path, logger, useCache=useCache)
 #        self._path = self.getPath()
         try:
             self._logger.debug("Creating track from \'"+self._path+"\'.")

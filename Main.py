@@ -10,6 +10,7 @@
 ## TODO: populate prefs window including customizable score range (with
 ##	     database converter)?
 ## TODO: read settings from settings file
+## TODO: make refocussing on window reselect current track
 ##
 ## FIXME: queues wrong track if track changes at time of start up
 
