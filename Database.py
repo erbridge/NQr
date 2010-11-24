@@ -25,7 +25,7 @@ wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
 import wx
 
-class Thread(thread.Thread):
+class Thread(threading.Thread):
     def __init__(self, db, path, name):
         threading.Thread.__init__(self, name=name)
         self._db = db
@@ -41,12 +41,27 @@ class Thread(thread.Thread):
         while True:
             got = self._queue.get()[1]
             got(self, self._cursor)
+            
+class EventHandler(wx.EvtHandler):
+    def __init__(self):
+        wx.EvtHandler.__init__(self)
+        EVT_DATABASE(self, self._onDatabaseEvent)
+        EVT_EXCEPTION(self, self._onExceptionEvent)
+        
+    def _onDatabaseEvent(self, e):
+        self._logger.debug("Got event.")
+        e.complete()
+        
+    def _onExceptionEvent(self, e):
+        raise e.getException()
 
-class DirectoryWalkThread(Thread):
-    def __init__(self, db, path, logger, trackFactory):
+class DirectoryWalkThread(Thread, EventHandler):
+    def __init__(self, db, path, logger, trackFactory, dbThread):
+        EventHandler.__init__(self)
         Thread.__init__(self, db, path, "Directory Walk")
         self._logger = logger
         self._trackFactory = trackFactory
+        self._dbThread = dbThread
         
     def _executeAndFetchOneOrNull(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
@@ -151,7 +166,7 @@ class DirectoryWalkThread(Thread):
     def maybeAddToWatch(self, cursor, directory, directoryID):
         if directoryID == None:
             cursor.execute("insert into directories (path) values (?)",
-                      (directory, ))
+                           (directory, ))
             self._logger.info("\'"+directory\
                               +"\' has been added to the watch list.")
         else:
@@ -316,11 +331,11 @@ class ExceptionEvent(wx.PyEvent):
     def getException(self):
         return self._err
 
-class Database(wx.EvtHandler):
+class Database(EventHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,
                  debugMode=False, databasePath="database",
                  defaultDefaultScore=10):
-        wx.EvtHandler.__init__(self)
+        EventHandler.__init__(self)
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._configParser = configParser
@@ -343,15 +358,13 @@ class Database(wx.EvtHandler):
         self._initMaybeCreateTagsTable()
         self._conn.commit()
         self._cursor = self._conn.cursor()
-
-        EVT_DATABASE(self, self._onDatabaseEvent)
-        EVT_EXCEPTION(self, self._onExceptionEvent)
         
         self._dbThread = DatabaseThread(self, self._databasePath)
         self._dbThread.start()
         
         self._directoryWalkThread = DirectoryWalkThread(
-            self, self._databasePath, self._logger, self._trackFactory)
+            self, self._databasePath, self._logger, self._trackFactory,
+            self._dbThread)
         self._directoryWalkThread.start()
 
     def async(self, stmt, args, completion):
@@ -359,13 +372,6 @@ class Database(wx.EvtHandler):
                                                    DatabaseEvent(result,
                                                                  completion))
         self._dbThread.executeAndFetchOne(stmt, args, completion)
-
-    def _onDatabaseEvent(self, e):
-        self._logger.debug("Got event.")
-        e.complete()
-        
-    def _onExceptionEvent(self, e):
-        raise e.getException()
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
