@@ -237,16 +237,16 @@ class DatabaseThread(Thread):
     def __init__(self, db, path):
         Thread.__init__(self, db, path, "Database")
         
-    def complete(self, completion):
-        self.queue(lambda thread, cursor: completion())
+    def complete(self, completion, priority=1):
+        self.queue(lambda thread, cursor: completion(), priority)
             
     def doExecute(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
         completion()
 
-    def execute(self, stmt, args, completion):
+    def execute(self, stmt, args, completion, priority=1):
         self.queue(lambda thread, cursor:
-                   thread.doExecute(cursor, stmt, args, completion))
+                   thread.doExecute(cursor, stmt, args, completion), priority)
 
     def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
@@ -256,11 +256,11 @@ class DatabaseThread(Thread):
             return
         completion(result[0])
 
-    def executeAndFetchOne(self, stmt, args, completion):
+    def executeAndFetchOne(self, stmt, args, completion, priority=1):
         trace = traceback.extract_stack()
         self.queue(lambda thread, cursor:
                    thread.doExecuteAndFetchOne(cursor, stmt, args, completion,
-                                               trace))
+                                               trace), priority)
         
     def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
@@ -270,11 +270,12 @@ class DatabaseThread(Thread):
             return
         completion(result)
 
-    def executeAndFetchLastRowID(self, stmt, args, completion):
+    def executeAndFetchLastRowID(self, stmt, args, completion, priority=1):
         trace = traceback.extract_stack()
         self.queue(lambda thread, cursor:
                    thread.doExecuteAndFetchLastRowID(cursor, stmt, args,
-                                                     completion, trace))
+                                                     completion, trace),
+                   priority)
         
     def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
@@ -283,10 +284,10 @@ class DatabaseThread(Thread):
             completion(None)
         completion(result[0])
 
-    def executeAndFetchOneOrNull(self, stmt, args, completion):
+    def executeAndFetchOneOrNull(self, stmt, args, completion, priority=1):
         self.queue(lambda thread, cursor:
                    thread.doExecuteAndFetchOneOrNull(cursor, stmt, args,
-                                                     completion))
+                                                     completion), priority)
 
     def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
@@ -296,11 +297,11 @@ class DatabaseThread(Thread):
             return
         completion(result)
 
-    def executeAndFetchAll(self, stmt, args, completion):
+    def executeAndFetchAll(self, stmt, args, completion, priority=1):
         trace = traceback.extract_stack()
         self.queue(lambda thread, cursor:
                    thread.doExecuteAndFetchAll(cursor, stmt, args, completion,
-                                               trace))
+                                               trace), priority)
 
 ID_EVT_DATABASE = wx.NewId()
 
