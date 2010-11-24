@@ -25,25 +25,29 @@ wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
 import wx
 
-class DirectoryWalkThread(threading.Thread):
-    def __init__(self, db, path, logger, trackFactory):
-        threading.Thread.__init__(self, name="Directory Walk")
+class Thread(thread.Thread):
+    def __init__(self, db, path, name):
+        threading.Thread.__init__(self, name=name)
         self._db = db
         self._databasePath = os.path.realpath(path)
-        self._logger = logger
-        self._trackFactory = trackFactory
-        self._queue = Queue.Queue()
+        self._queue = Queue.PriorityQueue()
         
-    def queue(self, thing):
-        self._queue.put(thing)
+    def queue(self, thing, priority=1):
+        self._queue.put((priority, thing))
 
     def run(self):
         conn = sqlite3.connect(self._databasePath)
         self._cursor = conn.cursor()
         while True:
-            got = self._queue.get()
+            got = self._queue.get()[1]
             got(self, self._cursor)
-            
+
+class DirectoryWalkThread(Thread):
+    def __init__(self, db, path, logger, trackFactory):
+        Thread.__init__(self, db, path, "Directory Walk")
+        self._logger = logger
+        self._trackFactory = trackFactory
+        
     def _executeAndFetchOneOrNull(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
@@ -214,29 +218,12 @@ class DirectoryWalkThread(threading.Thread):
             "update tracks set historical = ? where trackID = ?", (historical,
                                                                    trackID))
 
-class DatabaseThread(threading.Thread):
+class DatabaseThread(Thread):
     def __init__(self, db, path):
-        threading.Thread.__init__(self, name="Database")
-        self._db = db
-        self._databasePath = os.path.realpath(path)
-        self._queue = Queue.Queue()
-
-    def queue(self, thing):
-        self._queue.put(thing)
-
-    def run(self):
-        conn = sqlite3.connect(self._databasePath)
-        cursor = conn.cursor()
-        while True:
-            got = self._queue.get()
-            got(self, cursor)
-            
-    def doComplete(self, completion):
-        completion()
+        Thread.__init__(self, db, path, "Database")
         
     def complete(self, completion):
-        self.queue(lambda thread, cursor:
-                   thread.doComplete(completion))
+        self.queue(lambda thread, cursor: completion())
             
     def doExecute(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
@@ -1062,7 +1049,7 @@ class Database(wx.EvtHandler):
 
     def _getTrackDetails(self, track=None, trackID=None):#, update=False):
         (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
-         self._trackNumberIndex, self.unscoredIndex, self._lengthIndex,
+         self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
          self._bpmIndex, self._historicalIndex) = range(9)
         if trackID == None:
             if track == None:
@@ -1251,9 +1238,9 @@ class Database(wx.EvtHandler):
             details = self._getTrackDetails(track=track)
         if details == None:
             return None
-        if details[self.unscoredIndex] == 1:
+        if details[self._unscoredIndex] == 1:
             return False
-        elif details[self.unscoredIndex] == 0:
+        elif details[self._unscoredIndex] == 0:
             return True
 
     def getIsScored(self, track):
