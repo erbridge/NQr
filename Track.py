@@ -41,14 +41,22 @@ class TrackFactory:
         self.addTrackToCache(track)
         return track
 
-    def getTrackFromPathNoID(self, db, path, useCache=True):
+    def getTrackFromPathNoID(self, db, path, useCache=True,
+                             useCompletion=False):
         path = os.path.realpath(path)
-        track = self._trackPathCache.get(path)
+        if useCache == True:
+            track = self._trackPathCache.get(path)
+        else:
+            track = None
         if track != None:
             return track
         try:
             track = AudioTrack(db, path, self._logger, useCache=useCache)
-            db.setHistorical(False, track.getID())
+            if useCompletion == False:
+                db.setHistorical(False, track.getID())
+            else:
+                mycompletion = lambda id: db.setHistorical(False, id)
+                track.getID(completion=mycompletion)
         except UnknownTrackType:
             raise NoTrackError
 #            return None
@@ -112,10 +120,15 @@ class Track:
         return self._path
 
 ## poss should add to cache?
-    def getID(self):#, update=False):
+    def getID(self, completion=None):#, update=False):
+        if completion == None:
+            if self._id == None:
+                return self._db.getTrackID(self)#, update)
+            return self._id
         if self._id == None:
-            return self._db.getTrackID(self)#, update)
-        return self._id
+            self._db.getTrackID(self, self.getPath(), completion)
+            return
+        completion(self._id)
 
     def setID(self, factory, id):
         self._logger.debug("Setting track's ID to "+str(id)+".")
@@ -192,10 +205,10 @@ class AudioTrack(Track):
             self._logger.debug("Creating track from \'"+self._path+"\'.")
             self._track = mutagen.File(self._path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
-            self._logger.error("File has no metadata.")
+            self._logger.debug("File has no metadata.")
             raise NoMetadataError
         if self._track is None:
-            self._logger.error("File is not a supported audio file.")
+            self._logger.debug("File is not a supported audio file.")
             raise UnknownTrackType
         self._logger.debug("Track created.")
         self._initGetAttributes()

@@ -13,7 +13,6 @@
 ## TODO: make refocussing on window reselect current track
 ##
 ## FIXME: queues wrong track if track changes at time of start up
-## FIXME: os.path.realpath() doesn't return a string
 
 import ConfigParser
 import Database
