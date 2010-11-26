@@ -16,7 +16,6 @@ from Errors import *
 import os
 import Queue
 import sqlite3
-import sys
 import threading
 import traceback
 from Util import *
@@ -59,6 +58,12 @@ class EventHandler(wx.EvtHandler):
         
     def _onExceptionEvent(self, e):
         raise e.getException()
+    
+    def _asyncComplete(self, completion, priority=1):
+        mycompletion = lambda result: wx.PostEvent(self,
+                                                   DatabaseEvent(result,
+                                                                 completion))
+        self._dbThread.complete(mycompletion, priority)
         
     def _asyncExecute(self, stmt, args, completion, priority=1):
         mycompletion = lambda result: wx.PostEvent(self,
@@ -589,9 +594,7 @@ class Database(EventHandler):
                       completion=None):
         mycompletion = lambda: \
             self._addTrackCompletion(path, hasTrackID, track, completion)
-        mycompletion2 = lambda result: \
-            wx.PostEvent(self, DatabaseEvent(result, mycompletion))
-        self._dbThread.complete(mycompletion2)
+        self._asyncComplete(mycompletion)
         
     def _addTrackCompletion(self, path=None, hasTrackID=True, track=None,
                             completion=None):
@@ -610,8 +613,6 @@ class Database(EventHandler):
         if track == None:
             self._logger.debug("\'"+path+"\' is an invalid file.")
             return None
-        c = self._conn.cursor()
-        trackID = None
         if hasTrackID == True:
             mycompletion = lambda result: self._setTrackIDCompletion(track,
                                                                      result,
