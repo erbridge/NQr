@@ -39,6 +39,14 @@ def convertToUnicode(string, logger, logging=True):
             logger.warning("Bad characters resolved.")
     return unicodeString
 
+def appendToList(list, value, completion=None):
+    list.append(value)
+    if completion != None:
+        completion(list)
+        
+def doNothing():
+    pass
+
 class RedirectErr:
     def __init__(self, textCtrl, stderr):
         self._out = textCtrl

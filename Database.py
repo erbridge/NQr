@@ -582,6 +582,7 @@ class Database(EventHandler):
             raise NoResultError()
         return result
 
+    # FIXME: make clearer?
     def asyncAddTrack(self, path=None, hasTrackID=True, track=None,
                       completion=None):
         mycompletion = lambda: \
@@ -1420,6 +1421,11 @@ class Database(EventHandler):
         self._logger.debug("Adding tag name.")
         self._cursor.execute("insert into tagnames (name) values (?)",
                              (tagName, ))
+        
+    def asyncAddTagName(self, tagName):
+        mycompletion = lambda result: self._logger.debug("Adding tag name.")
+        self._asyncExecute("insert into tagnames (name) values (?)",
+                           (tagName, ), mycompletion)
 
     def getAllTagNames(self):
         self._logger.debug("Retrieving all tag names.")
@@ -1431,10 +1437,31 @@ class Database(EventHandler):
         for result in results:
             tagNames.append(result[0])
         return tagNames
+    
+    def asyncGetAllTagNames(self, completion):
+        mycompletion = lambda names: self._getAllTagNamesCompletion(names,
+                                                                    completion)
+        self._asyncExecuteAndFetchAll("select name from tagnames", (),
+                                      mycompletion)
+        
+    def _getAllTagNamesCompletion(self, names, completion):
+        self._logger.debug("Retrieving all tag names.")
+        if names == None:
+            completion([])
+            return
+        tagNames = []
+        for (name, ) in names:
+            tagNames.append(name)
+        completion(tagNames)
 
     def getTagNameID(self, tagName):
         return self._executeAndFetchOne(
             "select tagnameid from tagnames where name = ?", (tagName, ))
+        
+    def asyncGetTagNameID(self, tagName, completion):
+        self._asyncExecuteAndFetchOne(
+            "select tagnameid from tagnames where name = ?", (tagName, ),
+            completion)
 
     def setTag(self, track, tagName):
         self._logger.info("Tagging track with '"+tagName+"'.")
@@ -1444,16 +1471,54 @@ class Database(EventHandler):
             tagNameID = self.getTagNameID(tagName)
             self._cursor.execute("""insert into tags (trackid, tagnameid) values
 									(?, ?)""", (trackID, tagNameID))
+            
+    def asyncSetTag(self, track, tagName):
+        multicompletion =\
+            MultiCompletion(3, lambda trackID, tagNames, tagNameID:\
+                            self._setTagCompletion(trackID, tagName, tagNameID,
+                                                   tagNames))
+        track.getID(lambda trackID: multicompletion.put(0, trackID))
+        self.asyncGetTags(track, lambda tagNames: multicompletion.put(1,
+                                                                      tagNames))
+        self.asyncGetTagNameID(tagName,
+                               lambda tagNameID: multicompletion.put(2,
+                                                                     tagNameID))
+        
+    def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames):
+        if tagName not in tagNames:
+            mycompletion = lambda result:\
+                self._logger.info("Tagging track with '"+tagName+"'.")
+            self._asyncExecute("""insert into tags (trackid, tagnameid) values
+                                  (?, ?)""", (trackID, tagNameID), mycompletion)
 
     def unsetTag(self, track, tagName):
         trackID = track.getID()
         tagNameID = self.getTagNameID(tagName)
         self._cursor.execute("""delete from tags where tagnameid = ? and
                                 trackid = ?""", (tagNameID, trackID))
+        
+    def asyncUnsetTag(self, track, tagName):
+        multicompletion =\
+            MultiCompletion(2, lambda trackID, tagNameID:\
+                            self._unsetTagCompletion(trackID, tagNameID))
+        track.getID(lambda trackID: multicompletion.put(0, trackID))
+        self.asyncGetTagNameID(tagName,
+                               lambda tagNameID: multicompletion.put(1,
+                                                                     tagNameID))
+        
+    def _unsetTagCompletion(self, trackID, tagNameID):
+        self._asyncExecute("""delete from tags where tagnameid = ? and
+                              trackid = ?""", (tagNameID, trackID),
+                           lambda result: doNothing())
 
     def getTags(self, track):
         trackID = track.getID()
         return self.getTagsFromTrackID(trackID)
+    
+    def asyncGetTags(self, track, completion):
+        mycompletion = lambda trackID: self.asyncGetTagsFromTrackID(trackID,
+                                                                    completion)
+        track.getID(mycompletion)
 
     def getTagsFromTrackID(self, trackID):
         self._logger.debug("Retrieving track tags.")
@@ -1469,6 +1534,30 @@ class Database(EventHandler):
                 "select name from tagnames where tagnameid = ?",
                 (tagNameID[0], )))
         return tagNames
+    
+    def asyncGetTagsFromTrackID(self, trackID, completion):
+        self._logger.debug("Retrieving track tags.")
+        c = self._conn.cursor()
+        c.execute("select tagnameid from tags where trackid = ?", (trackID, ))
+        tagNameIDs = c.fetchall()
+        c.close()
+        
+    def _getTagsFromTrackIDCompletion(self, tagNameIDs, completion):
+        if tagNameIDs == None:
+            completion([])
+            return
+        tagNames = []
+        for (tagNameID, ) in tagNameIDs:
+            if (tagNameID, ) == tagNameIDs[-1]: # FIXME: does this go last?
+                mycompletion = lambda tagName: appendToList(tagNames, tagName,
+                                                            completion)
+            mycompletion = lambda tagName: appendToList(tagNames, tagName)
+            self.asyncGetTagNameFromID(tagNameID, mycompletion)
+        
+    def asyncGetTagNameFromID(self, tagNameID, completion):
+        self._asyncExecuteAndFetchOne(
+            "select name from tagnames where tagnameid = ?", (tagNameID, ),
+            completion)
 
     ## determines whether user has changed score for this track
     def _getIsScored(self, track=None, trackID=None):
