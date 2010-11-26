@@ -114,6 +114,11 @@ class EventHandler(wx.EvtHandler):
         self._dbThread.executeAndFetchLastRowID(stmt, args, mycompletion,
                                                 priority)
         
+    def _asyncGetTrackID(self, track, completion):
+        path = track.getPath()
+        self._asyncExecuteAndFetchOneOrNull(
+            "select trackid from tracks where path = ?", (path, ), completion)
+        
     def _updateTrackDetailsCompletion(self, track, trackID, infoLogging=True):
         path = track.getPath()
         self._logger.debug("Updating \'"+path+"\' in the library.")
@@ -133,9 +138,9 @@ class EventHandler(wx.EvtHandler):
         else:
             self._logger.debug("\'"+path+"\' is not in the library.")
             
-    def _updateTrackDetails(self, track):
+    def _updateTrackDetails(self, track, infoLogging=True):
         mycompletion = lambda trackID:\
-            self._updateTrackDetailsCompletion(track, trackID)
+            self._updateTrackDetailsCompletion(track, trackID, infoLogging)
         self._asyncGetTrackID(track, mycompletion)
             
     def setHistorical(self, historical, trackID):
@@ -157,6 +162,20 @@ class DirectoryWalkThread(Thread, EventHandler):
         Thread.__init__(self, db, path, "Directory Walk")
         self._logger = logger
         self._trackFactory = trackFactory
+        
+    def _getTrackIDCompletion(self, track, trackID, completion):
+        path = track.getPath()
+        self._logger.debug("Retrieving track ID for \'"+path+"\'.")
+        if trackID == None:
+            self._logger.debug("\'"+path+"\' is not in the library.")
+        track.setID(self._trackFactory, trackID)
+        completion(trackID)
+    
+    def getTrackID(self, track, completion):
+        mycompletion = lambda trackID: self._getTrackIDCompletion(track,
+                                                                  trackID,
+                                                                  completion)
+        self._asyncGetTrackID(track, mycompletion)
         
     def _addTrackCompletion(self, path, track, trackID):
         self._logger.debug("Adding \'"+path+"\' to the library.")
@@ -728,11 +747,6 @@ class Database(EventHandler):
                                                                   trackID,
                                                                   completion)
         self._asyncGetTrackID(track, mycompletion)
-        
-    def _asyncGetTrackID(self, track, completion):
-        path = track.getPath()
-        self._asyncExecuteAndFetchOneOrNull(
-            "select trackid from tracks where path = ?", (path, ), mycompletion)
         
     def _getTrackIDCompletion(self, track, trackID, completion):
         path = track.getPath()

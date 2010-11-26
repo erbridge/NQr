@@ -68,7 +68,6 @@ class Randomizer:
             except ValueError:
                 pass
             newPart = ""
-            operation = []
             for index in range(len(part)):
                 newPart += part[index]
                 if newPart not in self._safeOperations:

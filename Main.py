@@ -19,7 +19,6 @@ import Database
 import getopt
 import GUI
 import Logger
-import os
 import platform
 import Prefs
 import Randomizer

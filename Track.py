@@ -126,7 +126,7 @@ class Track:
                 return self._db.getTrackID(self)#, update)
             return self._id
         if self._id == None:
-            self._db.getTrackID(self, self.getPath(), completion)
+            self._db.getTrackID(self, completion)
             return
         completion(self._id)
 

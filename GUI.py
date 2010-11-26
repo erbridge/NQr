@@ -24,6 +24,7 @@
 ## TODO: gives scores a drop down menu in the track list.
 ## TODO: use less processing - only refresh tracks that need it, and maybe
 ##       check tracks less often.
+## TODO: add "select current track" keyboard shortcut and menu item
 
 from collections import deque
 import ConfigParser
@@ -600,11 +601,13 @@ class MainWindow(wx.Frame):
         self._logger.debug("Creating log panel.")
         self._logPanel = wx.TextCtrl(self._panel, -1, style=wx.TE_READONLY|
                                      wx.TE_MULTILINE|wx.TE_DONTWRAP,
-                                     size=(-1,80))
+                                     size=(-1,100))
 
         font = wx.Font(9, wx.MODERN, wx.NORMAL, wx.NORMAL)
         self._logPanel.SetFont(font)
 
+        # FIXME: sometimes raises exception when printing to out at the same
+        #        time as printing to err
         self._redirectOut = RedirectOut(self._logPanel, sys.stdout)
         self._redirectErr = RedirectErr(self._logPanel, sys.stderr)
         sys.stdout = self._redirectOut
