@@ -41,7 +41,7 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         conn = sqlite3.connect(self._databasePath)
         cursor = conn.cursor()
         while True:
-            got = self._queue.get()[1] # appears not to get in order of put
+            got = self._queue.get()[2]
             got(self, cursor)
             
 class EventHandler(wx.EvtHandler):
