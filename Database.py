@@ -64,11 +64,13 @@ class EventHandler(wx.EvtHandler):
                                                                  completion))
         self._dbThread.execute(stmt, args, mycompletion, priority)
     
-    def _asyncExecuteAndFetchOne(self, stmt, args, completion, priority=1):
+    def _asyncExecuteAndFetchOne(self, stmt, args, completion, priority=1,
+                                 returnTuple=False):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.executeAndFetchOne(stmt, args, mycompletion, priority)
+        self._dbThread.executeAndFetchOne(stmt, args, mycompletion, priority,
+                                          returnTuple)
         
     def _asyncExecuteAndFetchOneOrNull(self, stmt, args, completion,
                                        priority=1):
@@ -91,7 +93,8 @@ class EventHandler(wx.EvtHandler):
                                                                  completion))
         self._dbThread.executeAndFetchLastRowID(stmt, args, mycompletion,
                                                 priority)
-
+        
+# FIXME: should somehow indicate that it is working/finished without spamming
 class DirectoryWalkThread(Thread, EventHandler):
     def __init__(self, db, path, logger, trackFactory, dbThread):
         EventHandler.__init__(self, dbThread)
@@ -238,14 +241,11 @@ class DirectoryWalkThread(Thread, EventHandler):
         self.queue(lambda thread, cursor:
                    thread.doRescanDirectories())
         
-    def maybeUpdateTrackDetails(self, track):
-        self._updateTrackDetails(track)
-        
     def _updateTrackDetailsCompletion(self, path, track, trackID):
         self._logger.debug("Updating \'"+path+"\' in the library.")
         if trackID != None:
             mycompletion = lambda result:\
-                self._logger.info("\'"+path\
+                self._logger.debug("\'"+path\
                                   +"\' has been updated in the library.")
             self._asyncExecute(
                 """update tracks set path = ?, artist = ?, album = ?, title = ?,
@@ -262,6 +262,9 @@ class DirectoryWalkThread(Thread, EventHandler):
             self._updateTrackDetailsCompletion(path, track, trackID)
         track.getID(mycompletion)
 #        self.getTrackID(path, mycompletion)
+
+    def maybeUpdateTrackDetails(self, track):
+        self._updateTrackDetails(track)
             
     def _setHistoricalCompletion(self, historical):
         if historical == 1:
@@ -293,19 +296,24 @@ class DatabaseThread(Thread):
         self.queue(lambda thread, cursor:
                    thread.doExecute(cursor, stmt, args, completion), priority)
 
-    def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace):
+    def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace,
+                             returnTuple=False):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         if result is None:
             wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
             return
+        if returnTuple == True:
+            completion(result)
+            return
         completion(result[0])
 
-    def executeAndFetchOne(self, stmt, args, completion, priority=1):
+    def executeAndFetchOne(self, stmt, args, completion, priority=1,
+                           returnTuple=False):
         trace = traceback.extract_stack()
         self.queue(lambda thread, cursor:
                    thread.doExecuteAndFetchOne(cursor, stmt, args, completion,
-                                               trace), priority)
+                                               trace, returnTuple), priority)
         
     def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
@@ -1030,6 +1038,15 @@ class Database(EventHandler):
     def maybeUpdateTrackDetails(self, track):
         if self._getTrackDetailsChange(track) == True:
             self._updateTrackDetails(track)
+            
+    def asyncMaybeUpdateTrackDetails(self, track):
+        mycompletion = lambda change:\
+            self._maybeUpdatetrackDetailsCompletion(track, change)
+        self._asyncGetTrackDetailsChange(track, mycompletion)
+        
+    def _maybeUpdateTrackDetailsCompletion(self, track, change):
+        if change == True:
+            self._asyncUpdateTrackDetails(track)
 
     def _updateTrackDetails(self, track):
         path = track.getPath()
@@ -1049,6 +1066,26 @@ class Database(EventHandler):
             self._logger.debug("\'"+path+"\' is not in the library.")
         c.close()
         self._conn.commit()
+    
+    def _asyncUpdateTrackDetails(self, track):
+        mycompletion = lambda trackID:\
+            self._updateTrackDetailsCompletion(track, trackID)
+        self._asyncGetTrackID(track, mycompletion)
+    
+    def _updateTrackDetailsCompletion(self, track, trackID):
+        path = track.getPath()
+        self._logger.debug("Updating \'"+path+"\' in the library.")
+        if trackID != None:
+            mycompletion = lambda result: self._logger.info(
+                "\'"+path+"\' has been updated in the library.")
+            self._asyncExecute(
+                """update tracks set path = ?, artist = ?, album = ?, title = ?,
+                   tracknumber = ?, length = ?, bpm = ? where trackid = ?""",
+                (path, track.getArtist(), track.getAlbum(), track.getTitle(),
+                 track.getTrackNumber(), track.getLength(), track.getBPM(),
+                 trackID), mycompletion)
+        else:
+            self._logger.debug("\'"+path+"\' is not in the library.")
 
     def _getTrackDetailsChange(self, track):
         self._logger.debug("Checking whether track details have changed.")
@@ -1061,18 +1098,43 @@ class Database(EventHandler):
         newDetails[self._trackNumberIndex] = track.getTrackNumber()
         newDetails[self._lengthIndex] = track.getLength()
         newDetails[self._bpmIndex] = track.getBPM()
-        for n in range(9):
+        for n in range(self._numberIndices):
             try:
                 if details[n] != newDetails[n]:
                     return True
             except KeyError:
                 continue
         return False
+    
+    def _asyncGetTrackDetailsChange(self, track, completion):
+        mycompletion = lambda details:\
+            self._getTrackDetailsCompletion(track, details, completion)
+        self._asyncGetTrackDetails(mycompletion, track=track)
+        
+    def _getTrackDetailsCompletion(self, track, details, completion):
+        self._logger.debug("Checking whether track details have changed.")
+        newDetails = {}
+        newDetails[self._pathIndex] = track.getPath()
+        newDetails[self._artistIndex] = track.getArtist()
+        newDetails[self._albumIndex] = track.getAlbum()
+        newDetails[self._titleIndex] = track.getTitle()
+        newDetails[self._trackNumberIndex] = track.getTrackNumber()
+        newDetails[self._lengthIndex] = track.getLength()
+        newDetails[self._bpmIndex] = track.getBPM()
+        for n in range(self._numberIndices):
+            try:
+                if details[n] != newDetails[n]:
+                    completion(True)
+                    return
+            except KeyError:
+                continue
+        completion(False)
 
-    def _getTrackDetails(self, track=None, trackID=None):#, update=False):
+    def _getTrackDetails(self, track=None, trackID=None):
+        self._numberIndices = 9
         (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
          self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
-         self._bpmIndex, self._historicalIndex) = range(9)
+         self._bpmIndex, self._historicalIndex) = range(self._numberIndices)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
@@ -1085,26 +1147,79 @@ class Database(EventHandler):
         result = c.fetchone()
         c.close()
         return result
+    
+    def _asyncGetTrackDetails(self, completion, track=None, trackID=None):
+        self._numberIndices = 9
+        (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
+         self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
+         self._bpmIndex, self._historicalIndex) = range(self._numberIndices)
+        mycompletion = lambda id: self._asyncExecuteAndFetchOne(
+            """select path, artist, album, title, tracknumber, unscored, length,
+               bpm, historical from tracks where trackid = ?""", (trackID, ),
+            completion, returnTuple=True)
+        if trackID == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError
+            track.getID(mycompletion)
+        else:
+            mycompletion(trackID)
 
     def getPath(self, track):
         self._logger.debug("Retrieving track's path.")
         return self.getPathNoDebug(track)
+    
+    def asyncGetPath(self, track, completion):
+        mycompletion = lambda path: self._getPathCompletion(path, completion)
+        self.asyncGetPathNoDebug(track, mycompletion)
+        
+    def _getPathCompletion(self, path, completion):
+        self._logger.debug("Retrieving track's path.")
+        completion(path)
 
     def getPathNoDebug(self, track):
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
         return details[self._pathIndex]
+    
+    def asyncGetPathNoDebug(self, track, completion):
+        mycompletion = lambda details:\
+            self._getDetailCompletion(details, self._pathIndex, completion)
+        self._asyncGetTrackDetails(mycompletion, track=track)
+    
+    def _getDetailCompletion(self, details, index, completion,
+                             debugMessage=None):
+        if debugMessage != None:
+            self._logger.debug(debugMessage)
+        if details == None:
+            completion(None)
+            return
+        completion(details[index])
 
     def getPathFromID(self, trackID):
         self._logger.debug("Retrieving track's path.")
         return self.getPathFromIDNoDebug(trackID)
+    
+    def asyncGetPathFromID(self, trackID, completion):
+        mycompletion = lambda path: self._getPathFromIDCompletion(path,
+                                                                  completion)
+        self.asyncGetPathFromIDNoDebug(trackID, mycompletion)
+        
+    def _getPathFromIDCompletion(self, path, completion):
+        self._logger.debug("Retrieving track's path.")
+        completion(path)
 
     def getPathFromIDNoDebug(self, trackID):
         details = self._getTrackDetails(trackID=trackID)
         if details == None:
             return None
         return details[self._pathIndex]
+    
+    def asyncGetPathFromIDNoDebug(self, trackID, completion):
+        mycompletion = lambda details:\
+            self._getDetailCompletion(details, self._pathIndex, completion)
+        self._asyncGetTrackDetails(mycompletion, trackID=trackID)
 
     def getArtist(self, track):
         self._logger.debug("Retrieving track's artist.")
@@ -1112,6 +1227,12 @@ class Database(EventHandler):
         if details == None:
             return None
         return details[self._artistIndex]
+    
+    def asyncGetArtist(self, track, completion):
+        mycompletion = lambda details:\
+            self._getDetailCompletion(details, self._artistIndex, completion,
+                                      debugMessage="Retrieving track's artist.")
+        self._asyncGetTrackDetails(mycompletion, track=track)
 
     def getAlbum(self, track):
         self._logger.debug("Retrieving track's album.")
@@ -1119,6 +1240,12 @@ class Database(EventHandler):
         if details == None:
             return None
         return details[self._albumIndex]
+    
+    def asyncGetAlbum(self, track, completion):
+        mycompletion = lambda details:\
+            self._getDetailCompletion(details, self._albumIndex, completion,
+                                      debugMessage="Retrieving track's album.")
+        self._asyncGetTrackDetails(mycompletion, track=track)
 
     def getTitle(self, track):
         self._logger.debug("Retrieving track's title.")
@@ -1126,6 +1253,12 @@ class Database(EventHandler):
         if details == None:
             return None
         return details[self._titleIndex]
+    
+    def asyncGetTitle(self, track, completion):
+        mycompletion = lambda details:\
+            self._getDetailCompletion(details, self._titleIndex, completion,
+                                      debugMessage="Retrieving track's title.")
+        self._asyncGetTrackDetails(mycompletion, track=track)
 
     def getTrackNumber(self, track):
         self._logger.debug("Retrieving track's number.")
@@ -1133,6 +1266,13 @@ class Database(EventHandler):
         if details == None:
             return None
         return details[self._trackNumberIndex]
+    
+    def asyncGetTrackNumber(self, track, completion):
+        mycompletion = lambda details:\
+            self._getDetailCompletion(details, self._trackNumberIndex,
+                                      completion,
+                                      debugMessage="Retrieving track's number.")
+        self._asyncGetTrackDetails(mycompletion, track=track)
 
     def getBPM(self, track):
         self._logger.debug("Retrieving track's bpm.")
@@ -1144,6 +1284,22 @@ class Database(EventHandler):
             bpm = track.getBPM()
             self.setBPM(bpm, track)
         return bpm
+    
+    def asyncGetBPM(self, track, completion):
+        mycompletion = lambda details:\
+            self._getBPMCompletion(track, details, completion)
+        self._asyncGetTrackDetails(mycompletion, track=track)
+        
+    def _getBPMCompletion(self, track, details, completion):
+        self._logger.debug("Retrieving track's bpm.")
+        if details == None:
+            completion(None)
+            return
+        bpm = details[self._bpmIndex]
+        if bpm == None:
+            bpm = track.getBPM()
+            self.asyncSetBPM(bpm, track)
+        completion(bpm)
 
     def setBPM(self, bpm, track):
         self._logger.debug("Adding bpm to track.")
@@ -1153,12 +1309,28 @@ class Database(EventHandler):
         c.close()
         self._conn.commit()
         
+    def asyncSetBPM(self, bpm, track):
+        mycompletion = lambda trackID: self._setBPMCompletion(bpm, trackID)
+        track.getID(mycompletion)
+        
+    def _setBPMCompletion(self, bpm, trackID):
+        mycompletion = lambda result: self._logger.debug("Adding bpm to track.")
+        self._asyncExecute("update tracks set bpm = ? where trackID = ?",
+                           (bpm, trackID), mycompletion)
+        
     def getHistorical(self, track):
         self._logger.debug("Retrieving track's currency.")
         details = self._getTrackDetails(track=track)
         if details == None:
             return None
         return details[self._historicalIndex]
+    
+    def asyncGetHistorical(self, track, completion):
+        mycompletion = lambda details:\
+            self._getDetailCompletion(
+                details, self._historicalIndex, completion,
+                debugMessage="Retrieving track's currency.")
+        self._asyncGetTrackDetails(mycompletion, track=track)
     
     def setHistorical(self, historical, trackID):
         c = self._conn.cursor()
@@ -1172,6 +1344,23 @@ class Database(EventHandler):
                   (historical, trackID))
         c.close()
         self._conn.commit()
+        
+    def asyncSetHistorical(self, historical, track):
+        mycompletion = lambda trackID: self._setHistoricalCompletion(historical,
+                                                                     trackID)
+        track.getID(mycompletion)
+        
+    def _setHistoricalCompletion(self, historical, trackID):
+        if historical == True:
+            mycompletion = lambda result:\
+                self._logger.debug("Making track non-current.")
+            historical = 1
+        elif historical == False:
+            mycompletion = lambda result:\
+                self._logger.debug("Making track current.")
+            historical = 0
+        self._asyncExecute("update tracks set historical = ? where trackID = ?",
+                           (historical, trackID), mycompletion)
 
     def getLength(self, track):
         self._logger.debug("Retrieving track's length.")
@@ -1183,10 +1372,30 @@ class Database(EventHandler):
             length = track.getLength()
             self.setLength(length, track)
         return length
+    
+    def asyncGetLength(self, track, completion):
+        mycompletion = lambda details:\
+            self._getLengthCompletion(track, details, completion)
+        self._asyncGetTrackDetails(mycompletion, track=track)
+        
+    def _getLengthCompletion(self, track, details, completion):
+        self._logger.debug("Retrieving track's length.")
+        if details == None:
+            completion(None)
+            return
+        length = details[self._lengthIndex]
+        if length == None:
+            length = track.getLength()
+            self.asyncSetLength(length, track)
+        completion(length)
 
     def getLengthString(self, track):
         rawLength = self.getLength(track)
         return formatLength(rawLength)
+    
+    def asyncGetLengthString(self, track, completion):
+        mycompletion = lambda rawLength: completion(formatLength(rawLength))
+        self.asyncGetLength(track, mycompletion)
 
     def setLength(self, length, track):
         self._logger.debug("Adding length to track.")
@@ -1196,6 +1405,16 @@ class Database(EventHandler):
                                                                      trackID))
         c.close()
         self._conn.commit()
+        
+    def asyncSetLength(self, length, track):
+        mycompletion = lambda trackID: self._setLengthCompletion(length, trackID)
+        track.getID(mycompletion)
+        
+    def _setLengthCompletion(self, length, trackID):
+        mycompletion = lambda result:\
+            self._logger.debug("Adding length to track.")
+        self._asyncExecute("update tracks set length = ? where trackID = ?",
+                           (length, trackID), mycompletion)
 
     def addTagName(self, tagName):
         self._logger.debug("Adding tag name.")
