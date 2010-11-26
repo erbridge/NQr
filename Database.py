@@ -32,9 +32,11 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         self._db = db
         self._databasePath = os.path.realpath(path)
         self._queue = Queue.PriorityQueue()
+        self._eventCount = 0
         
     def queue(self, thing, priority=1):
-        self._queue.put((priority, thing))
+        self._eventCount += 1
+        self._queue.put((priority, self._eventCount, thing))
 
     def run(self):
         conn = sqlite3.connect(self._databasePath)
@@ -1548,7 +1550,7 @@ class Database(EventHandler):
             return
         tagNames = []
         for (tagNameID, ) in tagNameIDs:
-            if (tagNameID, ) == tagNameIDs[-1]: # FIXME: does this go last?
+            if (tagNameID, ) == tagNameIDs[-1]:
                 mycompletion = lambda tagName: appendToList(tagNames, tagName,
                                                             completion)
             mycompletion = lambda tagName: appendToList(tagNames, tagName)
