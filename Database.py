@@ -431,7 +431,7 @@ class Database(EventHandler):
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.executeAndFetchOne(stmt, args, completion)
+        self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
@@ -1539,13 +1539,14 @@ class Database(EventHandler):
         return tagNames
     
     def asyncGetTagsFromTrackID(self, trackID, completion):
-        self._logger.debug("Retrieving track tags.")
-        c = self._conn.cursor()
-        c.execute("select tagnameid from tags where trackid = ?", (trackID, ))
-        tagNameIDs = c.fetchall()
-        c.close()
+        mycompletion = lambda tagNameIDs:\
+            self._getTagsFromTrackIDCompletion(tagNameIDs, completion)
+        self._asyncExecuteAndFetchAll(
+            "select tagnameid from tags where trackid = ?", (trackID, ),
+            mycompletion)
         
     def _getTagsFromTrackIDCompletion(self, tagNameIDs, completion):
+        self._logger.debug("Retrieving track tags.")
         if tagNameIDs == None:
             completion([])
             return
@@ -1554,7 +1555,8 @@ class Database(EventHandler):
             if (tagNameID, ) == tagNameIDs[-1]:
                 mycompletion = lambda tagName: appendToList(tagNames, tagName,
                                                             completion)
-            mycompletion = lambda tagName: appendToList(tagNames, tagName)
+            else:
+                mycompletion = lambda tagName: appendToList(tagNames, tagName)
             self.asyncGetTagNameFromID(tagNameID, mycompletion)
         
     def asyncGetTagNameFromID(self, tagNameID, completion):
