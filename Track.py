@@ -136,13 +136,9 @@ class Track:
         if self._useCache == True:
             factory.addTrackToCache(self)
 
-    def getTags(self, completion=None):
-        if completion == None:
-            if self._tags == None:
-                self._tags = self._db.getTags(self)
-            return self._tags
+    def getTags(self, completion):
         if self._tags == None:
-            self._db.asyncGetTags(self, completion)
+            self._db.getTags(self, completion)
             return
         completion(self._tags)
 

@@ -394,21 +394,25 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onLaunchPlayer, menuLaunchPlayer)
         self.Bind(wx.EVT_MENU, self._onExitPlayer, menuExitPlayer)
 
-    def _initCreateTagMenu(self):
-        self._logger.debug("Creating tag menu.")
-        self._tagMenu = wx.Menu()
-        newTagMenu = self._tagMenu.Append(
-            -1, "&New...", " Create new tag and tag track with it")
-        self._tagMenu.AppendSeparator()
-
+    def _getAllTagsCompletion(self, tags):
         self._allTags = {}
-        for tag in self._db.getAllTagNames():
+        for tag in tags:
             tagID = wx.NewId()
             self._allTags[tagID] = tag
             tagMenu = self._tagMenu.AppendCheckItem(tagID, tag,
                                                     " Tag track with "+tag)
 
             self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
+            
+    def _initCreateTagMenu(self):
+        self._logger.debug("Creating tag menu.")
+        self._tagMenu = wx.Menu()
+        newTagMenu = self._tagMenu.Append(
+            -1, "&New...", " Create new tag and tag track with it")
+        self._tagMenu.AppendSeparator()
+        
+        self._db.getAllTagNames(
+            lambda tags: self._getAllTagsCompletion(tags))
 
         self.Bind(wx.EVT_MENU, self._onNewTag, newTagMenu)
 
@@ -1165,12 +1169,15 @@ class MainWindow(wx.Frame):
         self._trackMonitor.setEnqueueing(True)
         self._logger.debug("Enqueueing "+str(number)+" random track"\
                            +plural(number)+'.')
-        exclude = self._player.getUnplayedTrackIDs(self._db)
         completion = lambda tracks: \
-                     self.enqueueRandomTracksCompletion(tracks)
-        self._randomizer.chooseTracks(number, exclude, completion, tags)
+                     self._enqueueRandomTracksCompletion(tracks)
+        self._player.getUnplayedTrackIDs(
+            self._db, lambda exclude: self._randomizer.chooseTracks(number,
+                                                                    exclude,
+                                                                    completion,
+                                                                    tags))
 
-    def enqueueRandomTracksCompletion(self, tracks):
+    def _enqueueRandomTracksCompletion(self, tracks):
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
         self._logger.debug("Checking tracks for links.")
         # Perhaps set at the end?
@@ -1360,11 +1367,15 @@ class MainWindow(wx.Frame):
         self._logger.info("Untagging track.")
         self._tagMenu.Check(tagID, False)
         track.unsetTag(self._allTags[tagID])
-
-    def resetTagMenu(self):
-        for tag in self._db.getAllTagNames():
+        
+    def _resetTagMenuCompletion(self, tags):
+        for tag in tags:
             tagID = self._getTagID(tag)
             self._tagMenu.Check(tagID, False)
+
+    def resetTagMenu(self):
+        self._db.getAllTagNames(
+            lambda tags: self._resetTagMenuCompletion(tags))
 
     def _getTagID(self, tag):
         for (tagID, tagName) in self._allTags.iteritems():
