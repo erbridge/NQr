@@ -561,13 +561,19 @@ class MainWindow(wx.Frame):
             currentTrackPath = self._player.getCurrentTrackPath()
             currentTrack = self._trackFactory.getTrackFromPath(self._db,
                                                                currentTrackPath)
-            currentTrackID = currentTrack.getID()
-            try:
-                if currentTrackID != self._db.getLastPlayedTrackID():
-                    self._logger.debug("Adding play for current track.")
-                    currentTrack.addPlay()
-            except EmptyDatabaseError:
-                pass
+            multicompletion = MultiCompletion(
+                2, lambda currentTrackID, oldTrackID:\
+                    self._compareTracksCompletion(currentTrack, currentTrackID,
+                                                  oldTrackID))
+            currentTrack.getID(lambda trackID: multicompletion.put(0, trackID))
+            self._db.asyncGetLastPlayedTrackID(
+                lambda trackID: multicompletion.put(1, trackID))
+#            try:
+#                if currentTrackID != self._db.getLastPlayedTrackID():
+#                    self._logger.debug("Adding play for current track.")
+#                    currentTrack.addPlay()
+#            except EmptyDatabaseError:
+#                pass
             currentTrack.setPreviousPlay(
                 self._db.getLastPlayedInSeconds(currentTrack))
             self.addTrack(currentTrack)
@@ -580,6 +586,14 @@ class MainWindow(wx.Frame):
                   self._trackList)
         self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self._onTrackRightClick,
                   self._trackList)
+        
+    def _compareTracksCompletion(self, firstTrack, firstTrackID, secondTrackID):
+        try:
+            if firstTrackID != secondTrackID:
+                self._logger.debug("Adding play for current track.")
+                firstTrack.addPlay()
+        except EmptyDatabaseError: # FIXME: probably broken
+            pass
 
     def _initCreateScoreSlider(self):
         self._logger.debug("Creating score slider.")
@@ -1103,6 +1117,8 @@ class MainWindow(wx.Frame):
         if weight != None:
             self._trackList.SetStringItem(index, 6, str(weight))
         self._trackList.SetItemData(index, track.getID())
+        ## FIXME: poss has problems with index changing if too delayed
+#        track.getID(lambda trackID: self._trackList.SetItemData(index, trackID))
         if self._index >= index:
             self._index += 1
 
