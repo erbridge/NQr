@@ -63,7 +63,7 @@ class DatabaseEventHandler(wx.EvtHandler):
     def _doNothing(self):
         pass
     
-    def _asyncComplete(self, completion, priority=None):
+    def asyncComplete(self, completion, priority=None):
         if priority == None:
             priority = self._priority
         mycompletion = lambda result: wx.PostEvent(self,
@@ -616,7 +616,7 @@ class Database(DatabaseEventHandler):
                       completion=None):
         mycompletion = lambda: \
             self._addTrackCompletion(path, hasTrackID, track, completion)
-        self._asyncComplete(mycompletion)
+        self.asyncComplete(mycompletion)
         
     def _addTrackCompletion(self, path=None, hasTrackID=True, track=None,
                             completion=None):
@@ -1500,25 +1500,17 @@ class Database(DatabaseEventHandler):
         bpm = details[self._bpmIndex]
         if bpm == None:
             bpm = track.getBPM()
-            self.asyncSetBPM(bpm, track)
+            self.setBPM(bpm, track)
         completion(bpm)
-
-    def setBPM(self, bpm, track):
-        self._logger.debug("Adding bpm to track.")
-        trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("update tracks set bpm = ? where trackID = ?", (bpm, trackID))
-        c.close()
-        self._conn.commit()
-        
-    def asyncSetBPM(self, bpm, track):
-        mycompletion = lambda trackID: self._setBPMCompletion(bpm, trackID)
-        track.getID(mycompletion)
         
     def _setBPMCompletion(self, bpm, trackID):
         mycompletion = lambda result: self._logger.debug("Adding bpm to track.")
         self._asyncExecute("update tracks set bpm = ? where trackID = ?",
                            (bpm, trackID), mycompletion)
+    
+    def setBPM(self, bpm, track):
+        mycompletion = lambda trackID: self._setBPMCompletion(bpm, trackID)
+        track.getID(mycompletion)
         
     def getHistorical(self, track):
         self._logger.debug("Retrieving track's currency.")
@@ -1558,7 +1550,7 @@ class Database(DatabaseEventHandler):
         length = details[self._lengthIndex]
         if length == None:
             length = track.getLength()
-            self.asyncSetLength(length, track)
+            self.setLength(length, track)
         completion(length)
 
     def getLengthString(self, track):
@@ -1568,32 +1560,18 @@ class Database(DatabaseEventHandler):
     def asyncGetLengthString(self, track, completion):
         mycompletion = lambda rawLength: completion(formatLength(rawLength))
         self.asyncGetLength(track, mycompletion)
-
-    def setLength(self, length, track):
-        self._logger.debug("Adding length to track.")
-        trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("update tracks set length = ? where trackID = ?", (length,
-                                                                     trackID))
-        c.close()
-        self._conn.commit()
-        
-    def asyncSetLength(self, length, track):
-        mycompletion = lambda trackID: self._setLengthCompletion(length, trackID)
-        track.getID(mycompletion)
         
     def _setLengthCompletion(self, length, trackID):
         mycompletion = lambda result:\
             self._logger.debug("Adding length to track.")
         self._asyncExecute("update tracks set length = ? where trackID = ?",
                            (length, trackID), mycompletion)
-
-    def addTagName(self, tagName):
-        self._logger.debug("Adding tag name.")
-        self._cursor.execute("insert into tagnames (name) values (?)",
-                             (tagName, ))
         
-    def asyncAddTagName(self, tagName):
+    def setLength(self, length, track):
+        mycompletion = lambda trackID: self._setLengthCompletion(length, trackID)
+        track.getID(mycompletion)
+        
+    def addTagName(self, tagName):
         mycompletion = lambda result: self._logger.debug("Adding tag name.")
         self._asyncExecute("insert into tagnames (name) values (?)",
                            (tagName, ), mycompletion)
@@ -1633,17 +1611,15 @@ class Database(DatabaseEventHandler):
         self._asyncExecuteAndFetchOne(
             "select tagnameid from tagnames where name = ?", (tagName, ),
             completion)
-
-    def setTag(self, track, tagName):
-        self._logger.info("Tagging track with '"+tagName+"'.")
-        trackID = track.getID()
-        tagNames = self.getTags(track)
-        if tagName not in tagNames:
-            tagNameID = self.getTagNameID(tagName)
-            self._cursor.execute("""insert into tags (trackid, tagnameid) values
-									(?, ?)""", (trackID, tagNameID))
             
-    def asyncSetTag(self, track, tagName):
+    def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames):
+        if tagName not in tagNames:
+            mycompletion = lambda result:\
+                self._logger.info("Tagging track with '"+tagName+"'.")
+            self._asyncExecute("""insert into tags (trackid, tagnameid) values
+                                  (?, ?)""", (trackID, tagNameID), mycompletion)
+            
+    def setTag(self, track, tagName):
         multicompletion =\
             MultiCompletion(3, lambda trackID, tagNames, tagNameID:\
                             self._setTagCompletion(trackID, tagName, tagNameID,
@@ -1655,20 +1631,12 @@ class Database(DatabaseEventHandler):
                                lambda tagNameID: multicompletion.put(2,
                                                                      tagNameID))
         
-    def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames):
-        if tagName not in tagNames:
-            mycompletion = lambda result:\
-                self._logger.info("Tagging track with '"+tagName+"'.")
-            self._asyncExecute("""insert into tags (trackid, tagnameid) values
-                                  (?, ?)""", (trackID, tagNameID), mycompletion)
-
-    def unsetTag(self, track, tagName):
-        trackID = track.getID()
-        tagNameID = self.getTagNameID(tagName)
-        self._cursor.execute("""delete from tags where tagnameid = ? and
-                                trackid = ?""", (tagNameID, trackID))
+    def _unsetTagCompletion(self, trackID, tagNameID):
+        self._asyncExecute("""delete from tags where tagnameid = ? and
+                              trackid = ?""", (tagNameID, trackID),
+                           lambda result: doNothing())
         
-    def asyncUnsetTag(self, track, tagName):
+    def unsetTag(self, track, tagName):
         multicompletion =\
             MultiCompletion(2, lambda trackID, tagNameID:\
                             self._unsetTagCompletion(trackID, tagNameID))
@@ -1676,11 +1644,6 @@ class Database(DatabaseEventHandler):
         self.asyncGetTagNameID(tagName,
                                lambda tagNameID: multicompletion.put(1,
                                                                      tagNameID))
-        
-    def _unsetTagCompletion(self, trackID, tagNameID):
-        self._asyncExecute("""delete from tags where tagnameid = ? and
-                              trackid = ?""", (tagNameID, trackID),
-                           lambda result: doNothing())
 
     def getTags(self, track):
         trackID = track.getID()
@@ -1776,33 +1739,19 @@ class Database(DatabaseEventHandler):
     def getIsScored(self, track):
         return self._getIsScored(track=track)
 
-    def asyncGetIsScoredFromID(self, trackID, completion):
-        self._asyncGetIsScored(completion, trackID=trackID)
-        
-    def getIsScoredFromID(self, trackID):
-        return self._getIsScored(trackID=trackID)
+#    def asyncGetIsScoredFromID(self, trackID, completion):
+#        self._asyncGetIsScored(completion, trackID=trackID)
+#        
+#    def getIsScoredFromID(self, trackID):
+#        return self._getIsScored(trackID=trackID)
     
     ## poss should add a record to scores table
-    def asyncSetUnscored(self, track):
+    def setUnscored(self, track):
         track.getID(
             lambda trackID: self._asyncExecute(
                 "update tracks set unscored = 1 where trackid = ?", (trackID, ),
                 lambda result: self._logger.debug(
                     "Setting track as unscored.")))
-
-    ## poss should add a record to scores table
-    def setUnscored(self, track):
-        self._logger.debug("Setting track as unscored.")
-        c = self._conn.cursor()
-        trackID = track.getID()
-        c.execute("update tracks set unscored = 1 where trackid = ?",
-                  (trackID, ))
-        c.close()
-        self._conn.commit()
-        
-    ## poss add track if track not in library
-    def asyncSetScore(self, track, score):
-        track.getID(lambda trackID: self._setScoreCompletion(trackID, score))
         
     def _setScoreCompletion(self, trackID, score):
         self._asyncExecute("update tracks set unscored = 0 where trackid = ?",
@@ -1811,18 +1760,10 @@ class Database(DatabaseEventHandler):
                               values (?, ?, datetime('now'))""",
                            (trackID, score), lambda result: self._logger.debug(
                                                 "Setting track's score."))
-
+        
     ## poss add track if track not in library
     def setScore(self, track, score):
-        self._logger.debug("Setting track's score.")
-        c = self._conn.cursor()
-        trackID = track.getID()
-        c.execute("update tracks set unscored = 0 where trackid = ?",
-                  (trackID, ))
-        c.execute("""insert into scores (trackid, score, datetime) values
-                     (?, ?, datetime('now'))""", (trackID, score, ))
-        c.close()
-        self._conn.commit()
+        track.getID(lambda trackID: self._setScoreCompletion(trackID, score))
         
     def _asyncGetScore(self, completion, track=None, trackID=None):
         mycompletion = lambda trackID: self._asyncExecuteAndFetchOneOrNull(
@@ -1889,11 +1830,6 @@ class Database(DatabaseEventHandler):
             trackID, lambda isScored: self._getScoreCompletion(isScored,
                                                                completion,
                                                                trackID=trackID))
-
-    def getScoreValueFromID(self, trackID):
-        if self.getIsScoredFromID(trackID) == False:
-            return self._defaultScore
-        return self._getScore(trackID=trackID)
 
     def asyncMaybeGetIDFromPath(self, path, completion):
         path = os.path.realpath(path)

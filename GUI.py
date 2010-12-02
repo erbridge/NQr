@@ -1141,7 +1141,7 @@ class MainWindow(wx.Frame):
         exclude = self._player.getUnplayedTrackIDs(self._db)
         completion = lambda tracks: \
                      self.enqueueRandomTracksCompletion(tracks)
-        self._randomizer.asyncChooseTracks(number, exclude, completion, tags)
+        self._randomizer.chooseTracks(number, exclude, completion, tags)
 
     def enqueueRandomTracksCompletion(self, tracks):
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
