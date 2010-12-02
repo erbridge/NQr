@@ -1809,19 +1809,19 @@ class Database(DatabaseEventHandler):
 #        if id is None:
 #            raise PathNotFoundError()
 
-    def asyncGetNumberOfTracks(self, completion):
+    def getNumberOfTracks(self, completion):
         self._asyncExecuteAndFetchOne("select count(*) from tracks", (),
                                       completion)
     
     # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
     # or this is slow!
-    def asyncGetNumberOfUnplayedTracks(self, completion):
+    def getNumberOfUnplayedTracks(self, completion):
         self._asyncExecuteAndFetchOne(
             """select count(*) from tracks left outer join plays using(trackid)
                where plays.trackid is null""", (), completion)
         
     # returns an array of [ score, count ]
-    def asyncGetScoreTotals(self, completion):
+    def getScoreTotals(self, completion):
         self._asyncExecuteAndFetchAll(
             """select score, count(score)
                from (select max(scoreid), x.trackid, score

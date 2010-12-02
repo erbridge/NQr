@@ -681,11 +681,11 @@ class MainWindow(wx.Frame):
         multicompletion = MultiCompletion(
             3, lambda number, numberUnplayed, totals:\
                 self._onAboutCompletion(number, numberUnplayed, totals))
-        self._db.asyncGetNumberOfTracks(
+        self._db.getNumberOfTracks(
             lambda number: multicompletion.put(0, number))
-        self._db.asyncGetNumberOfUnplayedTracks(
+        self._db.getNumberOfUnplayedTracks(
             lambda numberUnplayed: multicompletion.put(1, numberUnplayed))
-        self._db.asyncGetScoreTotals(lambda totals: multicompletion.put(2,
+        self._db.getScoreTotals(lambda totals: multicompletion.put(2,
                                                                         totals))
         
     def _onPrefs(self, e):
