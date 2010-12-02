@@ -122,6 +122,12 @@ class DatabaseEventHandler(wx.EvtHandler):
         self._asyncExecuteAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ), completion)
         
+    def asyncGetTrackID(self, track, completion):
+        mycompletion = lambda trackID: self._getTrackIDCompletion(track,
+                                                                  trackID,
+                                                                  completion)
+        self._asyncGetTrackID(track, mycompletion)
+        
     def _getDirectoryIDCompletion(self, directory, directoryID, completion):
         self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
         if directoryID == None:
@@ -187,12 +193,6 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
             self._logger.debug("\'"+path+"\' is not in the library.")
         track.setID(self._trackFactory, trackID)
         completion(trackID)
-    
-    def getTrackID(self, track, completion):
-        mycompletion = lambda trackID: self._getTrackIDCompletion(track,
-                                                                  trackID,
-                                                                  completion)
-        self._asyncGetTrackID(track, mycompletion)
         
     def _addTrackCompletion(self, path, track, trackID):
         self._logger.debug("Adding \'"+path+"\' to the library.")
@@ -748,12 +748,6 @@ class Database(DatabaseEventHandler):
         if trackID == None:
             return self.addTrack(hasTrackID=False, track=track)
         return trackID
-    
-    def asyncGetTrackID(self, track, completion):
-        mycompletion = lambda trackID: self._getTrackIDCompletion(track,
-                                                                  trackID,
-                                                                  completion)
-        self._asyncGetTrackID(track, mycompletion)
         
     def _getTrackIDCompletion(self, track, trackID, completion):
         path = track.getPath()
@@ -1068,10 +1062,6 @@ class Database(DatabaseEventHandler):
 #               from enqueues where trackid = ? order by enqueueid desc""",
 #            (trackID, ))
 
-    def asyncAddPlay(self, track, msDelay=0):
-        track.getID(lambda trackID: self._addPlayCompletion(track, trackID,
-                                                            msDelay))
-        
     def _addPlayCompletion(self, track, trackID, msDelay=0):
         self._logger.debug("Adding play.")
         now = datetime.datetime.now()
@@ -1083,17 +1073,11 @@ class Database(DatabaseEventHandler):
                               (?, datetime(?))""", (trackID, playTime),
                            lambda result: self._doNothing())
         
-    def addPlay(self, track, msDelay=0):
-        self._logger.debug("Adding play.")
-        trackID = track.getID()
-        track.setPreviousPlay(self.getLastPlayedInSeconds(track))
+    def asyncAddPlay(self, track, msDelay=0):
+        mycompletion = lambda trackID: self._addPlayCompletion(track, trackID,
+                                                               msDelay)
+        track.getID(mycompletion)
         
-        delay = datetime.timedelta(0, 0, 0, msDelay)
-        now = datetime.datetime.now()
-        playTime = now - delay
-        self._cursor.execute("""insert into plays (trackid, datetime) values
-                                (?, datetime(?))""", (trackID, playTime))
-
     def asyncGetLastPlayedTrackID(self, completion):
         mycompletion = lambda trackID:\
             self._getLastPlayedTrackIDCompletion(trackID, completion)
@@ -1244,7 +1228,7 @@ class Database(DatabaseEventHandler):
         except NoResultError:
             completion(0)
 
-    def asyncGetPlayCount(self, track=None, trackID=None, completion):
+    def asyncGetPlayCount(self, completion, track=None, trackID=None):
         self._logger.debug("Retrieving play count.")
         mycompletion = lambda plays:\
             self._getPlayCountCompletion(plays, completion)

@@ -126,7 +126,7 @@ class Track:
                 return self._db.getTrackID(self)#, update)
             return self._id
         if self._id == None:
-            self._db.getTrackID(self, completion)
+            self._db.asyncGetTrackID(self, completion)
             return
         completion(self._id)
 
@@ -152,7 +152,7 @@ class Track:
         self._tags.remove(tag)
 
     def addPlay(self, delay=0):
-        self._db.addPlay(self, delay)
+        self._db.asyncAddPlay(self, delay)
         self._playCount = self.getPlayCount() + 1
 
     def getPlayCount(self):
