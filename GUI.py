@@ -649,14 +649,13 @@ class MainWindow(wx.Frame):
         point = e.GetPoint()
 
         self.PopupMenu(self._trackRightClickMenu, point)
-
-    def _onAbout(self, e):
+        
+    def _onAboutCompletion(self, number, numberUnplayed, totals):
         self._logger.debug("Opening about dialog.")
         text = "For all your NQing needs\n\n"
-        text += str(self._db.getNumberOfTracks())+" tracks in library\n"
-        text += str(self._db.getNumberOfUnplayedTracks())+" unplayed\n\n"
-
-        totals = self._db.getScoreTotals()
+        text += str(number)+" tracks in library:\n"
+        text += str(numberUnplayed)+" unplayed\n\n"
+        
         for total in totals:
             text += str(total[0])+" | "+str(total[1])+"\n"
 
@@ -664,6 +663,17 @@ class MainWindow(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def _onAbout(self, e):
+        multicompletion = MultiCompletion(
+            3, lambda number, numberUnplayed, totals:\
+                self._onAboutCompletion(number, numberUnplayed, totals))
+        self._db.asyncGetNumberOfTracks(
+            lambda number: multicompletion.put(0, number))
+        self._db.asyncGetNumberOfUnplayedTracks(
+            lambda numberUnplayed: multicompletion.put(1, numberUnplayed))
+        self._db.asyncGetScoreTotals(lambda totals: multicompletion.put(2,
+                                                                        totals))
+        
     def _onPrefs(self, e):
         self._logger.debug("Opening preferences window.")
         self._prefsWindow = self._prefsFactory.getPrefsWindow(self)

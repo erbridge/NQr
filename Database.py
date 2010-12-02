@@ -1929,9 +1929,6 @@ class Database(DatabaseEventHandler):
     def asyncGetNumberOfTracks(self, completion):
         self._asyncExecuteAndFetchOne("select count(*) from tracks", (),
                                       completion)
-
-    def getNumberOfTracks(self):
-        return self._executeAndFetchOne("select count(*) from tracks")
     
     # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
     # or this is slow!
@@ -1939,13 +1936,6 @@ class Database(DatabaseEventHandler):
         self._asyncExecuteAndFetchOne(
             """select count(*) from tracks left outer join plays using(trackid)
                where plays.trackid is null""", (), completion)
-
-    # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
-    # or this is slow!
-    def getNumberOfUnplayedTracks(self):
-        return self._executeAndFetchOne(
-            """select count(*) from tracks left outer join plays using(trackid)
-               where plays.trackid is null""")
         
     # returns an array of [ score, count ]
     def asyncGetScoreTotals(self, completion):
@@ -1955,16 +1945,6 @@ class Database(DatabaseEventHandler):
                      from scores, (select distinct trackid from scores) as x
                      where scores.trackid = x.trackid group by scores.trackid)
                group by score;""", (), completion)
-
-    # returns an array of [ score, count ]
-    def getScoreTotals(self):
-        self._cursor.execute(
-            """select score, count(score)
-               from (select max(scoreid), x.trackid, score
-                     from scores, (select distinct trackid from scores) as x
-                     where scores.trackid = x.trackid group by scores.trackid)
-               group by score;""")
-        return self._cursor.fetchall()
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger,
