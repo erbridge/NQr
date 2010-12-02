@@ -38,11 +38,6 @@ def convertToUnicode(string, logger, logging=True):
         if logging == True:
             logger.warning("Bad characters resolved.")
     return unicodeString
-
-def appendToList(list, value, completion=None):
-    list.append(value)
-    if completion != None:
-        completion(list)
         
 def doNothing():
     pass

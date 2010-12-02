@@ -1090,37 +1090,50 @@ class MainWindow(wx.Frame):
 
     def addTrack(self, track):
         self.addTrackAtPos(track, 0)
-
-    def addTrackAtPos(self, track, index):
+        
+    def _addTrackAtPosCompletion(self, index, track, isScored, lastPlayed,
+                                 score, scoreValue, trackID):
         self._logger.debug("Adding track to track playlist.")
-        isScored = track.getIsScored()
         if isScored == False:
-            score = "("+str(track.getScoreValue())+")"
+            score = "("+str(scoreValue)+")"
             isScored = "+"
         else:
-            score = str(track.getScore())
+            score = str(score)
             isScored = ""
-        lastPlayed = self._db.getLastPlayedLocalTime(track)
         ## should be time from last play?
         if lastPlayed == None:
             lastPlayed = "-"
-        previous = track.getPreviousPlay()
-        weight = track.getWeight()
         self._trackList.InsertStringItem(index, isScored)
         self._trackList.SetStringItem(index, 1, track.getArtist())
         self._trackList.SetStringItem(index, 2, track.getTitle())
         self._trackList.SetStringItem(index, 3, score)
         self._trackList.SetStringItem(index, 4, lastPlayed)
+        previous = track.getPreviousPlay()
         if previous != None:
             self._trackList.SetStringItem(index, 5,
                                           roughAge(time.time() - previous))
+        weight = track.getWeight()
         if weight != None:
             self._trackList.SetStringItem(index, 6, str(weight))
-        self._trackList.SetItemData(index, track.getID())
-        ## FIXME: poss has problems with index changing if too delayed
-#        track.getID(lambda trackID: self._trackList.SetItemData(index, trackID))
+        self._trackList.SetItemData(index, trackID)
         if self._index >= index:
             self._index += 1
+
+    def addTrackAtPos(self, track, index): # TODO: give higher priority?
+        multicompletion = MultiCompletion(
+            5, lambda isScored, lastPlayed, score, scoreValue, trackID:\
+                self._addTrackAtPosCompletion(index, track, isScored,
+                                              lastPlayed, score, scoreValue,
+                                              trackID))
+        
+        track.getIsScored(lambda isScored: multicompletion.put(0, isScored))
+        self._db.asyncGetLastPlayedLocalTime(
+            track, lambda lastPlayed: multicompletion.put(1, lastPlayed))
+        track.getScore(lambda score: multicompletion.put(2, score))
+        track.getScoreValue(lambda scoreValue: multicompletion.put(3,
+                                                                   scoreValue))
+        track.getID(lambda trackID: multicompletion.put(4, trackID))
+        
 
     def enqueueTrack(self, track):
         path = track.getPath()
@@ -1259,13 +1272,11 @@ class MainWindow(wx.Frame):
     def selectTrack(self, index):
         self._logger.debug("Selecting track in position "+str(index)+".")
         self._trackList.SetItemState(index, wx.LIST_STATE_SELECTED, -1)
-
-## the first populateDetails seems to produce a larger font than subsequent
-## calls in Mac OS
-## TODO: should focus on the top of the details
-    def populateDetails(self, track):
-        self._logger.debug("Populating details panel.")
         
+    def _populateDetailsCompletion(self, track, score, playCount, lastPlayed,
+                                   tags):
+        self._logger.debug("Populating details panel.")
+
         detailString = "Artist:  \t"+track.getArtist()\
             +"\nTitle:  \t"+track.getTitle()\
             +"\nAlbum:  \t"+track.getAlbum()\
@@ -1276,15 +1287,13 @@ class MainWindow(wx.Frame):
         if bpm != "-":
             detailString += "\nBPM:  \t"+bpm
             
-        detailString += "\nScore:  \t"+str(track.getScore())\
-            +"\nPlay Count:    "+str(track.getPlayCount())
+        detailString += "\nScore:  \t"+str(score)\
+            +"\nPlay Count:    "+str(playCount)
             
-        lastPlayed = self._db.getLastPlayedLocalTime(track)
         if lastPlayed != None:
             detailString += "    \tPlayed at:  \t"+lastPlayed
             
         self.resetTagMenu()
-        tags = track.getTags()
         tagString = ""
         for tag in tags:
             tagString += tag + ", "
@@ -1297,6 +1306,21 @@ class MainWindow(wx.Frame):
         
         self.clearDetails()
         self.addToDetails(detailString)
+        
+## the first populateDetails seems to produce a larger font than subsequent
+## calls in Mac OS
+## TODO: should focus on the top of the details
+    def populateDetails(self, track): # FIXME: make higher priority?
+        multicompletion = MultiCompletion(
+            4, lambda score, playCount, lastPlayed, tags:\
+                self._populateDetailsCompletion(track, score, playCount,
+                                                lastPlayed, tags))
+        
+        track.getScore(lambda score: multicompletion.put(0, score))
+        track.getPlayCount(lambda playCount: multicompletion.put(1, playCount))
+        self._db.asyncGetLastPlayedLocalTime(
+            track, lambda lastPlayed: multicompletion.put(2, lastPlayed))
+        track.getTags(lambda tags: multicompletion.put(3, tags))
 
     def addToDetails(self, detail):
         self._details.AppendText(detail)

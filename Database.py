@@ -59,10 +59,7 @@ class DatabaseEventHandler(wx.EvtHandler):
         
     def _onExceptionEvent(self, e):
         raise e.getException()
-    
-    def _doNothing(self):
-        pass
-    
+
     def asyncComplete(self, completion, priority=None):
         if priority == None:
             priority = self._priority
@@ -99,13 +96,15 @@ class DatabaseEventHandler(wx.EvtHandler):
         self._dbThread.executeAndFetchOneOrNull(stmt, args, mycompletion,
                                                 priority)
         
-    def _asyncExecuteAndFetchAll(self, stmt, args, completion, priority=None):
+    def _asyncExecuteAndFetchAll(self, stmt, args, completion, priority=None,
+                                 throwException=True):
         if priority == None:
             priority = self._priority
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.executeAndFetchAll(stmt, args, mycompletion, priority)
+        self._dbThread.executeAndFetchAll(stmt, args, mycompletion, priority,
+                                          throwException)
         
     def _asyncExecuteAndFetchLastRowID(self, stmt, args, completion,
                                        priority=None):
@@ -315,7 +314,7 @@ class DatabaseThread(Thread):
         Thread.__init__(self, db, path, "Database")
         
     def complete(self, completion, priority=1):
-        self.queue(lambda thread, cursor: completion(), priority)
+        self.queue(lambda thread, cursor: completion(None), priority)
             
     def doExecute(self, cursor, stmt, args, completion):
         cursor.execute(stmt, args)
@@ -371,19 +370,21 @@ class DatabaseThread(Thread):
                    thread.doExecuteAndFetchOneOrNull(cursor, stmt, args,
                                                      completion), priority)
 
-    def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace):
+    def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace,
+                             throwException=True):
         cursor.execute(stmt, args)
         result = cursor.fetchall()
-        if result is None:
+        if result is None and throwException is True:
             wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
             return
         completion(result)
 
-    def executeAndFetchAll(self, stmt, args, completion, priority=1):
+    def executeAndFetchAll(self, stmt, args, completion, priority=1,
+                           throwException=True):
         trace = traceback.extract_stack()
         self.queue(lambda thread, cursor:
                    thread.doExecuteAndFetchAll(cursor, stmt, args, completion,
-                                               trace), priority)
+                                               trace, throwException), priority)
 
 ID_EVT_DATABASE = wx.NewId()
 
@@ -614,7 +615,7 @@ class Database(DatabaseEventHandler):
     # FIXME: make clearer?
     def asyncAddTrack(self, path=None, hasTrackID=True, track=None,
                       completion=None):
-        mycompletion = lambda: \
+        mycompletion = lambda result: \
             self._addTrackCompletion(path, hasTrackID, track, completion)
         self.asyncComplete(mycompletion)
         
@@ -1071,7 +1072,7 @@ class Database(DatabaseEventHandler):
             track, lambda previousPlay: track.setPreviousPlay(previousPlay))
         self._asyncExecute("""insert into plays (trackid, datetime) values
                               (?, datetime(?))""", (trackID, playTime),
-                           lambda result: self._doNothing())
+                           lambda result: doNothing())
         
     def asyncAddPlay(self, track, msDelay=0):
         mycompletion = lambda trackID: self._addPlayCompletion(track, trackID,
@@ -1355,7 +1356,7 @@ class Database(DatabaseEventHandler):
         (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
          self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
          self._bpmIndex, self._historicalIndex) = range(self._numberIndices)
-        mycompletion = lambda id: self._asyncExecuteAndFetchOne(
+        mycompletion = lambda trackID: self._asyncExecuteAndFetchOne(
             """select path, artist, album, title, tracknumber, unscored, length,
                bpm, historical from tracks where trackid = ?""", (trackID, ),
             completion, returnTuple=True)
@@ -1674,21 +1675,22 @@ class Database(DatabaseEventHandler):
             self._getTagsFromTrackIDCompletion(tagNameIDs, completion)
         self._asyncExecuteAndFetchAll(
             "select tagnameid from tags where trackid = ?", (trackID, ),
-            mycompletion)
+            mycompletion, throwException=False)
         
     def _getTagsFromTrackIDCompletion(self, tagNameIDs, completion):
         self._logger.debug("Retrieving track tags.")
         if tagNameIDs == None:
             completion([])
             return
-        tagNames = []
+        self._tagNames = []
         for (tagNameID, ) in tagNameIDs:
-            if (tagNameID, ) == tagNameIDs[-1]:
-                mycompletion = lambda tagName: appendToList(tagNames, tagName,
-                                                            completion)
-            else:
-                mycompletion = lambda tagName: appendToList(tagNames, tagName)
+            mycompletion = lambda tagName: self._tagNames.append(tagName)
             self.asyncGetTagNameFromID(tagNameID, mycompletion)
+        self.asyncComplete(
+            lambda result: self._getTagNameListCompletion(completion))
+        
+    def _getTagNameListCompletion(self, completion):
+        completion(self._tagNames)
         
     def asyncGetTagNameFromID(self, tagNameID, completion):
         self._asyncExecuteAndFetchOne(
@@ -1755,7 +1757,7 @@ class Database(DatabaseEventHandler):
         
     def _setScoreCompletion(self, trackID, score):
         self._asyncExecute("update tracks set unscored = 0 where trackid = ?",
-                           (trackID, ), lambda result: self._doNothing())
+                           (trackID, ), lambda result: doNothing())
         self._asyncExecute("""insert into scores (trackid, score, datetime)
                               values (?, ?, datetime('now'))""",
                            (trackID, score), lambda result: self._logger.debug(

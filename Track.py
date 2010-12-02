@@ -125,7 +125,7 @@ class Track:
             if self._id == None:
                 return self._db.getTrackID(self)#, update)
             return self._id
-        if self._id == None:
+        if self._id == None: # FIXME: none of these actually save track details
             self._db.asyncGetTrackID(self, completion)
             return
         completion(self._id)
@@ -136,10 +136,15 @@ class Track:
         if self._useCache == True:
             factory.addTrackToCache(self)
 
-    def getTags(self):
+    def getTags(self, completion=None):
+        if completion == None:
+            if self._tags == None:
+                self._tags = self._db.getTags(self)
+            return self._tags
         if self._tags == None:
-            self._tags = self._db.getTags(self)
-        return self._tags
+            self._db.asyncGetTags(self, completion)
+            return
+        completion(self._tags)
 
     def setTag(self, tag):
         self._db.setTag(self, tag)
@@ -155,10 +160,15 @@ class Track:
         self._db.asyncAddPlay(self, delay)
         self._playCount = self.getPlayCount() + 1
 
-    def getPlayCount(self):
+    def getPlayCount(self, completion=None):
+        if completion == None:
+            if self._playCount == None:
+                self._playCount = self._db.getPlayCount(self)
+            return self._playCount
         if self._playCount == None:
-            self._playCount = self._db.getPlayCount(self)
-        return self._playCount
+            self._db.asyncGetPlayCount(self, completion)
+            return
+        completion(self._playCount)
 
     def setPreviousPlay(self, previous):
         self._previous = previous
@@ -176,26 +186,45 @@ class Track:
         self._db.setScore(self, score)
         self._score = score
         self._isScored = True
+        
+    def _getScoreCompletion(self, isScored, completion):
+        if isScored == False:
+            completion("-")
+        else:
+            self.getScoreValue(completion)
 
-    def getScore(self):
-        if self.getIsScored == False:
-            return "-"
-        return self.getScoreValue()
+    def getScore(self, completion=None):
+        if completion == None:
+            if self.getIsScored == False:
+                return "-"
+            return self.getScoreValue()
+        self.getIsScored(lambda isScored: self._getScoreCompletion(isScored,
+                                                                   completion))
 
-    def getScoreValue(self):
+    def getScoreValue(self, completion=None):
+        if completion == None:
+            if self._score == None:
+                self._score = self._db.getScoreValue(self)
+            return self._score
         if self._score == None:
-            self._score = self._db.getScoreValue(self)
-        return self._score
+            self._db.asyncGetScoreValue(self, completion)
+            return
+        completion(self._score)
 
     def setUnscored(self):
         self._isScored = False
         self._score = None
         self._db.setUnscored(self)
 
-    def getIsScored(self):
+    def getIsScored(self, completion=None):
+        if completion == None:
+            if self._isScored == None:
+                self._isScored = self._db.getIsScored(self)
+            return self._isScored
         if self._isScored == None:
-            self._isScored = self._db.getIsScored(self)
-        return self._isScored
+            self._db.asyncGetIsScored(self, completion)
+            return
+        completion(self._isScored)
 
 class AudioTrack(Track):
     def __init__(self, db, path, logger, useCache=True):
