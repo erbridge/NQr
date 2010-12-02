@@ -570,7 +570,7 @@ class MainWindow(wx.Frame):
                     self._compareTracksCompletion(currentTrack, currentTrackID,
                                                   oldTrackID))
             currentTrack.getID(lambda trackID: multicompletion.put(0, trackID))
-            self._db.asyncGetLastPlayedTrackID(
+            self._db.getLastPlayedTrackID(
                 lambda trackID: multicompletion.put(1, trackID))
 #            try:
 #                if currentTrackID != self._db.getLastPlayedTrackID():
@@ -578,8 +578,9 @@ class MainWindow(wx.Frame):
 #                    currentTrack.addPlay()
 #            except EmptyDatabaseError:
 #                pass
-            currentTrack.setPreviousPlay(
-                self._db.getLastPlayedInSeconds(currentTrack))
+            self._db.getLastPlayedInSeconds(
+                currentTrack,
+                lambda previous: currentTrack.setPreviousPlay(previous))
             self.addTrack(currentTrack)
         except NoTrackError:
             pass
@@ -1039,8 +1040,9 @@ class MainWindow(wx.Frame):
 
     def _onTrackChange(self, e):
         self._playingTrack = e.getTrack()
-        self._playingTrack.setPreviousPlay(
-                self._db.getLastPlayedInSeconds(self._playingTrack))
+        self._db.getLastPlayedInSeconds(
+            self._playingTrack,
+            lambda previous: self._playingTrack.setPreviousPlay(previous))
         self._playTimer.Stop()
         if self._playTimer.Start(self._playDelay, oneShot=True) == False:
             self._playingTrack.addPlay()
@@ -1145,7 +1147,7 @@ class MainWindow(wx.Frame):
                                               trackID))
         
         track.getIsScored(lambda isScored: multicompletion.put(0, isScored))
-        self._db.asyncGetLastPlayedLocalTime(
+        self._db.getLastPlayedLocalTime(
             track, lambda lastPlayed: multicompletion.put(1, lastPlayed))
         track.getScore(lambda score: multicompletion.put(2, score))
         track.getScoreValue(lambda scoreValue: multicompletion.put(3,
@@ -1283,13 +1285,18 @@ class MainWindow(wx.Frame):
         track.getScoreValue(lambda scoreValue: multicompletion.put(1,
                                                                    scoreValue))
         track.getScore(lambda score: multicompletion.put(2, score))
-
-    def refreshLastPlayed(self, index, track):
-        lastPlayed = self._db.getLastPlayedLocalTime(track)
+        
+    def _refreshLastPlayedCompletion(self, index, lastPlayed):
         if lastPlayed == None:
             lastPlayed = "-"
         self._trackList.SetStringItem(index, 4, lastPlayed)
         self._trackList.RefreshItem(index)
+
+    def refreshLastPlayed(self, index, track):
+        self._db.getLastPlayedLocalTime(
+            track,
+            lambda lastPlayed: self._refreshLastPlayedCompletion(index,
+                                                                 lastPlayed))
 
     def refreshPreviousPlay(self, index, track):
         previous = track.getPreviousPlay()
@@ -1347,7 +1354,7 @@ class MainWindow(wx.Frame):
         
         track.getScore(lambda score: multicompletion.put(0, score))
         track.getPlayCount(lambda playCount: multicompletion.put(1, playCount))
-        self._db.asyncGetLastPlayedLocalTime(
+        self._db.getLastPlayedLocalTime(
             track, lambda lastPlayed: multicompletion.put(2, lastPlayed))
         track.getTags(lambda tags: multicompletion.put(3, tags))
 

@@ -157,7 +157,7 @@ class Randomizer:
                                                                        time,
                                                                        score,
                                                                        oldest))
-            self._db.asyncGetSecondsSinceLastPlayedFromID(
+            self._db.getSecondsSinceLastPlayedFromID(
                 trackID, lambda time: multicompletion.put(0, time))
             self._db.getScoreValueFromID(
                 trackID, lambda score: multicompletion.put(1, score+11))
@@ -182,7 +182,7 @@ class Randomizer:
                               mycompletion.put(0, rawTrackIDList)
         oldestCompletion = lambda oldest: mycompletion.put(1, oldest)
         
-        self._db.asyncGetOldestLastPlayed(oldestCompletion)
+        self._db.getOldestLastPlayed(oldestCompletion)
         if tags == None:
             self._db.asyncGetAllTrackIDs(trackListCompletion)
         else:

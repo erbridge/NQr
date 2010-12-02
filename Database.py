@@ -995,13 +995,7 @@ class Database(DatabaseEventHandler):
         if result == None:
             self._logger.debug("No such link exists.")
         return result
-    
-    def asyncRemoveLink(self, firstTrack, secondTrack):
-        mycompletion = lambda linkID: self._removeLinkCompletion(firstTrack,
-                                                                 secondTrack,
-                                                                 linkID)
-        self.asyncGetLinkID(firstTrack, secondTrack, mycompletion)
-        
+
     def _removeLinkCompletion(self, firstTrack, secondTrack, linkID):
         self._logger.debug("Removing link.")
         firstTrackPath = firstTrack.getPath()
@@ -1016,26 +1010,12 @@ class Database(DatabaseEventHandler):
         else:
             self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
                                +secondTrackPath+"\'.")
-
+            
     def removeLink(self, firstTrack, secondTrack):
-        self._logger.debug("Removing link.")
-        c = self._conn.cursor()
-        firstTrackID = firstTrack.getID()
-        secondTrackID = secondTrack.getID()
-        firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
-        secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-        linkID = self.getLinkID(firstTrack, secondTrack)
-        if linkID != None:
-            c.execute("""delete from links where firsttrackid = ? and
-                         secondtrackid = ?""", (firstTrackID, secondTrackID))
-            self._logger.info("\'"+firstTrackPath\
-                              +"\' is no longer linked to \'"+secondTrackPath\
-                              +"\'.")
-        else:
-            self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
-                               +secondTrackPath+"\'.")
-        c.close()
-        self._conn.commit()
+        mycompletion = lambda linkID: self._removeLinkCompletion(firstTrack,
+                                                                 secondTrack,
+                                                                 linkID)
+        self.asyncGetLinkID(firstTrack, secondTrack, mycompletion)
         
 #    def asyncAddEnqueue(self, track):
 #        track.getID(lambda trackID: self._addEnqueueCompletion(trackID))
@@ -1068,22 +1048,16 @@ class Database(DatabaseEventHandler):
         now = datetime.datetime.now()
         delay = datetime.timedelta(0, 0, 0, msDelay)
         playTime = now - delay
-        self.asyncGetLastPlayedInSeconds(
+        self.getLastPlayedInSeconds(
             track, lambda previousPlay: track.setPreviousPlay(previousPlay))
         self._asyncExecute("""insert into plays (trackid, datetime) values
                               (?, datetime(?))""", (trackID, playTime),
                            lambda result: doNothing())
         
-    def asyncAddPlay(self, track, msDelay=0):
+    def addPlay(self, track, msDelay=0):
         mycompletion = lambda trackID: self._addPlayCompletion(track, trackID,
                                                                msDelay)
         track.getID(mycompletion)
-        
-    def asyncGetLastPlayedTrackID(self, completion):
-        mycompletion = lambda trackID:\
-            self._getLastPlayedTrackIDCompletion(trackID, completion)
-        self._asyncExecuteAndFetchOneOrNull(
-            "select trackid from plays order by playid desc", (), mycompletion)
         
     def _getLastPlayedTrackIDCompletion(self, trackID, completion):
         if trackID != None:
@@ -1091,26 +1065,18 @@ class Database(DatabaseEventHandler):
         else:
             self._logger.error("No plays recorded.")
             raise EmptyDatabaseError # FIXME: probably broken
+             
+    def getLastPlayedTrackID(self, completion):
+        mycompletion = lambda trackID:\
+            self._getLastPlayedTrackIDCompletion(trackID, completion)
+        self._asyncExecuteAndFetchOneOrNull(
+            "select trackid from plays order by playid desc", (), mycompletion)
         
-    def getLastPlayedTrackID(self):
-        result = self._executeAndFetchOneOrNull(
-            "select trackid from plays order by playid desc")
-        if result != None:
-            return result
-        else:
-            self._logger.error("No plays recorded.")
-            raise EmptyDatabaseError
-        
-    def _asyncGetLastPlayed(self, completion, track=None, trackID=None):
-        if trackID == None:
-            if track == None:
-                self._logger.error("No track has been identified.")
-                raise NoTrackError # FIXME: probably broken
-            mycompletion = lambda newTrackID:\
-                self._getLastPlayedCompletion(newTrackID, completion)
-            track.getID(mycompletion)
-            return
-        self._getLastPlayedCompletion(trackID, completion)
+    def _getLastPlayedCompletion2(self, trackID, playDetails, completion):
+        if playDetails == None and self._debugMode == True:
+            self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
+                               +"\' has never been played.")
+        completion(playDetails)
         
     def _getLastPlayedCompletion(self, trackID, completion):
         (self._basicLastPlayedIndex, self._localLastPlayedIndex,
@@ -1123,77 +1089,39 @@ class Database(DatabaseEventHandler):
                strftime('%s', 'now') - strftime('%s', datetime),
                strftime('%s', datetime) from plays where trackid = ? order by
                playid desc""", (trackID, ), mycompletion, returnTuple=True)
-    
-    def _getLastPlayedCompletion2(self, trackID, playDetails, completion):
-        if playDetails == None and self._debugMode == True:
-            self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
-                               +"\' has never been played.")
-        completion(playDetails)
 
-    def _getLastPlayed(self, track=None, trackID=None):
-        (self._basicLastPlayedIndex, self._localLastPlayedIndex,
-         self._secondsSinceLastPlayedIndex,
-         self._lastPlayedInSecondsIndex) = range(4)
+    def _getLastPlayed(self, completion, track=None, trackID=None):
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError
-            trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("""select datetime, datetime(datetime, 'localtime'),
-                     strftime('%s', 'now') - strftime('%s', datetime),
-                     strftime('%s', datetime) from plays
-                     where trackid = ? order by playid desc""", (trackID, ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result
-        else:
-            if self._debugMode == True:
-                self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
-                                   +"\' has never been played.")
-            return None
+                raise NoTrackError # FIXME: probably broken
+            mycompletion = lambda newTrackID:\
+                self._getLastPlayedCompletion(newTrackID, completion)
+            track.getID(mycompletion)
+            return
+        self._getLastPlayedCompletion(trackID, completion)
+
         
-    def asyncGetLastPlayed(self, track, completion):
+    def getLastPlayed(self, track, completion):
         mycompletion = lambda details:\
             self._getDetailCompletion(details, self._basicLastPlayedIndex,
                                       completion,
                                       "Retrieving time of last play.")
-        self._asyncGetLastPlayed(mycompletion, track=track)
-
-    def getLastPlayed(self, track):
-        self._logger.debug("Retrieving time of last play.")
-        details = self._getLastPlayed(track=track)
-        if details == None:
-            return None
-        return details[self._basicLastPlayedIndex]
+        self._getLastPlayed(mycompletion, track=track)
     
-    def asyncGetLastPlayedLocalTime(self, track, completion):
+    def getLastPlayedLocalTime(self, track, completion):
         mycompletion = lambda details: self._getDetailCompletion(
             details, self._localLastPlayedIndex, completion,
             "Retrieving time of last play in localtime.")
-        self._asyncGetLastPlayed(mycompletion, track=track)
-
-    def getLastPlayedLocalTime(self, track):
-        self._logger.debug("Retrieving time of last play in localtime.")
-        details = self._getLastPlayed(track=track)
-        if details == None:
-            return None
-        return details[self._localLastPlayedIndex]
+        self._getLastPlayed(mycompletion, track=track)
     
-    def asyncGetLastPlayedInSeconds(self, track, completion):
+    def getLastPlayedInSeconds(self, track, completion):
         mycompletion = lambda details: self._getDetailCompletion(
             details, self._lastPlayedInSecondsIndex,
             lambda lastPlayed: completion(int(lastPlayed)))
-        self._asyncGetLastPlayed(mycompletion, track=track)
-
-    def getLastPlayedInSeconds(self, track):
-        details = self._getLastPlayed(track=track)
-        if details == None:
-            return None
-        return int(details[self._lastPlayedInSecondsIndex])
+        self._getLastPlayed(mycompletion, track=track)
     
-    def asyncGetSecondsSinceLastPlayedFromID(self, trackID, completion):
+    def getSecondsSinceLastPlayedFromID(self, trackID, completion):
         if self._debugMode == True:
             debugMessage = "Calculating time since last played."
         else:
@@ -1201,22 +1129,14 @@ class Database(DatabaseEventHandler):
         mycompletion = lambda details: self._getDetailCompletion(
             details, self._secondsSinceLastPlayedIndex, completion,
             debugMessage)
-        self._asyncGetLastPlayed(mycompletion, trackID=trackID)
-
-    def getSecondsSinceLastPlayedFromID(self, trackID):
-        if self._debugMode == True:
-            self._logger.debug("Calculating time since last played.")
-        details = self._getLastPlayed(trackID=trackID)
-        if details == None:
-            return None
-        return details[self._secondsSinceLastPlayedIndex]
+        self._getLastPlayed(mycompletion, trackID=trackID)
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     # played again, this will get stuck. We need to keep track of
     # whether entries are current or historical. Partially fixed: 
     # currently bad tracks rely on being chosen by randomizer to update 
     # historical status.
-    def asyncGetOldestLastPlayed(self, completion):
+    def getOldestLastPlayed(self, completion):
         try:
             self._asyncExecuteAndFetchOne(
                 """select strftime('%s', 'now') - strftime('%s', min(datetime))
@@ -1229,7 +1149,13 @@ class Database(DatabaseEventHandler):
         except NoResultError:
             completion(0)
 
-    def asyncGetPlayCount(self, completion, track=None, trackID=None):
+    def _getPlayCountCompletion(self, plays, completion):
+        if plays == None:
+            completion(0)
+            return
+        completion(len(plays))
+        
+    def getPlayCount(self, completion, track=None, trackID=None):
         self._logger.debug("Retrieving play count.")
         mycompletion = lambda plays:\
             self._getPlayCountCompletion(plays, completion)
@@ -1243,30 +1169,6 @@ class Database(DatabaseEventHandler):
             trackID = track.getID(mycompletion2)
             return
         mycompletion2(trackID)
-
-    def _getPlayCountCompletion(self, plays, completion):
-        if plays == None:
-            completion(0)
-            return
-        completion(len(plays))
-    
-    def getPlayCount(self, track=None, trackID=None):
-        self._logger.debug("Retrieving play count.")
-        if trackID == None:
-            if track == None:
-                self._logger.error("No track has been identified.")
-                raise NoTrackError
-##                return None
-            trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("""select datetime from plays where trackid = ? order by
-                     playid desc""", (trackID, ))
-        result = c.fetchall()
-        c.close()
-        if result == None:
-            return 0
-        count = len(result)
-        return count
     
 #    def updateAllTrackDetails(self):
 #        trackIDs = self.getAllTrackIDs()
@@ -1277,42 +1179,22 @@ class Database(DatabaseEventHandler):
 #            except NoTrackError:
 #                self.setHistorical(True, trackID)
 
-    def maybeUpdateTrackDetails(self, track):
-        if self._getTrackDetailsChange(track) == True:
-            self._updateTrackDetails(track)
-            
-    def asyncMaybeUpdateTrackDetails(self, track):
-        mycompletion = lambda change:\
-            self._maybeUpdatetrackDetailsCompletion(track, change)
-        self._asyncGetTrackDetailsChange(track, mycompletion)
-        
-    def _maybeUpdateTrackDetailsCompletion(self, track, change):
-        if change == True:
-            self._updateTrackDetails(track)
-
-    def _getTrackDetailsChange(self, track):
-        self._logger.debug("Checking whether track details have changed.")
-        details = self._getTrackDetails(track=track)#, update=True)
-        newDetails = {}
-        newDetails[self._pathIndex] = track.getPath()
-        newDetails[self._artistIndex] = track.getArtist()
-        newDetails[self._albumIndex] = track.getAlbum()
-        newDetails[self._titleIndex] = track.getTitle()
-        newDetails[self._trackNumberIndex] = track.getTrackNumber()
-        newDetails[self._lengthIndex] = track.getLength()
-        newDetails[self._bpmIndex] = track.getBPM()
-        for n in range(self._numberIndices):
-            try:
-                if details[n] != newDetails[n]:
-                    return True
-            except KeyError:
-                continue
-        return False
-    
-    def _asyncGetTrackDetailsChange(self, track, completion):
-        mycompletion = lambda details:\
-            self._getTrackDetailsCompletion(track, details, completion)
-        self._asyncGetTrackDetails(mycompletion, track=track)
+    def _asyncGetTrackDetails(self, completion, track=None, trackID=None):
+        self._numberIndices = 9
+        (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
+         self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
+         self._bpmIndex, self._historicalIndex) = range(self._numberIndices)
+        mycompletion = lambda trackID: self._asyncExecuteAndFetchOne(
+            """select path, artist, album, title, tracknumber, unscored, length,
+               bpm, historical from tracks where trackid = ?""", (trackID, ),
+            completion, returnTuple=True)
+        if trackID == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError
+            track.getID(mycompletion)
+        else:
+            mycompletion(trackID)
         
     def _getTrackDetailsCompletion(self, track, details, completion):
         self._logger.debug("Checking whether track details have changed.")
@@ -1332,6 +1214,20 @@ class Database(DatabaseEventHandler):
             except KeyError:
                 continue
         completion(False)
+    
+    def _getTrackDetailsChange(self, track, completion):
+        mycompletion = lambda details:\
+            self._getTrackDetailsCompletion(track, details, completion)
+        self._asyncGetTrackDetails(mycompletion, track=track)
+        
+    def _maybeUpdateTrackDetailsCompletion(self, track, change):
+        if change == True:
+            self._updateTrackDetails(track)
+            
+    def maybeUpdateTrackDetails(self, track):
+        mycompletion = lambda change:\
+            self._maybeUpdatetrackDetailsCompletion(track, change)
+        self._getTrackDetailsChange(track, mycompletion)
 
     def _getTrackDetails(self, track=None, trackID=None):
         self._numberIndices = 9
@@ -1350,23 +1246,6 @@ class Database(DatabaseEventHandler):
         result = c.fetchone()
         c.close()
         return result
-    
-    def _asyncGetTrackDetails(self, completion, track=None, trackID=None):
-        self._numberIndices = 9
-        (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
-         self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
-         self._bpmIndex, self._historicalIndex) = range(self._numberIndices)
-        mycompletion = lambda trackID: self._asyncExecuteAndFetchOne(
-            """select path, artist, album, title, tracknumber, unscored, length,
-               bpm, historical from tracks where trackid = ?""", (trackID, ),
-            completion, returnTuple=True)
-        if trackID == None:
-            if track == None:
-                self._logger.error("No track has been identified.")
-                raise NoTrackError
-            track.getID(mycompletion)
-        else:
-            mycompletion(trackID)
 
     def getPath(self, track):
         self._logger.debug("Retrieving track's path.")
