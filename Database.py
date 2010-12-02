@@ -8,7 +8,7 @@
 ##       to create other tables (poss corruption)
 ## TODO: finish asyncing everything
 ##
-## FIXME: make tracebacks work properly for all completions?
+## FIXME: make tracebacks work properly for all completions
 
 import ConfigParser
 import datetime
@@ -44,7 +44,7 @@ class Thread(threading.Thread): # FIXME: add interrupt?
             got = self._queue.get()[2]
             got(self, cursor)
             
-class EventHandler(wx.EvtHandler):
+class DatabaseEventHandler(wx.EvtHandler):
     def __init__(self, dbThread, priority):
         wx.EvtHandler.__init__(self)
         self._dbThread = dbThread
@@ -59,6 +59,9 @@ class EventHandler(wx.EvtHandler):
         
     def _onExceptionEvent(self, e):
         raise e.getException()
+    
+    def _doNothing(self):
+        pass
     
     def _asyncComplete(self, completion, priority=None):
         if priority == None:
@@ -119,6 +122,20 @@ class EventHandler(wx.EvtHandler):
         self._asyncExecuteAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ), completion)
         
+    def _getDirectoryIDCompletion(self, directory, directoryID, completion):
+        self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
+        if directoryID == None:
+            self._logger.debug("\'"+directory+"\' is not in the watch list.")
+        completion(directoryID)
+        
+    def asyncGetDirectoryID(self, directory, completion):
+        directory = os.path.realpath(directory)
+        mycompletion = lambda directoryID:\
+            self._getDirectoryIDCompletion(directory, directoryID, completion)
+        self._asyncExecuteAndFetchOneOrNull(
+            "select directoryid from directories where path = ?", (directory, ),
+            mycompletion)
+        
     def _updateTrackDetailsCompletion(self, track, trackID, infoLogging=True):
         path = track.getPath()
         self._logger.debug("Updating \'"+path+"\' in the library.")
@@ -156,9 +173,9 @@ class EventHandler(wx.EvtHandler):
                            (historical, trackID), mycompletion)
         
 # FIXME: should somehow indicate that it is working/finished without spamming
-class DirectoryWalkThread(Thread, EventHandler):
+class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def __init__(self, db, path, logger, trackFactory, dbThread):
-        EventHandler.__init__(self, dbThread, 2)
+        DatabaseEventHandler.__init__(self, dbThread, 2)
         Thread.__init__(self, db, path, "Directory Walk")
         self._logger = logger
         self._trackFactory = trackFactory
@@ -238,19 +255,9 @@ class DirectoryWalkThread(Thread, EventHandler):
         mycallback = lambda path: self._addTrack(path)
         self.walkDirectoryNoWatch(directory, mycallback)
         
-    def _getDirectoryIDCompletion(self, directory, directoryID, completion):
-        self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
-        if directoryID == None:
-            self._logger.debug("\'"+directory+"\' is not in the watch list.")
-        completion(directoryID)
-        
     def doGetDirectoryID(self, directory, completion):
-        mycompletion = lambda directoryID:\
-            self._getDirectoryIDCompletion(directory, directoryID, completion)
-        self._asyncExecuteAndFetchOneOrNull(
-            "select directoryid from directories where path = ?", (directory, ),
-            mycompletion)
-        
+        self.asyncGetDirectoryID(directory, completion)
+    
     def getDirectoryID(self, directory, completion):
         directory = os.path.realpath(directory)
         self.queue(lambda thread, cursor:
@@ -407,11 +414,11 @@ class ExceptionEvent(wx.PyEvent):
     def getException(self):
         return self._err
 
-class Database(EventHandler):
+class Database(DatabaseEventHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,
                  debugMode=False, databasePath="database",
                  defaultDefaultScore=10):
-        EventHandler.__init__(self, DatabaseThread(self, databasePath), 1)
+        DatabaseEventHandler.__init__(self, DatabaseThread(self, databasePath), 1)
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._configParser = configParser
@@ -777,15 +784,6 @@ class Database(EventHandler):
         
     def asyncAddDirectory(self, directory):
         self._directoryWalkThread.addDirectory(directory)
-        
-    def asyncGetDirectoryID(self, directory, completion):
-        directory = os.path.realpath(directory)
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
-        self._asyncExecuteAndFetchOneOrNull(
-            "select directoryid from directories where path = ?", (directory, ),
-            mycompletion)
 
     def getDirectoryID(self, directory):
         directory = os.path.realpath(directory)
@@ -809,6 +807,23 @@ class Database(EventHandler):
                 self.addDirectoryNoWatch(path)
             else: ## or: elif contents[n][-4:]=='.mp3':
                 self.addTrack(path)
+                
+    def _removeDirectoryCompletion(self, directory, directoryID):
+        directory = os.path.realpath(directory)
+        self._logger.debug("Removing \'"+directory+"\' from the watch list.")
+        if directoryID != None:
+            mycompletion = lambda result: self._logger.info(
+                "\'"+directory+"\' has been removed from the watch list.")
+            self._asyncExecute("delete from directories where path = ?",
+                               (directory, ), mycompletion)
+            
+        else:
+            self._logger.debug("\'"+directory+"\' is not in the watch list.")
+                
+    def asyncRemoveDirectory(self, directory):
+        mycompletion = lambda directoryID:\
+            self._removeDirectoryCompletion(directory, directoryID)
+        self.asyncGetDirectoryID(directory, mycompletion)
 
     def removeDirectory(self, directory):
         directory = os.path.realpath(directory)
@@ -826,8 +841,28 @@ class Database(EventHandler):
 
     def asyncRescanDirectories(self):
         self._directoryWalkThread.rescanDirectories()
+        
+    ## FIXME: needs to deal with two links using the same first or second track
+    def asyncAddLink(self, firstTrack, secondTrack):
+        mycompletion = lambda firstTrackID, secondTrackID, linkID:\
+            self._addLinkCompletion(firstTrackID, secondTrackID, linkID)
+        self.asyncGetLinkID(firstTrack, secondTrack, completeTrackIDs=True)
+    
+    def _addLinkCompletion(self, firstTrackID, secondTrackID, linkID):
+        firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
+        secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
+        if linkID == None:
+            mycompletion = lambda result: self._logger.info(
+                "\'"+firstTrackPath+"\' has been linked to \'"+secondTrackPath\
+                +"\'.")
+            self._asyncExecute(
+                "insert into links (firsttrackid, secondtrackid) values (?, ?)",
+                (firstTrackID, secondTrackID), mycompletion)
+        else:
+            self._logger.debug("\'"+firstTrackPath+"\' is already linked to \'"\
+                               +secondTrackPath+"\'.")
 
-## FIXME: needs to deal with two links using the same first or second track
+    ## FIXME: needs to deal with two links using the same first or second track
     def addLink(self, firstTrack, secondTrack):
         self._logger.debug("Creating track link.")
         c = self._conn.cursor()
@@ -847,6 +882,40 @@ class Database(EventHandler):
         c.close()
         self._conn.commit()
 
+    def asyncGetLinkID(self, firstTrack, secondTrack, completion,
+                       completeTrackIDs=False):
+        multicompletion = MultiCompletion(
+            2, lambda firstTrackID, secondTrackID:\
+            self._getLinkIDCompletion(firstTrackID, secondTrackID, completion,
+                                      completeTrackIDs))
+        firstTrack.getID(lambda firstTrackID:\
+                         multicompletion.put(0, firstTrackID))
+        secondTrack.getID(lambda secondTrackID:\
+                          multicompletion.put(1, secondTrackID))
+        
+    def _getLinkIDCompletion(self, firstTrackID, secondTrackID, completion,
+                             completeTrackIDs=False):
+        mycompletion = lambda linkID:\
+            self._getLinkIDCompletion2(firstTrackID, secondTrackID, linkID,
+                                       completion, completeTrackIDs)
+        self._asyncExecuteAndFetchOneOrNull(
+            """select linkid from links where firsttrackid = ? and
+               secondtrackid = ?""", (firstTrackID, secondTrackID),
+            mycompletion)
+        
+    def _getLinkIDCompletion2(self, firstTrackID, secondTrackID, linkID,
+                              completion, completeTrackIDs=False):
+        self._logger.debug("Retrieving link ID.")
+        if linkID == None:
+            firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
+            secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
+            self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
+                               +secondTrackPath+"\'.")
+        if completeTrackIDs == True:
+            completion(firstTrackID, secondTrackID, linkID)
+        else:
+            completion(linkID)
+    
     def getLinkID(self, firstTrack, secondTrack):
         self._logger.debug("Retrieving link ID.")
         firstTrackID = firstTrack.getID()
@@ -861,6 +930,34 @@ class Database(EventHandler):
                                +secondTrackPath+"\'.")
         return result
 
+    ## if there are two links for a track, returns the link with track as second
+    ## track first for queueing ease
+    def asyncGetLinkIDs(self, track, completion):
+        track.getID(lambda trackID: self._getLinkIDsCompletion(trackID,
+                                                               completion))
+        
+    def _getLinkIDsCompletion(self, trackID, completion):
+        multicompletion = MultiCompletion(
+            2, lambda firstLinkID, secondLinkID:\
+            self._getLinkIDsCompletion2(trackID, firstLinkID, secondLinkID,
+                                        completion))
+        self._asyncExecuteAndFetchOneOrNull(
+            "select linkid from links where secondtrackid = ?", (trackID, ),
+            lambda firstLinkID: multicompletion.put(0, firstLinkID))
+        self._asyncExecuteAndFetchOneOrNull(
+            "select linkid from links where firsttrackid = ?", (trackID, ),
+            lambda secondLinkID: multicompletion.put(1, secondLinkID))
+        
+    def _getLinkIDsCompletion2(self, trackID, firstLinkID, secondLinkID,
+                               completion):
+        self._logger.debug("Retrieving link IDs.")
+        if firstLinkID == None:
+            if secondLinkID == None:
+                path = self.getPathFromIDNoDebug(trackID)
+                self._logger.debug("\'"+path\
+                                   +"\' is not linked to another track.")
+        completion(firstLinkID, secondLinkID)
+            
     ## if there are two links for a track, returns the link with track as second
     ## track first for queueing ease
     def getLinkIDs(self, track):
@@ -881,6 +978,19 @@ class Database(EventHandler):
                 return firstResult
             else:
                 return firstResult, secondResult
+            
+    def asyncGetLinkedTrackIDs(self, linkID, completion):
+        mycompletion = lambda trackIDs:\
+            self._getLinkedTrackIDsCompletion(trackIDs, completion)
+        self._asyncEexecuteAndFetchOneOrNull(
+            "select firsttrackid, secondtrackid from links where linkid = ?",
+            (linkID, ), mycompletion)
+        
+    def _getLinkedTrackIDsCompletion(self, trackIDs, completion):
+        self._logger.debug("Retrieving track IDs for linked tracks.")
+        if trackIDs == None:
+            self._logger.debug("No such link exists.")
+        completion(trackIDs)
 
     def getLinkedTrackIDs(self, linkID):
         self._logger.debug("Retrieving track IDs for linked tracks.")
@@ -890,6 +1000,27 @@ class Database(EventHandler):
         if result == None:
             self._logger.debug("No such link exists.")
         return result
+    
+    def asyncRemoveLink(self, firstTrack, secondTrack):
+        mycompletion = lambda linkID: self._removeLinkCompletion(firstTrack,
+                                                                 secondTrack,
+                                                                 linkID)
+        self.asyncGetLinkID(firstTrack, secondTrack, mycompletion)
+        
+    def _removeLinkCompletion(self, firstTrack, secondTrack, linkID):
+        self._logger.debug("Removing link.")
+        firstTrackPath = firstTrack.getPath()
+        secondTrackPath = secondTrack.getPath()
+        if linkID != None:
+            mycompletion = lambda result:\
+                self._logger.info(
+                    "\'"+firstTrackPath+"\' is no longer linked to \'"\
+                    +secondTrackPath+"\'.")
+            self._asyncEexecute("delete from links where linkid = ?",
+                                (linkID, ), mycompletion)
+        else:
+            self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
+                               +secondTrackPath+"\'.")
 
     def removeLink(self, firstTrack, secondTrack):
         self._logger.debug("Removing link.")
@@ -910,25 +1041,48 @@ class Database(EventHandler):
                                +secondTrackPath+"\'.")
         c.close()
         self._conn.commit()
+        
+#    def asyncAddEnqueue(self, track):
+#        track.getID(lambda trackID: self._addEnqueueCompletion(trackID))
+#    
+#    def _addEnqueueCompletion(self, trackID):
+#        self._asyncExecute("""insert into enqueues (trackid, datetime) values
+#                              (?, datetime('now'))""", (trackID, ),
+#                           lambda result: self._logger.debug("Adding enqueue."))
+#
+#    def addEnqueue(self, track):
+#        self._logger.debug("Adding enqueue.")
+#        c = self._conn.cursor()
+#        trackID = track.getID()
+#        c.execute("""insert into enqueues (trackid, datetime) values
+#                     (?, datetime('now'))""", (trackID, ))
+#        c.close()
+#        self._conn.commit()
+#
+#    def getSecondsSinceLastEnqueuedFromID(self, trackID):
+#        if trackID == None:
+#            self._logger.error("No track has been identified.")
+#            raise NoTrackError
+#        return self._executeAndFetchOneOrNull(
+#            """select strftime('%s', 'now') - strftime('%s', datetime)
+#               from enqueues where trackid = ? order by enqueueid desc""",
+#            (trackID, ))
 
-    def addEnqueue(self, track):
-        self._logger.debug("Adding enqueue.")
-        c = self._conn.cursor()
-        trackID = track.getID()
-        c.execute("""insert into enqueues (trackid, datetime) values
-                     (?, datetime('now'))""", (trackID, ))
-        c.close()
-        self._conn.commit()
-
-    def getSecondsSinceLastEnqueuedFromID(self, trackID):
-        if trackID == None:
-            self._logger.error("No track has been identified.")
-            raise NoTrackError
-        return self._executeAndFetchOneOrNull(
-            """select strftime('%s', 'now') - strftime('%s', datetime)
-               from enqueues where trackid = ? order by enqueueid desc""",
-            (trackID, ))
-
+    def asyncAddPlay(self, track, msDelay=0):
+        track.getID(lambda trackID: self._addPlayCompletion(track, trackID,
+                                                            msDelay))
+        
+    def _addPlayCompletion(self, track, trackID, msDelay=0):
+        self._logger.debug("Adding play.")
+        now = datetime.datetime.now()
+        delay = datetime.timedelta(0, 0, 0, msDelay)
+        playTime = now - delay
+        self.asyncGetLastPlayedInSeconds(
+            track, lambda previousPlay: track.setPreviousPlay(previousPlay))
+        self._asyncExecute("""insert into plays (trackid, datetime) values
+                              (?, datetime(?))""", (trackID, playTime),
+                           lambda result: self._doNothing())
+        
     def addPlay(self, track, msDelay=0):
         self._logger.debug("Adding play.")
         trackID = track.getID()
@@ -940,6 +1094,19 @@ class Database(EventHandler):
         self._cursor.execute("""insert into plays (trackid, datetime) values
                                 (?, datetime(?))""", (trackID, playTime))
 
+    def asyncGetLastPlayedTrackID(self, completion):
+        mycompletion = lambda trackID:\
+            self._getLastPlayedTrackIDCompletion(trackID, completion)
+        self._asyncExecuteAndFetchOneOrNull(
+            "select trackid from plays order by playid desc", (), mycompletion)
+        
+    def _getLastPlayedTrackIDCompletion(self, trackID, completion):
+        if trackID != None:
+            completion(trackID)
+        else:
+            self._logger.error("No plays recorded.")
+            raise EmptyDatabaseError # FIXME: probably broken
+        
     def getLastPlayedTrackID(self):
         result = self._executeAndFetchOneOrNull(
             "select trackid from plays order by playid desc")
@@ -948,11 +1115,40 @@ class Database(EventHandler):
         else:
             self._logger.error("No plays recorded.")
             raise EmptyDatabaseError
+        
+    def _asyncGetLastPlayed(self, completion, track=None, trackID=None):
+        if trackID == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError # FIXME: probably broken
+            mycompletion = lambda newTrackID:\
+                self._getLastPlayedCompletion(newTrackID, completion)
+            track.getID(mycompletion)
+            return
+        self._getLastPlayedCompletion(trackID, completion)
+        
+    def _getLastPlayedCompletion(self, trackID, completion):
+        (self._basicLastPlayedIndex, self._localLastPlayedIndex,
+         self._secondsSinceLastPlayedIndex,
+         self._lastPlayedInSecondsIndex) = range(4)
+        mycompletion = lambda playDetails:\
+            self._getLastPlayedCompletion2(trackID, playDetails, completion)
+        self._asyncExecuteAndFetchOne(
+            """select datetime, datetime(datetime, 'localtime'),
+               strftime('%s', 'now') - strftime('%s', datetime),
+               strftime('%s', datetime) from plays where trackid = ? order by
+               playid desc""", (trackID, ), mycompletion, returnTuple=True)
+    
+    def _getLastPlayedCompletion2(self, trackID, playDetails, completion):
+        if playDetails == None and self._debugMode == True:
+            self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
+                               +"\' has never been played.")
+        completion(playDetails)
 
     def _getLastPlayed(self, track=None, trackID=None):
-        (self.basicLastPlayedIndex, self.localLastPlayedIndex,
-         self.secondsSinceLastPlayedIndex,
-         self.lastPlayedInSecondsIndex) = range(4)
+        (self._basicLastPlayedIndex, self._localLastPlayedIndex,
+         self._secondsSinceLastPlayedIndex,
+         self._lastPlayedInSecondsIndex) = range(4)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
@@ -972,26 +1168,55 @@ class Database(EventHandler):
                 self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
                                    +"\' has never been played.")
             return None
+        
+    def asyncGetLastPlayed(self, track, completion):
+        mycompletion = lambda details:\
+            self._getDetailCompletion(details, self._basicLastPlayedIndex,
+                                      completion,
+                                      "Retrieving time of last play.")
+        self._asyncGetLastPlayed(mycompletion, track=track)
 
     def getLastPlayed(self, track):
         self._logger.debug("Retrieving time of last play.")
         details = self._getLastPlayed(track=track)
         if details == None:
             return None
-        return details[self.basicLastPlayedIndex]
+        return details[self._basicLastPlayedIndex]
+    
+    def asyncGetLastPlayedLocalTime(self, track, completion):
+        mycompletion = lambda details: self._getDetailCompletion(
+            details, self._localLastPlayedIndex, completion,
+            "Retrieving time of last play in localtime.")
+        self._asyncGetLastPlayed(mycompletion, track=track)
 
     def getLastPlayedLocalTime(self, track):
         self._logger.debug("Retrieving time of last play in localtime.")
         details = self._getLastPlayed(track=track)
         if details == None:
             return None
-        return details[self.localLastPlayedIndex]
+        return details[self._localLastPlayedIndex]
+    
+    def asyncGetLastPlayedInSeconds(self, track, completion):
+        mycompletion = lambda details: self._getDetailCompletion(
+            details, self._lastPlayedInSecondsIndex,
+            lambda lastPlayed: completion(int(lastPlayed)))
+        self._asyncGetLastPlayed(mycompletion, track=track)
 
     def getLastPlayedInSeconds(self, track):
         details = self._getLastPlayed(track=track)
         if details == None:
             return None
-        return int(details[self.lastPlayedInSecondsIndex])
+        return int(details[self._lastPlayedInSecondsIndex])
+    
+    def asyncGetSecondsSinceLastPlayedFromID(self, trackID, completion):
+        if self._debugMode == True:
+            debugMessage = "Calculating time since last played."
+        else:
+            debugMessage = None
+        mycompletion = lambda details: self._getDetailCompletion(
+            details, self._secondsSinceLastPlayedIndex, completion,
+            debugMessage)
+        self._asyncGetLastPlayed(mycompletion, trackID=trackID)
 
     def getSecondsSinceLastPlayedFromID(self, trackID):
         if self._debugMode == True:
@@ -999,7 +1224,7 @@ class Database(EventHandler):
         details = self._getLastPlayed(trackID=trackID)
         if details == None:
             return None
-        return details[self.secondsSinceLastPlayedIndex]
+        return details[self._secondsSinceLastPlayedIndex]
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     # played again, this will get stuck. We need to keep track of
@@ -1019,6 +1244,27 @@ class Database(EventHandler):
         except NoResultError:
             completion(0)
 
+    def asyncGetPlayCount(self, track=None, trackID=None, completion):
+        self._logger.debug("Retrieving play count.")
+        mycompletion = lambda plays:\
+            self._getPlayCountCompletion(plays, completion)
+        mycompletion2 = lambda trackID: self._asyncExecuteAndFetchAll(
+            "select datetime from plays where trackid = ? order by playid desc",
+            (trackID, ), mycompletion)
+        if trackID == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError # FIXME: probably broken
+            trackID = track.getID(mycompletion2)
+            return
+        mycompletion2(trackID)
+
+    def _getPlayCountCompletion(self, plays, completion):
+        if plays == None:
+            completion(0)
+            return
+        completion(len(plays))
+    
     def getPlayCount(self, track=None, trackID=None):
         self._logger.debug("Retrieving play count.")
         if trackID == None:
@@ -1037,14 +1283,14 @@ class Database(EventHandler):
         count = len(result)
         return count
     
-    def updateAllTrackDetails(self):
-        trackIDs = self.getAllTrackIDs()
-        for trackID in trackIDs:
-            try:
-                track = self._trackFactory.getTrackFromID()
-                self.maybeUpdateTrackDetails(track)
-            except NoTrackError:
-                self.setHistorical(True, trackID)
+#    def updateAllTrackDetails(self):
+#        trackIDs = self.getAllTrackIDs()
+#        for trackID in trackIDs:
+#            try:
+#                track = self._trackFactory.getTrackFromID()
+#                self.maybeUpdateTrackDetails(track)
+#            except NoTrackError:
+#                self.setHistorical(True, trackID)
 
     def maybeUpdateTrackDetails(self, track):
         if self._getTrackDetailsChange(track) == True:
@@ -1503,6 +1749,29 @@ class Database(EventHandler):
             completion)
 
     ## determines whether user has changed score for this track
+    def _asyncGetIsScored(self, completion, track=None, trackID=None):
+        if self._debugMode == True:
+            debugMessage = "Retrieving track's unscored status."
+        else:
+            debugMessage = None
+        mycompletion = lambda details: self._getDetailCompletion(
+            details, self._unscoredIndex,
+            lambda unscored: self._getIsScoredCompletion(unscored, completion),
+            debugMessage=debugMessage)
+        if trackID != None:
+            self._asyncGetTrackDetails(mycompletion, trackID=trackID)
+        else:
+            self._asyncGetTrackDetails(mycompletion, track=track)
+        
+    def _getIsScoredCompletion(self, unscored, completion):
+        if unscored == None:
+            completion(None)
+        elif unscored == 1:
+            completion(False)
+        elif unscored == 0:
+            completion(True)
+        
+    ## determines whether user has changed score for this track
     def _getIsScored(self, track=None, trackID=None):
         if self._debugMode == True:
             self._logger.debug("Retrieving track's unscored status.")
@@ -1517,11 +1786,25 @@ class Database(EventHandler):
         elif details[self._unscoredIndex] == 0:
             return True
 
+    def asyncGetIsScored(self, track, completion):
+        self._asyncGetIsScored(completion, track=track)
+    
     def getIsScored(self, track):
         return self._getIsScored(track=track)
 
+    def asyncGetIsScoredFromID(self, trackID, completion):
+        self._asyncGetIsScored(completion, trackID=trackID)
+        
     def getIsScoredFromID(self, trackID):
         return self._getIsScored(trackID=trackID)
+    
+    ## poss should add a record to scores table
+    def asyncSetUnscored(self, track):
+        track.getID(
+            lambda trackID: self._asyncExecute(
+                "update tracks set unscored = 1 where trackid = ?", (trackID, ),
+                lambda result: self._logger.debug(
+                    "Setting track as unscored.")))
 
     ## poss should add a record to scores table
     def setUnscored(self, track):
@@ -1532,6 +1815,18 @@ class Database(EventHandler):
                   (trackID, ))
         c.close()
         self._conn.commit()
+        
+    ## poss add track if track not in library
+    def asyncSetScore(self, track, score):
+        track.getID(lambda trackID: self._setScoreCompletion(trackID, score))
+        
+    def _setScoreCompletion(self, trackID, score):
+        self._asyncExecute("update tracks set unscored = 0 where trackid = ?",
+                           (trackID, ), lambda result: self._doNothing())
+        self._asyncExecute("""insert into scores (trackid, score, datetime)
+                              values (?, ?, datetime('now'))""",
+                           (trackID, score), lambda result: self._logger.debug(
+                                                "Setting track's score."))
 
     ## poss add track if track not in library
     def setScore(self, track, score):
@@ -1544,6 +1839,23 @@ class Database(EventHandler):
                      (?, ?, datetime('now'))""", (trackID, score, ))
         c.close()
         self._conn.commit()
+        
+    def _asyncGetScore(self, completion, track=None, trackID=None):
+        mycompletion = lambda trackID: self._asyncExecuteAndFetchOneOrNull(
+            "select score from scores where trackid = ? order by scoreid desc",
+            (trackID, ),
+            lambda score: self._internalGetScoreCompletion(score, completion))
+        if trackID == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError # FIXME: probably doesn't work
+            trackID = track.getID(mycompletion)
+            return
+        mycompletion(trackID)
+    
+    def _internalGetScoreCompletion(self, score, completion):
+        self._logger.debug("Retrieving track's score.")
+        completion(score)
 
     def _getScore(self, track=None, trackID=None):
         self._logger.debug("Retrieving track's score.")
@@ -1555,34 +1867,78 @@ class Database(EventHandler):
         return self._executeAndFetchOneOrNull(
             "select score from scores where trackid = ? order by scoreid desc",
             (trackID, ))
+        
+    def asyncGetScore(self, track, completion):
+        self.asyncGetIsScored(
+            track, lambda isScored: self._getScoreCompletion(
+                        isScored, completion, completeWithDash=True,
+                        track=track))
+    
+    def _getScoreCompletion(self, isScored, completion, completeWithDash=False,
+                            track=None, trackID=None):
+        if isScored == False:
+            if completeWithDash == True:
+                completion("-")
+            else:
+                completion(self._defaultScore)
+        else:
+            self._asyncGetScore(completion, track=track, trackID=trackID)
 
     def getScore(self, track):
         if self.getIsScored(track) == False:
             return "-"
         return self._getScore(track=track)
+    
+    def asyncGetScoreValue(self, track, completion):
+        self.asyncGetIsScored(
+            track, lambda isScored: self._getScoreCompletion(isScored,
+                                                             completion,
+                                                             track=track))
 
     def getScoreValue(self, track):
         if self.getIsScored(track) == False:
             return self._defaultScore
         return self._getScore(track=track)
+    
+    def asyncGetScoreValueFromID(self, trackID, completion):
+        self.asyncGetIsScoredFromID(
+            trackID, lambda isScored: self._getScoreCompletion(isScored,
+                                                               completion,
+                                                               trackID=trackID))
 
     def getScoreValueFromID(self, trackID):
         if self.getIsScoredFromID(trackID) == False:
             return self._defaultScore
         return self._getScore(trackID=trackID)
 
+    def asyncMaybeGetIDFromPath(self, path, completion):
+        path = os.path.realpath(path)
+        self._asyncExecuteAndFetchOneOrNull(
+            "select trackid from tracks where path = ?", (path, ), completion)
+        
     def maybeGetIDFromPath(self, path):
         path = os.path.realpath(path)
         return self._executeAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ))
 
-    def getIDFromPath(self, path):
-        id = self.maybeGetIDFromPath(path)
-        if id is None:
-            raise PathNotFoundError()
+#    def getIDFromPath(self, path):
+#        id = self.maybeGetIDFromPath(path)
+#        if id is None:
+#            raise PathNotFoundError()
+
+    def asyncGetNumberOfTracks(self, completion):
+        self._asyncExecuteAndFetchOne("select count(*) from tracks", (),
+                                      completion)
 
     def getNumberOfTracks(self):
         return self._executeAndFetchOne("select count(*) from tracks")
+    
+    # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
+    # or this is slow!
+    def asyncGetNumberOfUnplayedTracks(self, completion):
+        self._asyncExecuteAndFetchOne(
+            """select count(*) from tracks left outer join plays using(trackid)
+               where plays.trackid is null""", (), completion)
 
     # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
     # or this is slow!
@@ -1590,6 +1946,15 @@ class Database(EventHandler):
         return self._executeAndFetchOne(
             """select count(*) from tracks left outer join plays using(trackid)
                where plays.trackid is null""")
+        
+    # returns an array of [ score, count ]
+    def asyncGetScoreTotals(self, completion):
+        self._asyncExecuteAndFetchAll(
+            """select score, count(score)
+               from (select max(scoreid), x.trackid, score
+                     from scores, (select distinct trackid from scores) as x
+                     where scores.trackid = x.trackid group by scores.trackid)
+               group by score;""", (), completion)
 
     # returns an array of [ score, count ]
     def getScoreTotals(self):

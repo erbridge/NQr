@@ -1100,7 +1100,7 @@ class MainWindow(wx.Frame):
         path = track.getPath()
         self._logger.debug("Enqueueing \'"+path+"\'.")
         self._player.addTrack(path)
-        self._db.addEnqueue(track)
+#        self._db.addEnqueue(track)
 
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing
