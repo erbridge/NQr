@@ -1423,76 +1423,32 @@ class Database(DatabaseEventHandler):
         mycompletion = lambda details:\
             self._getDetailCompletion(details, self._pathIndex, completion)
         self._asyncGetTrackDetails(mycompletion, trackID=trackID)
-
-    def getArtist(self, track):
-        self._logger.debug("Retrieving track's artist.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._artistIndex]
     
-    def asyncGetArtist(self, track, completion):
+    def getArtist(self, track, completion):
         mycompletion = lambda details:\
             self._getDetailCompletion(details, self._artistIndex, completion,
                                       debugMessage="Retrieving track's artist.")
         self._asyncGetTrackDetails(mycompletion, track=track)
-
-    def getAlbum(self, track):
-        self._logger.debug("Retrieving track's album.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._albumIndex]
     
-    def asyncGetAlbum(self, track, completion):
+    def getAlbum(self, track, completion):
         mycompletion = lambda details:\
             self._getDetailCompletion(details, self._albumIndex, completion,
                                       debugMessage="Retrieving track's album.")
         self._asyncGetTrackDetails(mycompletion, track=track)
-
-    def getTitle(self, track):
-        self._logger.debug("Retrieving track's title.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._titleIndex]
     
-    def asyncGetTitle(self, track, completion):
+    def getTitle(self, track, completion):
         mycompletion = lambda details:\
             self._getDetailCompletion(details, self._titleIndex, completion,
                                       debugMessage="Retrieving track's title.")
         self._asyncGetTrackDetails(mycompletion, track=track)
-
-    def getTrackNumber(self, track):
-        self._logger.debug("Retrieving track's number.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._trackNumberIndex]
     
-    def asyncGetTrackNumber(self, track, completion):
+    def getTrackNumber(self, track, completion):
         mycompletion = lambda details:\
             self._getDetailCompletion(details, self._trackNumberIndex,
                                       completion,
                                       debugMessage="Retrieving track's number.")
         self._asyncGetTrackDetails(mycompletion, track=track)
 
-    def getBPM(self, track):
-        self._logger.debug("Retrieving track's bpm.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        bpm = details[self._bpmIndex]
-        if bpm == None:
-            bpm = track.getBPM()
-            self.setBPM(bpm, track)
-        return bpm
-    
-    def asyncGetBPM(self, track, completion):
-        mycompletion = lambda details:\
-            self._getBPMCompletion(track, details, completion)
-        self._asyncGetTrackDetails(mycompletion, track=track)
-        
     def _getBPMCompletion(self, track, details, completion):
         self._logger.debug("Retrieving track's bpm.")
         if details == None:
@@ -1503,7 +1459,12 @@ class Database(DatabaseEventHandler):
             bpm = track.getBPM()
             self.setBPM(bpm, track)
         completion(bpm)
-        
+    
+    def getBPM(self, track, completion):
+        mycompletion = lambda details:\
+            self._getBPMCompletion(track, details, completion)
+        self._asyncGetTrackDetails(mycompletion, track=track)    
+            
     def _setBPMCompletion(self, bpm, trackID):
         mycompletion = lambda result: self._logger.debug("Adding bpm to track.")
         self._asyncExecute("update tracks set bpm = ? where trackID = ?",
@@ -1512,37 +1473,14 @@ class Database(DatabaseEventHandler):
     def setBPM(self, bpm, track):
         mycompletion = lambda trackID: self._setBPMCompletion(bpm, trackID)
         track.getID(mycompletion)
-        
-    def getHistorical(self, track):
-        self._logger.debug("Retrieving track's currency.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._historicalIndex]
     
-    def asyncGetHistorical(self, track, completion):
+    def getHistorical(self, track, completion):
         mycompletion = lambda details:\
             self._getDetailCompletion(
                 details, self._historicalIndex, completion,
                 debugMessage="Retrieving track's currency.")
         self._asyncGetTrackDetails(mycompletion, track=track)
-
-    def getLength(self, track):
-        self._logger.debug("Retrieving track's length.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        length = details[self._lengthIndex]
-        if length == None:
-            length = track.getLength()
-            self.setLength(length, track)
-        return length
     
-    def asyncGetLength(self, track, completion):
-        mycompletion = lambda details:\
-            self._getLengthCompletion(track, details, completion)
-        self._asyncGetTrackDetails(mycompletion, track=track)
-        
     def _getLengthCompletion(self, track, details, completion):
         self._logger.debug("Retrieving track's length.")
         if details == None:
@@ -1553,14 +1491,17 @@ class Database(DatabaseEventHandler):
             length = track.getLength()
             self.setLength(length, track)
         completion(length)
+        
+    def getLength(self, track, completion):
+        mycompletion = lambda details:\
+            self._getLengthCompletion(track, details, completion)
+        self._asyncGetTrackDetails(mycompletion, track=track)
+        
 
-    def getLengthString(self, track):
-        rawLength = self.getLength(track)
-        return formatLength(rawLength)
     
-    def asyncGetLengthString(self, track, completion):
+    def getLengthString(self, track, completion):
         mycompletion = lambda rawLength: completion(formatLength(rawLength))
-        self.asyncGetLength(track, mycompletion)
+        self.getLength(track, mycompletion)
         
     def _setLengthCompletion(self, length, trackID):
         mycompletion = lambda result:\
