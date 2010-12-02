@@ -820,6 +820,16 @@ class MainWindow(wx.Frame):
                     self._db.removeLink(secondTrack, firstTrack)
             secondDialog.Destroy()
         firstDialog.Destroy()
+        
+    def _onScoreChangeCompletion(self, track, oldScore, newScore,
+                                 warnings=False):
+        if oldScore != newScore:
+            self._logger.debug("Setting the track's score to "+str(newScore)\
+                               +".")
+            track.setScore(newScore)
+            self.refreshSelectedTrackScore()
+        elif warnings == True:
+            self._logger.warning("Track already has that score!")
 
     def _onScoreSliderMove(self, e):
         self.resetInactivityTimer()
@@ -827,9 +837,9 @@ class MainWindow(wx.Frame):
             self._logger.debug("Score slider has been moved."\
                                +" Retrieving new score.")
             score = self._scoreSlider.GetValue()
-            if self._track.getScore() != score:
-                self._track.setScore(score)
-                self.refreshSelectedTrackScore()
+            self._track.getScore(
+                lambda oldScore: self._onScoreChangeCompletion(self._track,
+                                                               oldScore, score))
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -839,33 +849,39 @@ class MainWindow(wx.Frame):
     def setScoreSliderPosition(self, score):
         self._logger.debug("Setting score slider to "+str(score)+".")
         self._scoreSlider.SetValue(score)
+        
+    def _onRateUpCompletion(self, track, score):
+        if score != 10:
+            self._logger.debug("Increasing track's score by 1.")
+            track.setScore(score+1)
+            self.refreshSelectedTrackScore()
+        else:
+            self._logger.warning("Track already has maximum score.")
 
     def _onRateUp(self, e):
         self.resetInactivityTimer()
         try:
-            self._logger.debug("Increasing track's score by 1.")
-            score = self._track.getScoreValue()
-            if score != 10:
-                self._track.setScore(score+1)
-                self.refreshSelectedTrackScore()
-            else:
-                self._logger.warning("Track already has maximum score.")
+            self._track.getScoreValue(
+                lambda score: self._onRateUpCompletion(self._track, score))
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
             return
+        
+    def _onRateDownCompletion(self, track, score):
+        if score != -10:
+            self._logger.debug("Decreasing track's score by 1.")
+            track.setScore(score-1)
+            self.refreshSelectedTrackScore()
+        else:
+            self._logger.warning("Track already has minimum score.")
 
     def _onRateDown(self, e):
         self.resetInactivityTimer()
         try:
-            self._logger.debug("Decreasing track's score by 1.")
-            score = self._track.getScoreValue()
-            if score != -10:
-                self._track.setScore(score-1)
-                self.refreshSelectedTrackScore()
-            else:
-                self._logger.warning("Track already has minimum score.")
+            self._track.getScoreValue(
+                lambda score: self._onRateDownCompletion(self._track, score))
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -875,13 +891,10 @@ class MainWindow(wx.Frame):
     def _onRate(self, e, score):
         self.resetInactivityTimer()
         try:
-            self._logger.debug("Setting the track's score to "+str(score)+".")
-            oldScore = self._track.getScoreValue()
-            if score != oldScore:
-                self._track.setScore(score)
-                self.refreshSelectedTrackScore()
-            else:
-                self._logger.warning("Track already has that score!")
+            self._track.getScore(
+                lambda oldScore: self._onScoreChangeCompletion(self._track,
+                                                               oldScore, score,
+                                                               warnings=True))
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -1081,7 +1094,8 @@ class MainWindow(wx.Frame):
         self._index = e.GetIndex()
         self._track = self._trackFactory.getTrackFromID(self._db, self._trackID)
         self.populateDetails(self._track)
-        self.setScoreSliderPosition(self._track.getScoreValue())
+        self._track.getScoreValue(
+            lambda score: self.setScoreSliderPosition(score))
 
     def _onDeselectTrack(self, e):
         self.resetInactivityTimer()
@@ -1220,12 +1234,12 @@ class MainWindow(wx.Frame):
     def refreshSelectedTrack(self):
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track)
-        self.setScoreSliderPosition(self._track.getScore())
+        self._track.getScore(lambda score: self.setScoreSliderPosition(score))
         self.populateDetails(self._track)
 
     def refreshSelectedTrackScore(self):
         self.refreshScore(self._index, self._track)
-        self.setScoreSliderPosition(self._track.getScore())
+        self._track.getScore(lambda score: self.setScoreSliderPosition(score))
         self.populateDetails(self._track)
 
     def refreshTrack(self, index, track):
@@ -1242,18 +1256,26 @@ class MainWindow(wx.Frame):
     def refreshTitle(self, index, track):
         self._trackList.SetStringItem(index, 2, track.getTitle())
         self._trackList.RefreshItem(index)
-
-    def refreshScore(self, index, track):
-        isScored = track.getIsScored()
+        
+    def _refreshScoreCompletion(self, index, isScored, scoreValue, score):
         if isScored == False:
-            score = "("+str(track.getScoreValue())+")"
+            score = "("+str(scoreValue)+")"
             isScored = "+"
         else:
-            score = str(track.getScore())
+            score = str(score)
             isScored = ""
         self._trackList.SetStringItem(index, 0, isScored)
         self._trackList.SetStringItem(index, 3, score)
         self._trackList.RefreshItem(index)
+
+    def refreshScore(self, index, track):
+        multicompletion = MultiCompletion(
+            3, lambda isScored, scoreValue, score: self._refreshScoreCompletion(
+                index, isScored, scoreValue, score))
+        track.getIsScored(lambda isScored: multicompletion.put(0, isScored))
+        track.getScoreValue(lambda scoreValue: multicompletion.put(1,
+                                                                   scoreValue))
+        track.getScore(lambda score: multicompletion.put(2, score))
 
     def refreshLastPlayed(self, index, track):
         lastPlayed = self._db.getLastPlayedLocalTime(track)

@@ -1696,9 +1696,17 @@ class Database(DatabaseEventHandler):
         self._asyncExecuteAndFetchOne(
             "select name from tagnames where tagnameid = ?", (tagNameID, ),
             completion)
+        
+    def _getIsScoredCompletion(self, unscored, completion):
+        if unscored == None:
+            completion(None)
+        elif unscored == 1:
+            completion(False)
+        elif unscored == 0:
+            completion(True)
 
     ## determines whether user has changed score for this track
-    def _asyncGetIsScored(self, completion, track=None, trackID=None):
+    def _getIsScored(self, completion, track=None, trackID=None):
         if self._debugMode == True:
             debugMessage = "Retrieving track's unscored status."
         else:
@@ -1711,38 +1719,12 @@ class Database(DatabaseEventHandler):
             self._asyncGetTrackDetails(mycompletion, trackID=trackID)
         else:
             self._asyncGetTrackDetails(mycompletion, track=track)
-        
-    def _getIsScoredCompletion(self, unscored, completion):
-        if unscored == None:
-            completion(None)
-        elif unscored == 1:
-            completion(False)
-        elif unscored == 0:
-            completion(True)
-        
-    ## determines whether user has changed score for this track
-    def _getIsScored(self, track=None, trackID=None):
-        if self._debugMode == True:
-            self._logger.debug("Retrieving track's unscored status.")
-        if trackID != None:
-            details = self._getTrackDetails(trackID=trackID)
-        else:
-            details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        if details[self._unscoredIndex] == 1:
-            return False
-        elif details[self._unscoredIndex] == 0:
-            return True
 
-    def asyncGetIsScored(self, track, completion):
-        self._asyncGetIsScored(completion, track=track)
-    
-    def getIsScored(self, track):
-        return self._getIsScored(track=track)
+    def getIsScored(self, track, completion):
+        self._getIsScored(completion, track=track)
 
 #    def asyncGetIsScoredFromID(self, trackID, completion):
-#        self._asyncGetIsScored(completion, trackID=trackID)
+#        self._getIsScored(completion, trackID=trackID)
 #        
 #    def getIsScoredFromID(self, trackID):
 #        return self._getIsScored(trackID=trackID)
@@ -1767,7 +1749,11 @@ class Database(DatabaseEventHandler):
     def setScore(self, track, score):
         track.getID(lambda trackID: self._setScoreCompletion(trackID, score))
         
-    def _asyncGetScore(self, completion, track=None, trackID=None):
+    def _internalGetScoreCompletion(self, score, completion):
+        self._logger.debug("Retrieving track's score.")
+        completion(score)
+        
+    def _getScore(self, completion, track=None, trackID=None):
         mycompletion = lambda trackID: self._asyncExecuteAndFetchOneOrNull(
             "select score from scores where trackid = ? order by scoreid desc",
             (trackID, ),
@@ -1780,27 +1766,6 @@ class Database(DatabaseEventHandler):
             return
         mycompletion(trackID)
     
-    def _internalGetScoreCompletion(self, score, completion):
-        self._logger.debug("Retrieving track's score.")
-        completion(score)
-
-    def _getScore(self, track=None, trackID=None):
-        self._logger.debug("Retrieving track's score.")
-        if trackID == None:
-            if track == None:
-                self._logger.error("No track has been identified.")
-                raise NoTrackError
-            trackID = track.getID()
-        return self._executeAndFetchOneOrNull(
-            "select score from scores where trackid = ? order by scoreid desc",
-            (trackID, ))
-        
-    def asyncGetScore(self, track, completion):
-        self.asyncGetIsScored(
-            track, lambda isScored: self._getScoreCompletion(
-                        isScored, completion, completeWithDash=True,
-                        track=track))
-    
     def _getScoreCompletion(self, isScored, completion, completeWithDash=False,
                             track=None, trackID=None):
         if isScored == False:
@@ -1809,25 +1774,21 @@ class Database(DatabaseEventHandler):
             else:
                 completion(self._defaultScore)
         else:
-            self._asyncGetScore(completion, track=track, trackID=trackID)
-
-    def getScore(self, track):
-        if self.getIsScored(track) == False:
-            return "-"
-        return self._getScore(track=track)
+            self._getScore(completion, track=track, trackID=trackID)
+            
+    def getScore(self, track, completion):
+        self.getIsScored(
+            track, lambda isScored: self._getScoreCompletion(
+                        isScored, completion, completeWithDash=True,
+                        track=track))
     
-    def asyncGetScoreValue(self, track, completion):
-        self.asyncGetIsScored(
+    def getScoreValue(self, track, completion):
+        self.getIsScored(
             track, lambda isScored: self._getScoreCompletion(isScored,
                                                              completion,
                                                              track=track))
-
-    def getScoreValue(self, track):
-        if self.getIsScored(track) == False:
-            return self._defaultScore
-        return self._getScore(track=track)
     
-    def asyncGetScoreValueFromID(self, trackID, completion):
+    def getScoreValueFromID(self, trackID, completion):
         self.asyncGetIsScoredFromID(
             trackID, lambda isScored: self._getScoreCompletion(isScored,
                                                                completion,

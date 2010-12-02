@@ -193,21 +193,13 @@ class Track:
         else:
             self.getScoreValue(completion)
 
-    def getScore(self, completion=None):
-        if completion == None:
-            if self.getIsScored == False:
-                return "-"
-            return self.getScoreValue()
+    def getScore(self, completion):
         self.getIsScored(lambda isScored: self._getScoreCompletion(isScored,
                                                                    completion))
 
-    def getScoreValue(self, completion=None):
-        if completion == None:
-            if self._score == None:
-                self._score = self._db.getScoreValue(self)
-            return self._score
+    def getScoreValue(self, completion):
         if self._score == None:
-            self._db.asyncGetScoreValue(self, completion)
+            self._db.getScoreValue(self, completion)
             return
         completion(self._score)
 
@@ -216,13 +208,9 @@ class Track:
         self._score = None
         self._db.setUnscored(self)
 
-    def getIsScored(self, completion=None):
-        if completion == None:
-            if self._isScored == None:
-                self._isScored = self._db.getIsScored(self)
-            return self._isScored
+    def getIsScored(self, completion):
         if self._isScored == None:
-            self._db.asyncGetIsScored(self, completion)
+            self._db.getIsScored(self, completion)
             return
         completion(self._isScored)
 

@@ -159,7 +159,7 @@ class Randomizer:
                                                                        oldest))
             self._db.asyncGetSecondsSinceLastPlayedFromID(
                 trackID, lambda time: multicompletion.put(0, time))
-            self._db.asyncGetScoreValueFromID(
+            self._db.getScoreValueFromID(
                 trackID, lambda score: multicompletion.put(1, score+11))
             ## creates a positive score
 #            if time == None:
