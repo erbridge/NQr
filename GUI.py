@@ -719,7 +719,7 @@ class MainWindow(wx.Frame):
         if dialog.ShowModal() == wx.ID_OK:
             paths = dialog.GetPaths()
             for path in paths:
-                self._db.asyncAddTrack(path)
+                self._db.addTrack(path)
         dialog.Destroy()
 
     def _onAddDirectory(self, e):
@@ -771,7 +771,7 @@ class MainWindow(wx.Frame):
 
     def _onRescan(self, e=None):
         self._logger.debug("Rescanning watch list for new files.")
-        self._db.asyncRescanDirectories()
+        self._db.rescanDirectories()
 
 ## TODO: make linking files simpler, poss side by side selection or order
 ##       sensitive multiple selection?
@@ -797,7 +797,13 @@ class MainWindow(wx.Frame):
                 self._db.addLink(firstTrack, secondTrack)
             secondDialog.Destroy()
         firstDialog.Destroy()
-
+        
+    def _onRemoveLinkCompletion(self, linkID, firstTrack, secondTrack):
+        if linkID != None:
+            self._db.removeLink(firstTrack, secondTrack)
+        else:
+            self._db.removeLink(secondTrack, firstTrack)
+            
 ## TODO: make removing links select from a list of current links
     def _onRemoveLink(self, e):
         self._logger.debug("Opening remove link dialog.")
@@ -819,10 +825,11 @@ class MainWindow(wx.Frame):
                 secondPath = secondDialog.GetPath()
                 secondTrack = self._trackFactory.getTrackFromPath(self._db,
                                                                   secondPath)
-                if self._db.getLinkID(firstTrack, secondTrack) != None:
-                    self._db.removeLink(firstTrack, secondTrack)
-                else:
-                    self._db.removeLink(secondTrack, firstTrack)
+                self._db.getLinkID(
+                    firstTrack, secondTrack,
+                    lambda linkID: self._onRemoveLinkCompletion(linkID,
+                                                                firstTrack,
+                                                                secondTrack))
             secondDialog.Destroy()
         firstDialog.Destroy()
         
@@ -1069,12 +1076,13 @@ class MainWindow(wx.Frame):
         if self._index != 0:
             ## TODO: should also focus track list on current track.
             self.selectTrack(0)
-
+            
     def _onRefreshTimerDing(self, e):
         for index in range(self._trackList.GetItemCount()-1, -1, -1):
             trackID = self._trackList.GetItemData(index)
-            track = self._trackFactory.getTrackFromID(self._db, trackID)
-            self.refreshPreviousPlay(index, track)
+            self._trackFactory.getTrackFromID(
+                self._db, trackID,
+                lambda track: self.refreshPreviousPlay(index, track))
 
     def resetInactivityTimer(self):
         self._logger.debug("Restarting inactivity timer.")
@@ -1091,6 +1099,12 @@ class MainWindow(wx.Frame):
             if playlistLength < self._defaultPlaylistLength:
                 self.enqueueRandomTracks(
                     self._defaultPlaylistLength - playlistLength)
+                
+    def _onSelectTrackCompletion(self, track):
+        self._track = track
+        self.populateDetails(self._track)
+        self._track.getScoreValue(
+            lambda score: self.setScoreSliderPosition(score))
 
     def _onSelectTrack(self, e):
         self.resetInactivityTimer()
@@ -1098,10 +1112,10 @@ class MainWindow(wx.Frame):
         self._logger.debug("Retrieving selected track's information.")
         self._trackID = e.GetData()
         self._index = e.GetIndex()
-        self._track = self._trackFactory.getTrackFromID(self._db, self._trackID)
-        self.populateDetails(self._track)
-        self._track.getScoreValue(
-            lambda score: self.setScoreSliderPosition(score))
+        self._trackFactory.getTrackFromID(
+            self._db, self._trackID,
+            lambda track: self._onSelectTrackCompletion(track))
+        
 
     def _onDeselectTrack(self, e):
         self.resetInactivityTimer()
@@ -1186,51 +1200,53 @@ class MainWindow(wx.Frame):
         self._enqueueing = False
         self._trackMonitor.setEnqueueing(False)
         for track in tracks:
-            linkIDs = self._db.getLinkIDs(track)
-            if linkIDs == None:
-                self.enqueueTrack(track)
-            else:
-                originalLinkID = linkIDs[0]
-                (firstTrackID,
-                 secondTrackID) = self._db.getLinkedTrackIDs(originalLinkID)
-                firstTrack = self._trackFactory.getTrackFromID(self._db,
-                                                               firstTrackID)
-                secondTrack = self._trackFactory.getTrackFromID(
-                    self._db, secondTrackID)
-                trackQueue = deque([firstTrack, secondTrack])
-                linkIDs = self._db.getLinkIDs(firstTrack)
-                oldLinkIDs = originalLinkID
-                ## finds earlier tracks
-                while True:
-                    for linkID in linkIDs:
-                        if linkID not in oldLinkIDs:
-                            (newTrackID,
-                             trackID) = self._db.getLinkedTrackIDs(linkID)
-                            track = self._trackFactory.getTrackFromID(
-                                self._db, newTrackID)
-                            trackQueue.appendleft(track)
-                            oldLinkIDs = linkIDs
-                            linkIDs = self._db.getLinkIDs(track)
-                    if oldLinkIDs == linkIDs:
-                        break
-                linkIDs = self._db.getLinkIDs(secondTrack)
-                oldLinkIDs = originalLinkID
-                ## finds later tracks
-                while True:
-                    for linkID in linkIDs:
-                        if linkID not in oldLinkIDs:
-                            (trackID,
-                             newTrackID) = self._db.getLinkedTrackIDs(
-                                linkID)
-                            track = self._trackFactory.getTrackFromID(
-                                self._db, newTrackID)
-                            trackQueue.append(track)
-                            oldLinkIDs = linkIDs
-                            linkIDs = self._db.getLinkIDs(track)
-                    if oldLinkIDs == linkIDs:
-                        break
-                for track in trackQueue:
-                    self.enqueueTrack(track)
+            self.enqueueTrack(track)
+            # FIXME: needs links to be made async - started in Database
+#            linkIDs = self._db.getLinkIDs(track)
+#            if linkIDs == None:
+#                self.enqueueTrack(track)
+#            else:
+#                originalLinkID = linkIDs[0]
+#                (firstTrackID,
+#                 secondTrackID) = self._db.getLinkedTrackIDs(originalLinkID)
+#                firstTrack = self._trackFactory.getTrackFromID(self._db,
+#                                                               firstTrackID)
+#                secondTrack = self._trackFactory.getTrackFromID(
+#                    self._db, secondTrackID)
+#                trackQueue = deque([firstTrack, secondTrack])
+#                linkIDs = self._db.getLinkIDs(firstTrack)
+#                oldLinkIDs = originalLinkID
+#                ## finds earlier tracks
+#                while True:
+#                    for linkID in linkIDs:
+#                        if linkID not in oldLinkIDs:
+#                            (newTrackID,
+#                             trackID) = self._db.getLinkedTrackIDs(linkID)
+#                            track = self._trackFactory.getTrackFromID(
+#                                self._db, newTrackID)
+#                            trackQueue.appendleft(track)
+#                            oldLinkIDs = linkIDs
+#                            linkIDs = self._db.getLinkIDs(track)
+#                    if oldLinkIDs == linkIDs:
+#                        break
+#                linkIDs = self._db.getLinkIDs(secondTrack)
+#                oldLinkIDs = originalLinkID
+#                ## finds later tracks
+#                while True:
+#                    for linkID in linkIDs:
+#                        if linkID not in oldLinkIDs:
+#                            (trackID,
+#                             newTrackID) = self._db.getLinkedTrackIDs(
+#                                linkID)
+#                            track = self._trackFactory.getTrackFromID(
+#                                self._db, newTrackID)
+#                            trackQueue.append(track)
+#                            oldLinkIDs = linkIDs
+#                            linkIDs = self._db.getLinkIDs(track)
+#                    if oldLinkIDs == linkIDs:
+#                        break
+#                for track in trackQueue:
+#                    self.enqueueTrack(track)
 ##                    if secondLinkID != None:
 ##                        (secondTrackID,
 ##                         thirdTrackID) = self._db.getLinkedTrackIDs(secondLinkID)

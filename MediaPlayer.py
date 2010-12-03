@@ -74,7 +74,7 @@ class MediaPlayer:
             path = self.getTrackPathAtPos(pos)
             db.maybeGetIDFromPath(
                 path, lambda id: self._getUnplayedTrackIDsCompletion(id))
-        db.asyncComplete(
+        db.complete(
             lambda result: self._getUnplayedTrackIDListCompletion(completion))
 
     def addTrack(self, filepath):

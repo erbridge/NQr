@@ -81,17 +81,24 @@ class Randomizer:
             if newPart != "":
                 return False
         return True
+    
+    def _completeTracks(self, completion):
+        completion(self._tracks)
+        
+    def _addTrackToListCallback(self, track, weight):
+        track.setWeight(weight)
+        self._tracks.append(track)
 
     def _chooseTracksCompletion(self, trackIDs, completion):
-        tracks = []
+        self._tracks = [] # FIXME: possibly clears list before posting it
         for [trackID, weight] in trackIDs:
             try:
-                track = self._trackFactory.getTrackFromID(self._db, trackID)
-                track.setWeight(weight)
-                tracks.append(track)
-            except NoTrackError:
+                self._trackFactory.getTrackFromID(
+                    self._db, trackID,
+                    lambda track: self._addTrackToListCallback(track, weight))
+            except NoTrackError: # FIXME: probably doesn't work
                 self._db.setHistorical(True, trackID)
-        completion(tracks)
+        self._db.complete(lambda result: self._completeTracks(completion))
 
     def chooseTracks(self, number, exclude, completion, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
@@ -169,7 +176,7 @@ class Randomizer:
 #            weight = self.getWeight(score, time)
 #            trackWeightList.append([trackID, weight])
 #            totalWeight += weight
-        self._db.asyncComplete(lambda: completion(self._trackWeightList,
+        self._db.complete(lambda: completion(self._trackWeightList,
                                                   self._totalWeight))
         
     def _createLists(self, exclude, completion, tags=None):
@@ -184,9 +191,9 @@ class Randomizer:
         
         self._db.getOldestLastPlayed(oldestCompletion)
         if tags == None:
-            self._db.asyncGetAllTrackIDs(trackListCompletion)
+            self._db.getAllTrackIDs(trackListCompletion)
         else:
-            self._db.asyncGetAllTrackIDsWithTags(trackListCompletion, tags)
+            self._db.getAllTrackIDsWithTags(trackListCompletion, tags)
         
     def _setWeightAlgorithm(self, rawWeightAlgorithm):
         self._weightAlgorithm = eval("lambda score, time: "+rawWeightAlgorithm)

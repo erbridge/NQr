@@ -41,8 +41,7 @@ class TrackFactory:
         self.addTrackToCache(track)
         return track
 
-    def getTrackFromPathNoID(self, db, path, useCache=True,
-                             useCompletion=False):
+    def getTrackFromPathNoID(self, db, path, useCache=True):
         path = os.path.realpath(path)
         if useCache == True:
             track = self._trackPathCache.get(path)
@@ -52,11 +51,7 @@ class TrackFactory:
             return track
         try:
             track = AudioTrack(db, path, self._logger, useCache=useCache)
-            if useCompletion == False:
-                db.setHistorical(False, track.getID())
-            else:
-                mycompletion = lambda id: db.setHistorical(False, id)
-                track.getID(completion=mycompletion)
+            track.getID(lambda id: db.setHistorical(False, id))
         except UnknownTrackType:
             raise NoTrackError
 #            return None
@@ -74,26 +69,27 @@ class TrackFactory:
             self._logger.error(str(trackID)+" is not a valid track ID")
             raise TypeError(str(trackID)+" is not a valid track ID")
         return self._trackCache.get(trackID, None)
-
-    def getTrackFromID(self, db, trackID):
+    
+    def getTrackFromID(self, db, trackID, completion):
         track = self._getTrackFromCache(trackID)
         if track == None:
             self._logger.debug("Track not in cache.")
-            path = db.getPathFromID(trackID)
-            track = self.getTrackFromPath(db, path)
-        return track
-
-    def addTrackToCache(self, track):
+            db.getPathFromID(
+                trackID, lambda path: completion(self.getTrackFromPath(db,
+                                                                       path)))
+        else:
+            completion(track)
+    
+    def _addTrackToCacheCompletion(self, track, id):
         self._logger.debug("Adding track to cache.")
         if len(self._trackCache) > 10000:
             del self._trackCache[self._trackIDList.pop(0)]
-        id = track.getID()
         if id not in self._trackCache:
             self._trackCache[id] = track
             self._trackIDList.append(id)
         else:
             assert track is self._trackCache[id]
-
+            
         if len(self._trackPathCache) > 10000:
             del self._trackPathCache[self._trackPathList.pop(0)]
         path = track.getPath()
@@ -102,6 +98,9 @@ class TrackFactory:
             self._trackPathList.append(path)
         else:
             assert track is self._trackPathCache[path]
+
+    def addTrackToCache(self, track):
+        track.getID(lambda id: self._addTrackToCacheCompletion(track, id))
 
 class Track:
     def __init__(self, db, path, logger, useCache=True):
@@ -120,13 +119,9 @@ class Track:
         return self._path
 
 ## poss should add to cache?
-    def getID(self, completion=None):#, update=False):
-        if completion == None:
-            if self._id == None:
-                return self._db.getTrackID(self)#, update)
-            return self._id
+    def getID(self, completion):
         if self._id == None: # FIXME: none of these actually save track details
-            self._db.asyncGetTrackID(self, completion)
+            self._db.getTrackID(self, completion)
             return
         completion(self._id)
 
@@ -151,14 +146,21 @@ class Track:
     def unsetTag(self, tag):
         self._db.unsetTag(self, tag)
         self._tags.remove(tag)
+        
+    def _addPlayCompletion(self, playCount):
+        self._playCount = playCount
 
     def addPlay(self, delay=0):
         self._db.addPlay(self, delay)
-        self._playCount = self.getPlayCount() + 1
+        if self._playCount == None:
+            self.getPlayCount(
+                lambda playCount: self._addPlayCompletion(playCount))
+            return
+        self._playCount += 1
 
     def getPlayCount(self, completion):
         if self._playCount == None:
-            self._db.getPlayCount(self, completion)
+            self._db.getPlayCount(completion, track=self)
             return
         completion(self._playCount)
 
