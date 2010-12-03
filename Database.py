@@ -11,7 +11,7 @@
 ## FIXME: make tracebacks work properly for all completions
 
 import ConfigParser
-from collections import deque
+#from collections import deque
 import datetime
 from Errors import *
 import os
@@ -34,16 +34,22 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         self._queue = Queue.PriorityQueue()
         self._eventCount = 0
         
-    def queue(self, thing, priority=1):
+    def queue(self, thing, trace, priority=1):
         self._eventCount += 1
-        self._queue.put((priority, self._eventCount, thing))
+        self._queue.put((priority, self._eventCount, thing, trace))
 
     def run(self):
         conn = sqlite3.connect(self._databasePath)
         cursor = conn.cursor()
         while True:
-            got = self._queue.get()[2]
-            got(self, cursor)
+            got = self._queue.get()
+            got[2](self, cursor, got[3])
+            
+    def _raise(self, err, errcompletion=None):
+        try:
+            errcompletion(err)
+        except:
+            wx.PostEvent(self._db, ExceptionEvent(err))
             
 class DatabaseEventHandler(wx.EvtHandler):
     def __init__(self, dbThread, priority):
@@ -61,61 +67,70 @@ class DatabaseEventHandler(wx.EvtHandler):
     def _onExceptionEvent(self, e):
         raise e.getException()
 
-    def complete(self, completion, priority=None):
+    def complete(self, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
+        trace = extractTraceStack(trace)
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.complete(mycompletion, priority)
+        self._dbThread.complete(mycompletion, priority, trace=trace)
         
-    def _execute(self, stmt, args, completion, priority=None):
+    def _execute(self, stmt, args, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
+        trace = extractTraceStack(trace)
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
-        self._dbThread.execute(stmt, args, mycompletion, priority)
+        self._dbThread.execute(stmt, args, mycompletion, priority, trace=trace)
     
     def _executeAndFetchOne(self, stmt, args, completion, priority=None,
-                                 returnTuple=False):
+                            returnTuple=False, trace=[], errcompletion=None):
         if priority == None:
             priority = self._priority
+        trace = extractTraceStack(trace)
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
         self._dbThread.executeAndFetchOne(stmt, args, mycompletion, priority,
-                                          returnTuple)
+                                          returnTuple, trace=trace,
+                                          errcompletion=errcompletion)
         
-    def _executeAndFetchOneOrNull(self, stmt, args, completion,
-                                       priority=None, returnTuple=False):
+    def _executeAndFetchOneOrNull(self, stmt, args, completion, priority=None,
+                                  returnTuple=False, trace=[]):
         if priority == None:
             priority = self._priority
+        trace = extractTraceStack(trace)
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
         self._dbThread.executeAndFetchOneOrNull(stmt, args, mycompletion,
-                                                priority, returnTuple)
+                                                priority, returnTuple,
+                                                trace=trace)
         
     def _executeAndFetchAll(self, stmt, args, completion, priority=None,
-                                 throwException=True):
+                            throwException=True, trace=[], errcompletion=None):
         if priority == None:
             priority = self._priority
+        trace = extractTraceStack(trace)
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
         self._dbThread.executeAndFetchAll(stmt, args, mycompletion, priority,
-                                          throwException)
+                                          throwException, trace=trace,
+                                          errcompletion=errcompletion)
         
-    def _executeAndFetchLastRowID(self, stmt, args, completion,
-                                       priority=None):
+    def _executeAndFetchLastRowID(self, stmt, args, completion, priority=None,
+                                  trace=[]):
         if priority == None:
             priority = self._priority
+        trace = extractTraceStack(trace)
         mycompletion = lambda result: wx.PostEvent(self,
                                                    DatabaseEvent(result,
                                                                  completion))
         self._dbThread.executeAndFetchLastRowID(stmt, args, mycompletion,
-                                                priority)
+                                                priority, trace=trace)
         
     def _getTrackID(self, track, completion):
         path = track.getPath()
@@ -215,7 +230,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         track.setID(self._trackFactory, trackID)
 #        return trackID
         
-    def doAddTrack(self, path):
+    def doAddTrack(self, path, trace):
         try:
             track = self._trackFactory.getTrackFromPathNoID(self, path,
                                                             useCache=False)
@@ -232,10 +247,14 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                                                                 trackID)
         track.getID(mycompletion)
 
-    def _addTrack(self, path):
-        self.queue(lambda thread, cursor: thread.doAddTrack(path))
+    def _addTrack(self, path, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(
+            lambda thread, cursor, traceBack: thread.doAddTrack(path,
+                                                                traceBack),
+            trace)
             
-    def doWalkDirectoryNoWatch(self, directory, callback):
+    def doWalkDirectoryNoWatch(self, directory, callback, trace):
         self._logger.debug("Finding files from \'"+directory+"\'.")
         contents = os.listdir(directory)
         for n in range(len(contents)):
@@ -245,22 +264,26 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
             else:
                 callback(path)
     
-    def walkDirectoryNoWatch(self, directory, callback):
+    def walkDirectoryNoWatch(self, directory, callback, trace=[]):
         directory = os.path.realpath(directory)
-        self.queue(lambda thread, cursor:
-                   thread.doWalkDirectoryNoWatch(directory, callback))
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
+                   thread.doWalkDirectoryNoWatch(directory, callback,
+                                                 traceBack), trace)
         
     def addDirectoryNoWatch(self, directory):
         mycallback = lambda path: self._addTrack(path)
         self.walkDirectoryNoWatch(directory, mycallback)
         
-    def doGetDirectoryID(self, directory, completion):
+    def doGetDirectoryID(self, directory, completion, trace):
         self._getDirectoryID(directory, completion)
     
-    def getDirectoryID(self, directory, completion):
+    def getDirectoryID(self, directory, completion, trace=[]):
         directory = os.path.realpath(directory)
-        self.queue(lambda thread, cursor:
-                   thread.doGetDirectoryID(directory, completion))
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
+                   thread.doGetDirectoryID(directory, completion, traceBack),
+                   trace)
         
     def maybeAddToWatch(self, directory, directoryID):
         if directoryID == None:
@@ -272,17 +295,19 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
             self._logger.debug("\'"+directory\
                                +"\' is already in the watch list.")
     
-    def doWalkDirectory(self, directory, callback):
+    def doWalkDirectory(self, directory, callback, trace):
         self._logger.debug("Adding \'"+directory+"\' to the watch list.")
         mycompletion = lambda directoryID: self.maybeAddToWatch(directory,
                                                                 directoryID)
         self.getDirectoryID(directory, mycompletion)
         self.walkDirectoryNoWatch(directory, callback)
         
-    def walkDirectory(self, directory, callback):
+    def walkDirectory(self, directory, callback, trace=[]):
         directory = os.path.realpath(directory)
-        self.queue(lambda thread, cursor: thread.doWalkDirectory(directory,
-                                                                 callback))
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
+                   thread.doWalkDirectory(directory, callback, traceBack),
+                   trace)
         
     def addDirectory(self, directory):
         mycallback = lambda path: self._addTrack(path)
@@ -292,19 +317,20 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         for (directory, ) in paths:
             self.addDirectoryNoWatch(directory)
         
-    def doRescanDirectories(self):
+    def doRescanDirectories(self, trace):
         self._logger.info("Rescanning the watch list for new files.")
-        try:
-            mycompletion = lambda paths:\
-                self._rescanDirectoriesCompletion(paths)
-            self._executeAndFetchAll("select path from directories", (),
-                                          mycompletion)
-        except NoResultError: # FIXME: does this work?
-            self._logger.info("The watch list is empty.")
+        errcompletion = ErrorCompletion(
+            NoResultError, lambda: self._logger.info("The watch list is empty."))
+        mycompletion = lambda paths: self._rescanDirectoriesCompletion(paths)
+        self._executeAndFetchAll("select path from directories", (),
+                                 mycompletion, errcompletion=errcompletion)
+#        except NoResultError: # FIXME: does this work?
+#            self._logger.info("The watch list is empty.")
     
-    def rescanDirectories(self):
-        self.queue(lambda thread, cursor:
-                   thread.doRescanDirectories())
+    def rescanDirectories(self, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
+                   thread.doRescanDirectories(traceBack), trace)
 
     def maybeUpdateTrackDetails(self, track):
         self._updateTrackDetails(track, infoLogging=False)
@@ -313,23 +339,31 @@ class DatabaseThread(Thread):
     def __init__(self, db, path):
         Thread.__init__(self, db, path, "Database")
         
-    def complete(self, completion, priority=1):
-        self.queue(lambda thread, cursor: completion(None), priority)
+    def doComplete(self, completion, trace):
+        completion(None)
+        
+    def complete(self, completion, priority=1, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
+                   self.doComplete(completion, traceBack), trace, priority)
             
-    def doExecute(self, cursor, stmt, args, completion):
+    def doExecute(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
         completion(None)
 
-    def execute(self, stmt, args, completion, priority=1):
-        self.queue(lambda thread, cursor:
-                   thread.doExecute(cursor, stmt, args, completion), priority)
+    def execute(self, stmt, args, completion, priority=1, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
+                   thread.doExecute(cursor, stmt, args, completion, traceBack),
+                   trace, priority)
 
     def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace,
-                             returnTuple=False):
+                             returnTuple=False, errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         if result is None:
-            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+            err = NoResultError(trace=trace)
+            self._raise(err, errcompletion)
             return
         if returnTuple == True:
             completion(result)
@@ -337,28 +371,33 @@ class DatabaseThread(Thread):
         completion(result[0])
 
     def executeAndFetchOne(self, stmt, args, completion, priority=1,
-                           returnTuple=False):
-        trace = traceback.extract_stack()
-        self.queue(lambda thread, cursor:
+                           returnTuple=False, trace=[], errcompletion=None):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
                    thread.doExecuteAndFetchOne(cursor, stmt, args, completion,
-                                               trace, returnTuple), priority)
+                                               traceBack, returnTuple,
+                                               errcompletion), trace, priority)
         
-    def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace):
+    def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace,
+                                   errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.lastrowid
         if result is None:
-            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+            err = NoResultError(trace=trace)
+            self._raise(err, errcompletion)
             return
         completion(result)
 
-    def executeAndFetchLastRowID(self, stmt, args, completion, priority=1):
-        trace = traceback.extract_stack()
-        self.queue(lambda thread, cursor:
+    def executeAndFetchLastRowID(self, stmt, args, completion, priority=1,
+                                 trace=[], errcompletion=None):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
                    thread.doExecuteAndFetchLastRowID(cursor, stmt, args,
-                                                     completion, trace),
-                   priority)
+                                                     completion, traceBack,
+                                                     errcompletion),
+                   trace, priority)
         
-    def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion,
+    def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion, trace,
                                    returnTuple=False):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
@@ -371,27 +410,33 @@ class DatabaseThread(Thread):
         completion(result[0])
 
     def executeAndFetchOneOrNull(self, stmt, args, completion, priority=1,
-                                 returnTuple=False):
-        self.queue(lambda thread, cursor:
+                                 returnTuple=False, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
                    thread.doExecuteAndFetchOneOrNull(cursor, stmt, args,
-                                                     completion, returnTuple),
+                                                     completion, traceBack,
+                                                     returnTuple), trace,
                    priority)
 
     def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace,
-                             throwException=True):
+                             throwException=True, errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.fetchall()
         if result is None and throwException is True:
-            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+            err = NoResultError(trace=trace)
+            self._raise(err, errcompletion)
             return
         completion(result)
 
     def executeAndFetchAll(self, stmt, args, completion, priority=1,
-                           throwException=True):
-        trace = traceback.extract_stack()
-        self.queue(lambda thread, cursor:
+                           throwException=True, trace=[], errcompletion=None):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
                    thread.doExecuteAndFetchAll(cursor, stmt, args, completion,
-                                               trace, throwException), priority)
+                                               traceBack, throwException,
+                                               errcompletion),
+                   trace,
+                   priority)
 
 ID_EVT_DATABASE = wx.NewId()
 
@@ -414,10 +459,10 @@ def EVT_EXCEPTION(handler, func):
     handler.Connect(-1, -1, ID_EVT_EXCEPTION, func)
 
 class ExceptionEvent(wx.PyEvent):
-    def __init__(self, err, trace):
+    def __init__(self, err):
         wx.PyEvent.__init__(self)
         self.SetEventType(ID_EVT_EXCEPTION)
-        self._err = err(trace=trace)
+        self._err = err
         
     def getException(self):
         return self._err
@@ -702,7 +747,7 @@ class Database(DatabaseEventHandler):
         if trackID == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
             self.addTrack(path=path, hasTrackID=False, track=track,
-                               completion=completion)
+                          completion=completion)
             return
         completion(trackID)
         
@@ -988,16 +1033,18 @@ class Database(DatabaseEventHandler):
                                                                msDelay)
         track.getID(mycompletion)
         
-    def _getLastPlayedTrackIDCompletion(self, trackID, completion):
+    def _getLastPlayedTrackIDCompletion(self, trackID, completion,
+                                        errcompletion):
         if trackID != None:
             completion(trackID)
         else:
             self._logger.error("No plays recorded.")
-            raise EmptyDatabaseError # FIXME: probably broken
+            errcompletion(EmptyDatabaseError)
              
-    def getLastPlayedTrackID(self, completion):
+    def getLastPlayedTrackID(self, completion, errcompletion):
         mycompletion = lambda trackID:\
-            self._getLastPlayedTrackIDCompletion(trackID, completion)
+            self._getLastPlayedTrackIDCompletion(trackID, completion,
+                                                 errcompletion)
         self._executeAndFetchOneOrNull(
             "select trackid from plays order by playid desc", (), mycompletion)
         
@@ -1014,7 +1061,7 @@ class Database(DatabaseEventHandler):
          self._lastPlayedInSecondsIndex) = range(4)
         mycompletion = lambda playDetails:\
             self._getLastPlayedCompletion2(trackID, playDetails, completion)
-        self._executeAndFetchOne(
+        self._executeAndFetchOneOrNull(
             """select datetime, datetime(datetime, 'localtime'),
                strftime('%s', 'now') - strftime('%s', datetime),
                strftime('%s', datetime) from plays where trackid = ? order by
@@ -1044,11 +1091,16 @@ class Database(DatabaseEventHandler):
             details, self._localLastPlayedIndex, completion,
             "Retrieving time of last play in localtime.")
         self._getLastPlayed(mycompletion, track=track)
-    
+        
+#    def _getLastPlayedInSecondsCompletion(self, lastPlayed, completion):
+#        if lastPlayed != None:
+#            lastPlayed = int(lastPlayed)
+#        completion(lastPlayed)
+            
     def getLastPlayedInSeconds(self, track, completion):
         mycompletion = lambda details: self._getDetailCompletion(
             details, self._lastPlayedInSecondsIndex,
-            lambda lastPlayed: completion(int(lastPlayed)))
+            lambda lastPlayed: completion(lastPlayed))
         self._getLastPlayed(mycompletion, track=track)
     
     def getSecondsSinceLastPlayedFromID(self, trackID, completion):
@@ -1067,17 +1119,15 @@ class Database(DatabaseEventHandler):
     # currently bad tracks rely on being chosen by randomizer to update 
     # historical status.
     def getOldestLastPlayed(self, completion):
-        try:
-            self._executeAndFetchOne(
-                """select strftime('%s', 'now') - strftime('%s', min(datetime))
-                   from (select max(playid) as id, trackid from plays,
-                         (select trackid as historicalid from tracks where
-                          historical = 0) as historicaltracks where
-                         plays.trackid = historicaltracks.historicalid group by
-                         trackid) as maxplays, plays where maxplays.id =
-                   plays.playid""", (), completion)
-        except NoResultError:
-            completion(0)
+        errcompletion = ErrorCompletion(NoResultError, lambda: completion(0))
+        self._executeAndFetchOne(
+            """select strftime('%s', 'now') - strftime('%s', min(datetime))
+               from (select max(playid) as id, trackid from plays,
+                     (select trackid as historicalid from tracks where
+                      historical = 0) as historicaltracks where
+                     plays.trackid = historicaltracks.historicalid group by
+                     trackid) as maxplays, plays where maxplays.id =
+               plays.playid""", (), completion, errcompletion=errcompletion)
 
     def _getPlayCountCompletion(self, plays, completion):
         if plays == None:

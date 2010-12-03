@@ -570,8 +570,10 @@ class MainWindow(wx.Frame):
                     self._compareTracksCompletion(currentTrack, currentTrackID,
                                                   oldTrackID))
             currentTrack.getID(lambda trackID: multicompletion.put(0, trackID))
+            errcompletion = ErrorCompletion(EmptyDatabaseError,
+                                            lambda: doNothing())
             self._db.getLastPlayedTrackID(
-                lambda trackID: multicompletion.put(1, trackID))
+                lambda trackID: multicompletion.put(1, trackID), errcompletion)
 #            try:
 #                if currentTrackID != self._db.getLastPlayedTrackID():
 #                    self._logger.debug("Adding play for current track.")
@@ -593,12 +595,9 @@ class MainWindow(wx.Frame):
                   self._trackList)
         
     def _compareTracksCompletion(self, firstTrack, firstTrackID, secondTrackID):
-        try:
-            if firstTrackID != secondTrackID:
-                self._logger.debug("Adding play for current track.")
-                firstTrack.addPlay()
-        except EmptyDatabaseError: # FIXME: probably broken
-            pass
+        if firstTrackID != secondTrackID:
+            self._logger.debug("Adding play for current track.")
+            firstTrack.addPlay()
 
     def _initCreateScoreSlider(self):
         self._logger.debug("Creating score slider.")
