@@ -34,7 +34,7 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         self._queue = Queue.PriorityQueue()
         self._eventCount = 0
         
-    def queue(self, thing, trace, priority=1):
+    def queue(self, thing, trace, priority=2):
         self._eventCount += 1
         self._queue.put((priority, self._eventCount, thing, trace))
 
@@ -71,18 +71,16 @@ class DatabaseEventHandler(wx.EvtHandler):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
         self._dbThread.complete(mycompletion, priority, trace=trace)
         
     def _execute(self, stmt, args, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
         self._dbThread.execute(stmt, args, mycompletion, priority, trace=trace)
     
     def _executeAndFetchOne(self, stmt, args, completion, priority=None,
@@ -90,9 +88,8 @@ class DatabaseEventHandler(wx.EvtHandler):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
         self._dbThread.executeAndFetchOne(stmt, args, mycompletion, priority,
                                           returnTuple, trace=trace,
                                           errcompletion=errcompletion)
@@ -102,9 +99,8 @@ class DatabaseEventHandler(wx.EvtHandler):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
         self._dbThread.executeAndFetchOneOrNull(stmt, args, mycompletion,
                                                 priority, returnTuple,
                                                 trace=trace)
@@ -114,9 +110,8 @@ class DatabaseEventHandler(wx.EvtHandler):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
         self._dbThread.executeAndFetchAll(stmt, args, mycompletion, priority,
                                           throwException, trace=trace,
                                           errcompletion=errcompletion)
@@ -126,22 +121,21 @@ class DatabaseEventHandler(wx.EvtHandler):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
         self._dbThread.executeAndFetchLastRowID(stmt, args, mycompletion,
                                                 priority, trace=trace)
         
-    def _getTrackID(self, track, completion):
+    def _getTrackID(self, track, completion, priority=None):
         path = track.getPath()
         self._executeAndFetchOneOrNull(
-            "select trackid from tracks where path = ?", (path, ), completion)
+            "select trackid from tracks where path = ?", (path, ), completion,
+            priority=priority)
         
-    def getTrackID(self, track, completion):
-        mycompletion = lambda trackID: self._getTrackIDCompletion(track,
-                                                                  trackID,
-                                                                  completion)
-        self._getTrackID(track, mycompletion)
+    def getTrackID(self, track, completion, priority=None):
+        mycompletion = lambda trackID, track=track, completion=completion:\
+            self._getTrackIDCompletion(track, trackID, completion)
+        self._getTrackID(track, mycompletion, priority=priority)
         
     def _getDirectoryIDCompletion(self, directory, directoryID, completion):
         self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
@@ -151,8 +145,10 @@ class DatabaseEventHandler(wx.EvtHandler):
         
     def _getDirectoryID(self, directory, completion):
         directory = os.path.realpath(directory)
-        mycompletion = lambda directoryID:\
-            self._getDirectoryIDCompletion(directory, directoryID, completion)
+        mycompletion = lambda directoryID, directory=directory,\
+            completion=completion: self._getDirectoryIDCompletion(directory,
+                                                                  directoryID,
+                                                                  completion)
         self._executeAndFetchOneOrNull(
             "select directoryid from directories where path = ?", (directory, ),
             mycompletion)
@@ -162,10 +158,10 @@ class DatabaseEventHandler(wx.EvtHandler):
         self._logger.debug("Updating \'"+path+"\' in the library.")
         if trackID != None:
             if infoLogging == True:
-                mycompletion = lambda result: self._logger.info(
+                mycompletion = lambda result, path=path: self._logger.info(
                     "\'"+path+"\' has been updated in the library.")
             else:
-                mycompletion = lambda result: self._logger.debug(
+                mycompletion = lambda result, path=path: self._logger.debug(
                     "\'"+path+"\' has been updated in the library.")
             self._execute(
                 """update tracks set path = ?, artist = ?, album = ?, title = ?,
@@ -177,7 +173,7 @@ class DatabaseEventHandler(wx.EvtHandler):
             self._logger.debug("\'"+path+"\' is not in the library.")
             
     def _updateTrackDetails(self, track, infoLogging=True):
-        mycompletion = lambda trackID:\
+        mycompletion = lambda trackID, track=track, infoLogging=infoLogging:\
             self._updateTrackDetailsCompletion(track, trackID, infoLogging)
         self._getTrackID(track, mycompletion)
             
@@ -196,7 +192,7 @@ class DatabaseEventHandler(wx.EvtHandler):
 # FIXME: should somehow indicate that it is working/finished without spamming
 class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def __init__(self, db, path, logger, trackFactory, dbThread):
-        DatabaseEventHandler.__init__(self, dbThread, 2)
+        DatabaseEventHandler.__init__(self, dbThread, 3)
         Thread.__init__(self, db, path, "Directory Walk")
         self._logger = logger
         self._trackFactory = trackFactory
@@ -213,7 +209,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         self._logger.debug("Adding \'"+path+"\' to the library.")
 #        if hasTrackID == False or trackID == None:
         if trackID == None:
-            mycompletion = lambda result:\
+            mycompletion = lambda result, path=path:\
                 self._logger.info("\'"+path+"\' has been added to the library.")
             self._execute("""insert into tracks (path, artist, album,
                                   title, tracknumber, unscored, length, bpm,
@@ -243,16 +239,14 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
 #            return None
 #        trackID = None
 #        if hasTrackID == True:
-        mycompletion = lambda trackID: self._addTrackCompletion(path, track,
-                                                                trackID)
+        mycompletion = lambda trackID, path=path, track=track:\
+            self._addTrackCompletion(path, track, trackID)
         track.getID(mycompletion)
 
     def _addTrack(self, path, trace=[]):
         trace = extractTraceStack(trace)
-        self.queue(
-            lambda thread, cursor, traceBack: thread.doAddTrack(path,
-                                                                traceBack),
-            trace)
+        self.queue(lambda thread, cursor, traceBack, path=path:\
+                        thread.doAddTrack(path, traceBack), trace)
             
     def doWalkDirectoryNoWatch(self, directory, callback, trace):
         self._logger.debug("Finding files from \'"+directory+"\'.")
@@ -267,9 +261,9 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def walkDirectoryNoWatch(self, directory, callback, trace=[]):
         directory = os.path.realpath(directory)
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doWalkDirectoryNoWatch(directory, callback,
-                                                 traceBack), trace)
+        self.queue(lambda thread, cursor, traceBack, directory=directory,\
+                        callback=callback: thread.doWalkDirectoryNoWatch(
+                            directory, callback, traceBack), trace)
         
     def addDirectoryNoWatch(self, directory):
         mycallback = lambda path: self._addTrack(path)
@@ -281,32 +275,33 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def getDirectoryID(self, directory, completion, trace=[]):
         directory = os.path.realpath(directory)
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doGetDirectoryID(directory, completion, traceBack),
-                   trace)
+        self.queue(lambda thread, cursor, traceBack, directory=directory,\
+                        completion=completion: thread.doGetDirectoryID(
+                            directory, completion, traceBack), trace)
         
     def maybeAddToWatch(self, directory, directoryID):
         if directoryID == None:
-            mycompletion = lambda result: self._logger.info(
-                "\'"+directory+"\' has been added to the watch list.")
+            mycompletion = lambda result, directory=directory:\
+                self._logger.info("\'"+directory\
+                                  +"\' has been added to the watch list.")
             self._execute("insert into directories (path) values (?)",
-                               (directory, ), mycompletion)
+                          (directory, ), mycompletion)
         else:
             self._logger.debug("\'"+directory\
                                +"\' is already in the watch list.")
     
     def doWalkDirectory(self, directory, callback, trace):
         self._logger.debug("Adding \'"+directory+"\' to the watch list.")
-        mycompletion = lambda directoryID: self.maybeAddToWatch(directory,
-                                                                directoryID)
+        mycompletion = lambda directoryID, directory=directory:\
+            self.maybeAddToWatch(directory, directoryID)
         self.getDirectoryID(directory, mycompletion)
         self.walkDirectoryNoWatch(directory, callback)
         
     def walkDirectory(self, directory, callback, trace=[]):
         directory = os.path.realpath(directory)
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doWalkDirectory(directory, callback, traceBack),
+        self.queue(lambda thread, cursor, traceBack, directory=directory:\
+                        thread.doWalkDirectory(directory, callback, traceBack),
                    trace)
         
     def addDirectory(self, directory):
@@ -320,7 +315,8 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def doRescanDirectories(self, trace):
         self._logger.info("Rescanning the watch list for new files.")
         errcompletion = ErrorCompletion(
-            NoResultError, lambda: self._logger.info("The watch list is empty."))
+            NoResultError,
+            lambda: self._logger.info("The watch list is empty."))
         mycompletion = lambda paths: self._rescanDirectoriesCompletion(paths)
         self._executeAndFetchAll("select path from directories", (),
                                  mycompletion, errcompletion=errcompletion)
@@ -342,19 +338,22 @@ class DatabaseThread(Thread):
     def doComplete(self, completion, trace):
         completion(None)
         
-    def complete(self, completion, priority=1, trace=[]):
+    def complete(self, completion, priority=2, trace=[]):
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   self.doComplete(completion, traceBack), trace, priority)
+        self.queue(lambda thread, cursor, traceBack, completion=completion:\
+                        self.doComplete(completion, traceBack), trace, priority)
             
     def doExecute(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
         completion(None)
 
-    def execute(self, stmt, args, completion, priority=1, trace=[]):
+    def execute(self, stmt, args, completion, priority=2, trace=[]):
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doExecute(cursor, stmt, args, completion, traceBack),
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion: thread.doExecute(cursor, stmt,
+                                                                args,
+                                                                completion,
+                                                                traceBack),
                    trace, priority)
 
     def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace,
@@ -370,13 +369,17 @@ class DatabaseThread(Thread):
             return
         completion(result[0])
 
-    def executeAndFetchOne(self, stmt, args, completion, priority=1,
+    def executeAndFetchOne(self, stmt, args, completion, priority=2,
                            returnTuple=False, trace=[], errcompletion=None):
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doExecuteAndFetchOne(cursor, stmt, args, completion,
-                                               traceBack, returnTuple,
-                                               errcompletion), trace, priority)
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion, returnTuple=returnTuple,\
+                        errcompletion=errcompletion:\
+                            thread.doExecuteAndFetchOne(cursor, stmt, args,
+                                                        completion, traceBack,
+                                                        returnTuple,
+                                                        errcompletion), trace,
+                    priority)
         
     def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace,
                                    errcompletion=None):
@@ -388,13 +391,15 @@ class DatabaseThread(Thread):
             return
         completion(result)
 
-    def executeAndFetchLastRowID(self, stmt, args, completion, priority=1,
+    def executeAndFetchLastRowID(self, stmt, args, completion, priority=2,
                                  trace=[], errcompletion=None):
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doExecuteAndFetchLastRowID(cursor, stmt, args,
-                                                     completion, traceBack,
-                                                     errcompletion),
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion, errcompletion=errcompletion:\
+                            thread.doExecuteAndFetchLastRowID(cursor, stmt,
+                                                              args, completion,
+                                                              traceBack,
+                                                              errcompletion),
                    trace, priority)
         
     def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion, trace,
@@ -409,14 +414,16 @@ class DatabaseThread(Thread):
             return
         completion(result[0])
 
-    def executeAndFetchOneOrNull(self, stmt, args, completion, priority=1,
+    def executeAndFetchOneOrNull(self, stmt, args, completion, priority=2,
                                  returnTuple=False, trace=[]):
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doExecuteAndFetchOneOrNull(cursor, stmt, args,
-                                                     completion, traceBack,
-                                                     returnTuple), trace,
-                   priority)
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion, returnTuple=returnTuple:\
+                            thread.doExecuteAndFetchOneOrNull(cursor, stmt,
+                                                              args, completion,
+                                                              traceBack,
+                                                              returnTuple),
+                    trace, priority)
 
     def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace,
                              throwException=True, errcompletion=None):
@@ -428,15 +435,17 @@ class DatabaseThread(Thread):
             return
         completion(result)
 
-    def executeAndFetchAll(self, stmt, args, completion, priority=1,
+    def executeAndFetchAll(self, stmt, args, completion, priority=2,
                            throwException=True, trace=[], errcompletion=None):
         trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doExecuteAndFetchAll(cursor, stmt, args, completion,
-                                               traceBack, throwException,
-                                               errcompletion),
-                   trace,
-                   priority)
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion, throwException=throwException,\
+                        errcompletion=errcompletion:\
+                            thread.doExecuteAndFetchAll(cursor, stmt, args,
+                                                        completion, traceBack,
+                                                        throwException,
+                                                        errcompletion),
+                   trace, priority)
 
 ID_EVT_DATABASE = wx.NewId()
 
@@ -471,7 +480,8 @@ class Database(DatabaseEventHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,
                  debugMode=False, databasePath="database",
                  defaultDefaultScore=10):
-        DatabaseEventHandler.__init__(self, DatabaseThread(self, databasePath), 1)
+        DatabaseEventHandler.__init__(self, DatabaseThread(self, databasePath),
+                                      2)
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._configParser = configParser
@@ -648,7 +658,7 @@ class Database(DatabaseEventHandler):
     def _setTrackIDCompletion(self, track, trackID, completion, wasAdded=False):
         path = track.getPath()
         if trackID == None:
-            mycompletion = lambda result: \
+            mycompletion = lambda result, track=track, completion=completion: \
                 self._setTrackIDCompletion(track, result, completion,
                                            wasAdded=True)
             self._executeAndFetchLastRowID(
@@ -686,12 +696,11 @@ class Database(DatabaseEventHandler):
             self._logger.debug("\'"+path+"\' is an invalid file.")
             return None
         if hasTrackID == True:
-            mycompletion = lambda result: self._setTrackIDCompletion(track,
-                                                                     result,
-                                                                     completion)
+            mycompletion = lambda result, track=track, completion=completion:\
+                self._setTrackIDCompletion(track, result, completion)
             self._getTrackID(track, mycompletion)
         elif hasTrackID == False:
-            mycompletion = lambda result: \
+            mycompletion = lambda result, track=track, completion=completion:\
                 self._setTrackIDCompletion(track, result, completion,
                                            wasAdded=True)
             self._executeAndFetchLastRowID(
@@ -705,8 +714,9 @@ class Database(DatabaseEventHandler):
     # FIXME: make clearer?
     def addTrack(self, path=None, hasTrackID=True, track=None,
                       completion=None):
-        mycompletion = lambda result: \
-            self._addTrackCompletion(path, hasTrackID, track, completion)
+        mycompletion = lambda result, path=path, hasTrackID=hasTrackID,\
+            track=track, completion=completion:\
+                self._addTrackCompletion(path, hasTrackID, track, completion)
         self.complete(mycompletion)
 
     ## returns a list of tuples of the form (trackID, )
@@ -764,8 +774,9 @@ class Database(DatabaseEventHandler):
         directory = os.path.realpath(directory)
         self._logger.debug("Removing \'"+directory+"\' from the watch list.")
         if directoryID != None:
-            mycompletion = lambda result: self._logger.info(
-                "\'"+directory+"\' has been removed from the watch list.")
+            mycompletion = lambda result, directory=directory:\
+                self._logger.info("\'"+directory\
+                                  +"\' has been removed from the watch list.")
             self._execute("delete from directories where path = ?",
                                (directory, ), mycompletion)
             
@@ -773,7 +784,7 @@ class Database(DatabaseEventHandler):
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
                 
     def removeDirectory(self, directory):
-        mycompletion = lambda directoryID:\
+        mycompletion = lambda directoryID, directory=directory:\
             self._removeDirectoryCompletion(directory, directoryID)
         self.getDirectoryID(directory, mycompletion)
 
@@ -783,21 +794,24 @@ class Database(DatabaseEventHandler):
     def _getTrackPathsCompletion(self, firstTrackID, secondTrackID, linkID,
                                  completion):
         multicompletion = MultiCompletion(
-            2, lambda firstPath, secondPath: completion(firstTrackID, firstPath,
-                                                        secondTrackID,
-                                                        secondPath, linkID))
+            2, lambda firstPath, secondPath, firstTrackID=firstTrackID,\
+                secondTrackID=secondTrackID, linkID=linkID:\
+                    completion(firstTrackID, firstPath, secondTrackID,
+                               secondPath, linkID))
         self.getPathFromIDNoDebug(
-            firstTrackID, lambda firstPath: multicompletion.put(0, firstPath))
+            firstTrackID, lambda firstPath, multicompletion=multicompletion:\
+                multicompletion.put(0, firstPath))
         self.getPathFromIDNoDebug(
-            secondTrackID, lambda secondPath: multicompletion.put(0,
-                                                                  secondPath))
+            secondTrackID, lambda secondPath, multicompletion=multicompletion:\
+                multicompletion.put(1, secondPath))
         
     def _addLinkCompletion(self, firstTrackID, firstTrackPath, secondTrackID, 
                            secondTrackPath, linkID):
         if linkID == None:
-            mycompletion = lambda result: self._logger.info(
-                "\'"+firstTrackPath+"\' has been linked to \'"+secondTrackPath\
-                +"\'.")
+            mycompletion = lambda result, firstTrackPath=firstTrackPath,\
+                secondTrackPath=secondTrackPath: self._logger.info(
+                    "\'"+firstTrackPath+"\' has been linked to \'"\
+                    +secondTrackPath+"\'.")
             self._execute(
                 "insert into links (firsttrackid, secondtrackid) values (?, ?)",
                 (firstTrackID, secondTrackID), mycompletion)
@@ -815,9 +829,10 @@ class Database(DatabaseEventHandler):
                                                              linkID)
         self.getLinkID(
             firstTrack, secondTrack,
-            lambda firstTrackID, secondTrackID, linkID:\
-                self._getTrackPathsCompletion(firstTrackID, secondTrackID,
-                                              linkID, mycompletion),
+            lambda firstTrackID, secondTrackID, linkID,\
+                mycompletion=mycompletion:\
+                    self._getTrackPathsCompletion(firstTrackID, secondTrackID,
+                                                  linkID, mycompletion),
             completeTrackIDs=True)
         
     def _getLinkIDCompletion2(self, firstTrackID, secondTrackID, linkID,
@@ -832,9 +847,11 @@ class Database(DatabaseEventHandler):
             
     def _getLinkIDCompletion(self, firstTrackID, secondTrackID, completion,
                              completeTrackIDs=False):
-        mycompletion = lambda linkID:\
-            self._getLinkIDCompletion2(firstTrackID, secondTrackID, linkID,
-                                       completion, completeTrackIDs)
+        mycompletion = lambda linkID, firstTrackID=firstTrackID,\
+            secondTrackID=secondTrackID, completion=completion,\
+            completeTrackIDs=completeTrackIDs:\
+                self._getLinkIDCompletion2(firstTrackID, secondTrackID, linkID,
+                                           completion, completeTrackIDs)
         self._executeAndFetchOneOrNull(
             """select linkid from links where firsttrackid = ? and
                secondtrackid = ?""", (firstTrackID, secondTrackID),
@@ -843,13 +860,15 @@ class Database(DatabaseEventHandler):
     def getLinkID(self, firstTrack, secondTrack, completion,
                   completeTrackIDs=False):
         multicompletion = MultiCompletion(
-            2, lambda firstTrackID, secondTrackID:\
-            self._getLinkIDCompletion(firstTrackID, secondTrackID, completion,
-                                      completeTrackIDs))
-        firstTrack.getID(lambda firstTrackID:\
+            2, lambda firstTrackID, secondTrackID, completion=completion,\
+                completeTrackIDs=completeTrackIDs:\
+                    self._getLinkIDCompletion(firstTrackID, secondTrackID,
+                                              completion, completeTrackIDs))
+        firstTrack.getID(lambda firstTrackID, multicompletion=multicompletion:\
                          multicompletion.put(0, firstTrackID))
-        secondTrack.getID(lambda secondTrackID:\
-                          multicompletion.put(1, secondTrackID))
+        secondTrack.getID(
+            lambda secondTrackID, multicompletion=multicompletion:\
+                multicompletion.put(1, secondTrackID))
     
 #    def _returnTracksCompletion(self, callback):
 #        for track in self._trackQueue:
@@ -939,22 +958,25 @@ class Database(DatabaseEventHandler):
         
     def _getLinkIDsCompletion(self, trackID, completion):
         multicompletion = MultiCompletion(
-            2, lambda firstLinkID, secondLinkID:\
-            self._getLinkIDsCompletion2(trackID, firstLinkID, secondLinkID,
-                                        completion))
+            2, lambda firstLinkID, secondLinkID, trackID=trackID,\
+                completion=completion:\
+                    self._getLinkIDsCompletion2(trackID, firstLinkID,
+                                                secondLinkID, completion))
         self._executeAndFetchOneOrNull(
             "select linkid from links where secondtrackid = ?", (trackID, ),
-            lambda firstLinkID: multicompletion.put(0, firstLinkID))
+            lambda firstLinkID, multicompletion=multicompletion:\
+                multicompletion.put(0, firstLinkID))
         self._executeAndFetchOneOrNull(
             "select linkid from links where firsttrackid = ?", (trackID, ),
-            lambda secondLinkID: multicompletion.put(1, secondLinkID))
+            lambda secondLinkID, multicompletion=multicompletion:\
+                multicompletion.put(1, secondLinkID))
 
         
     ## if there are two links for a track, returns the link with track as second
     ## track first for queueing ease
     def getLinkIDs(self, track, completion):
-        track.getID(lambda trackID: self._getLinkIDsCompletion(trackID,
-                                                               completion))
+        track.getID(lambda trackID, completion=completion:\
+                        self._getLinkIDsCompletion(trackID, completion))
 
     def _getLinkedTrackIDsCompletion(self, trackIDs, completion):
         self._logger.debug("Retrieving track IDs for linked tracks.")
@@ -963,7 +985,7 @@ class Database(DatabaseEventHandler):
         completion(trackIDs)
             
     def getLinkedTrackIDs(self, linkID, completion):
-        mycompletion = lambda trackIDs:\
+        mycompletion = lambda trackIDs, completion=completion:\
             self._getLinkedTrackIDsCompletion(trackIDs, completion)
         self._executeAndFetchOneOrNull(
             "select firsttrackid, secondtrackid from links where linkid = ?",
@@ -975,8 +997,8 @@ class Database(DatabaseEventHandler):
         firstTrackPath = firstTrack.getPath()
         secondTrackPath = secondTrack.getPath()
         if linkID != None:
-            mycompletion = lambda result:\
-                self._logger.info(
+            mycompletion = lambda result, firstTrackPath=firstTrackPath,\
+                secondTrackPath=secondTrackPath: self._logger.info(
                     "\'"+firstTrackPath+"\' is no longer linked to \'"\
                     +secondTrackPath+"\'.")
             self._execute("delete from links where linkid = ?", (linkID, ),
@@ -986,9 +1008,10 @@ class Database(DatabaseEventHandler):
                                +secondTrackPath+"\'.")
             
     def removeLink(self, firstTrack, secondTrack):
-        mycompletion = lambda linkID: self._removeLinkCompletion(firstTrack,
-                                                                 secondTrack,
-                                                                 linkID)
+        mycompletion = lambda linkID, firstTrack=firstTrack,\
+            secondTrack=secondTrack: self._removeLinkCompletion(firstTrack,
+                                                                secondTrack,
+                                                                linkID)
         self.getLinkID(firstTrack, secondTrack, mycompletion)
         
 #    def asyncAddEnqueue(self, track):
@@ -1023,14 +1046,15 @@ class Database(DatabaseEventHandler):
         delay = datetime.timedelta(0, 0, 0, msDelay)
         playTime = now - delay
         self.getLastPlayedInSeconds(
-            track, lambda previousPlay: track.setPreviousPlay(previousPlay))
+            track, lambda previousPlay, track=track: track.setPreviousPlay(
+                previousPlay))
         self._execute("""insert into plays (trackid, datetime) values
                               (?, datetime(?))""", (trackID, playTime),
                            lambda result: doNothing())
         
     def addPlay(self, track, msDelay=0):
-        mycompletion = lambda trackID: self._addPlayCompletion(track, trackID,
-                                                               msDelay)
+        mycompletion = lambda trackID, track=track, msDelay=msDelay:\
+            self._addPlayCompletion(track, trackID, msDelay)
         track.getID(mycompletion)
         
     def _getLastPlayedTrackIDCompletion(self, trackID, completion,
@@ -1041,77 +1065,90 @@ class Database(DatabaseEventHandler):
             self._logger.error("No plays recorded.")
             errcompletion(EmptyDatabaseError)
              
-    def getLastPlayedTrackID(self, completion, errcompletion):
-        mycompletion = lambda trackID:\
-            self._getLastPlayedTrackIDCompletion(trackID, completion,
-                                                 errcompletion)
+    def getLastPlayedTrackID(self, completion, errcompletion, priority=None):
+        mycompletion = lambda trackID, completion=completion,\
+            errcompletion=errcompletion: self._getLastPlayedTrackIDCompletion(
+                trackID, completion, errcompletion)
         self._executeAndFetchOneOrNull(
-            "select trackid from plays order by playid desc", (), mycompletion)
+            "select trackid from plays order by playid desc", (), mycompletion,
+            priority=priority)
         
-    def _getLastPlayedCompletion2(self, trackID, playDetails, completion):
-        if playDetails == None and self._debugMode == True:
+    def _getLastPlayedCompletion2(self, trackID, playDetails, completion,
+                                  debug=True):
+        if playDetails == None and self._debugMode == True and debug == True:
             self.getPathFromIDNoDebug(
                 trackID, lambda path: self._logger.debug(
                     "\'"+path+"\' has never been played."))
         completion(playDetails)
         
-    def _getLastPlayedCompletion(self, trackID, completion):
+    def _getLastPlayedCompletion(self, trackID, completion, debug=True,
+                                 priority=None):
         (self._basicLastPlayedIndex, self._localLastPlayedIndex,
          self._secondsSinceLastPlayedIndex,
          self._lastPlayedInSecondsIndex) = range(4)
-        mycompletion = lambda playDetails:\
-            self._getLastPlayedCompletion2(trackID, playDetails, completion)
+        mycompletion = lambda playDetails, trackID=trackID,\
+            completion=completion, debug=debug: self._getLastPlayedCompletion2(
+                trackID, playDetails, completion, debug=debug)
         self._executeAndFetchOneOrNull(
             """select datetime, datetime(datetime, 'localtime'),
                strftime('%s', 'now') - strftime('%s', datetime),
                strftime('%s', datetime) from plays where trackid = ? order by
-               playid desc""", (trackID, ), mycompletion, returnTuple=True)
+               playid desc""", (trackID, ), mycompletion, returnTuple=True,
+            priority=priority)
 
-    def _getLastPlayed(self, completion, track=None, trackID=None):
+    def _getLastPlayed(self, completion, track=None, trackID=None, debug=True,
+                       priority=None):
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError # FIXME: probably broken
-            mycompletion = lambda newTrackID:\
-                self._getLastPlayedCompletion(newTrackID, completion)
-            track.getID(mycompletion)
+            mycompletion = lambda newTrackID, completion=completion,\
+                priority=priority: self._getLastPlayedCompletion(
+                    newTrackID, completion, priority=priority)
+            track.getID(mycompletion, priority=priority)
             return
-        self._getLastPlayedCompletion(trackID, completion)
+        self._getLastPlayedCompletion(trackID, completion, debug=debug,
+                                      priority=priority)
 
         
     def getLastPlayed(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, completion=completion:\
             self._getDetailCompletion(details, self._basicLastPlayedIndex,
                                       completion,
                                       "Retrieving time of last play.")
         self._getLastPlayed(mycompletion, track=track)
     
-    def getLastPlayedLocalTime(self, track, completion):
-        mycompletion = lambda details: self._getDetailCompletion(
-            details, self._localLastPlayedIndex, completion,
-            "Retrieving time of last play in localtime.")
-        self._getLastPlayed(mycompletion, track=track)
+    def getLastPlayedLocalTime(self, track, completion, priority=None):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._localLastPlayedIndex,
+                                      completion,
+                                      "Retrieving time of last play in localtime.")
+        self._getLastPlayed(mycompletion, track=track, priority=priority)
         
-#    def _getLastPlayedInSecondsCompletion(self, lastPlayed, completion):
-#        if lastPlayed != None:
-#            lastPlayed = int(lastPlayed)
-#        completion(lastPlayed)
+    def _getLastPlayedInSecondsCompletion(self, lastPlayed, completion):
+        if lastPlayed != None:
+            lastPlayed = int(lastPlayed)
+        completion(lastPlayed)
             
-    def getLastPlayedInSeconds(self, track, completion):
-        mycompletion = lambda details: self._getDetailCompletion(
-            details, self._lastPlayedInSecondsIndex,
-            lambda lastPlayed: completion(lastPlayed))
-        self._getLastPlayed(mycompletion, track=track)
+    def getLastPlayedInSeconds(self, track, completion, priority=None):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(
+                details, self._lastPlayedInSecondsIndex,
+                lambda lastPlayed, completion=completion:\
+                    self._getLastPlayedInSecondsCompletion(lastPlayed,
+                                                           completion))
+        self._getLastPlayed(mycompletion, track=track, priority=priority)
     
-    def getSecondsSinceLastPlayedFromID(self, trackID, completion):
-        if self._debugMode == True:
+    def getSecondsSinceLastPlayedFromID(self, trackID, completion, debug=True):
+        if self._debugMode == True and debug == True:
             debugMessage = "Calculating time since last played."
         else:
             debugMessage = None
-        mycompletion = lambda details: self._getDetailCompletion(
-            details, self._secondsSinceLastPlayedIndex, completion,
-            debugMessage)
-        self._getLastPlayed(mycompletion, trackID=trackID)
+        mycompletion = lambda details, completion=completion,\
+            debugMessage=debugMessage: self._getDetailCompletion(
+                details, self._secondsSinceLastPlayedIndex, completion,
+                debugMessage)
+        self._getLastPlayed(mycompletion, trackID=trackID, debug=debug)
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     # played again, this will get stuck. We need to keep track of
@@ -1119,7 +1156,8 @@ class Database(DatabaseEventHandler):
     # currently bad tracks rely on being chosen by randomizer to update 
     # historical status.
     def getOldestLastPlayed(self, completion):
-        errcompletion = ErrorCompletion(NoResultError, lambda: completion(0))
+        errcompletion = ErrorCompletion(
+            NoResultError, lambda completion=completion: completion(0))
         self._executeAndFetchOne(
             """select strftime('%s', 'now') - strftime('%s', min(datetime))
                from (select max(playid) as id, trackid from plays,
@@ -1135,18 +1173,19 @@ class Database(DatabaseEventHandler):
             return
         completion(len(plays))
         
-    def getPlayCount(self, completion, track=None, trackID=None):
+    def getPlayCount(self, completion, track=None, trackID=None, priority=None):
         self._logger.debug("Retrieving play count.")
-        mycompletion = lambda plays:\
+        mycompletion = lambda plays, completion=completion:\
             self._getPlayCountCompletion(plays, completion)
-        mycompletion2 = lambda trackID: self._executeAndFetchAll(
-            "select datetime from plays where trackid = ? order by playid desc",
-            (trackID, ), mycompletion)
+        mycompletion2 = lambda trackID, mycompletion=mycompletion,\
+            priority=priority: self._executeAndFetchAll(
+                """select datetime from plays where trackid = ? order by playid
+                   desc""", (trackID, ), mycompletion, priority=priority)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError # FIXME: probably broken
-            trackID = track.getID(mycompletion2)
+            trackID = track.getID(mycompletion2, priority=priority)
             return
         mycompletion2(trackID)
     
@@ -1159,20 +1198,22 @@ class Database(DatabaseEventHandler):
 #            except NoTrackError:
 #                self.setHistorical(True, trackID)
 
-    def _getTrackDetails(self, completion, track=None, trackID=None):
+    def _getTrackDetails(self, completion, track=None, trackID=None,
+                         priority=None):
         self._numberIndices = 9
         (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
          self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
          self._bpmIndex, self._historicalIndex) = range(self._numberIndices)
-        mycompletion = lambda trackID: self._executeAndFetchOne(
-            """select path, artist, album, title, tracknumber, unscored, length,
-               bpm, historical from tracks where trackid = ?""", (trackID, ),
-            completion, returnTuple=True)
+        mycompletion = lambda trackID, completion=completion,\
+            priority=priority: self._executeAndFetchOne(
+                """select path, artist, album, title, tracknumber, unscored,
+                   length, bpm, historical from tracks where trackid = ?""",
+                (trackID, ), completion, returnTuple=True, priority=priority)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
-            track.getID(mycompletion)
+            track.getID(mycompletion, priority=priority)
         else:
             mycompletion(trackID)
         
@@ -1196,7 +1237,7 @@ class Database(DatabaseEventHandler):
         completion(False)
     
     def _getTrackDetailsChange(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, track=track, completion=completion:\
             self._getTrackDetailsChangeCompletion(track, details, completion)
         self._getTrackDetails(mycompletion, track=track)
         
@@ -1205,7 +1246,7 @@ class Database(DatabaseEventHandler):
             self._updateTrackDetails(track)
             
     def maybeUpdateTrackDetails(self, track):
-        mycompletion = lambda change:\
+        mycompletion = lambda change, track=track:\
             self._maybeUpdateTrackDetailsCompletion(track, change)
         self._getTrackDetailsChange(track, mycompletion)
             
@@ -1214,7 +1255,8 @@ class Database(DatabaseEventHandler):
         completion(path)
     
     def getPath(self, track, completion):
-        mycompletion = lambda path: self._getPathCompletion(path, completion)
+        mycompletion = lambda path, completion=completion:\
+            self._getPathCompletion(path, completion)
         self.getPathNoDebug(track, mycompletion)
         
     def _getDetailCompletion(self, details, index, completion,
@@ -1227,7 +1269,7 @@ class Database(DatabaseEventHandler):
         completion(details[index])
     
     def getPathNoDebug(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, completion=completion:\
             self._getDetailCompletion(details, self._pathIndex, completion)
         self._getTrackDetails(mycompletion, track=track)
             
@@ -1235,36 +1277,36 @@ class Database(DatabaseEventHandler):
         self._logger.debug("Retrieving track's path.")
         completion(path)
             
-    def getPathFromID(self, trackID, completion):
-        mycompletion = lambda path: self._getPathFromIDCompletion(path,
-                                                                  completion)
-        self.getPathFromIDNoDebug(trackID, mycompletion)
+    def getPathFromID(self, trackID, completion, priority=None):
+        mycompletion = lambda path, completion=completion:\
+            self._getPathFromIDCompletion(path, completion)
+        self.getPathFromIDNoDebug(trackID, mycompletion, priority=priority)
     
-    def getPathFromIDNoDebug(self, trackID, completion):
-        mycompletion = lambda details:\
+    def getPathFromIDNoDebug(self, trackID, completion, priority=None):
+        mycompletion = lambda details, completion=completion:\
             self._getDetailCompletion(details, self._pathIndex, completion)
-        self._getTrackDetails(mycompletion, trackID=trackID)
+        self._getTrackDetails(mycompletion, trackID=trackID, priority=priority)
     
     def getArtist(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, completion=completion:\
             self._getDetailCompletion(details, self._artistIndex, completion,
                                       debugMessage="Retrieving track's artist.")
         self._getTrackDetails(mycompletion, track=track)
     
     def getAlbum(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, completion=completion:\
             self._getDetailCompletion(details, self._albumIndex, completion,
                                       debugMessage="Retrieving track's album.")
         self._getTrackDetails(mycompletion, track=track)
     
     def getTitle(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, completion=completion:\
             self._getDetailCompletion(details, self._titleIndex, completion,
                                       debugMessage="Retrieving track's title.")
         self._getTrackDetails(mycompletion, track=track)
     
     def getTrackNumber(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, completion=completion:\
             self._getDetailCompletion(details, self._trackNumberIndex,
                                       completion,
                                       debugMessage="Retrieving track's number.")
@@ -1282,7 +1324,7 @@ class Database(DatabaseEventHandler):
         completion(bpm)
     
     def getBPM(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, track=track, completion=completion:\
             self._getBPMCompletion(track, details, completion)
         self._getTrackDetails(mycompletion, track=track)    
             
@@ -1292,11 +1334,12 @@ class Database(DatabaseEventHandler):
                            (bpm, trackID), mycompletion)
     
     def setBPM(self, bpm, track):
-        mycompletion = lambda trackID: self._setBPMCompletion(bpm, trackID)
+        mycompletion = lambda trackID, bpm=bpm: self._setBPMCompletion(bpm,
+                                                                       trackID)
         track.getID(mycompletion)
     
     def getHistorical(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, completion=completion:\
             self._getDetailCompletion(
                 details, self._historicalIndex, completion,
                 debugMessage="Retrieving track's currency.")
@@ -1314,14 +1357,15 @@ class Database(DatabaseEventHandler):
         completion(length)
         
     def getLength(self, track, completion):
-        mycompletion = lambda details:\
+        mycompletion = lambda details, track=track, completion=completion:\
             self._getLengthCompletion(track, details, completion)
         self._getTrackDetails(mycompletion, track=track)
         
 
     
     def getLengthString(self, track, completion):
-        mycompletion = lambda rawLength: completion(formatLength(rawLength))
+        mycompletion = lambda rawLength, completion=completion:\
+            completion(formatLength(rawLength))
         self.getLength(track, mycompletion)
         
     def _setLengthCompletion(self, length, trackID):
@@ -1331,7 +1375,8 @@ class Database(DatabaseEventHandler):
                            (length, trackID), mycompletion)
         
     def setLength(self, length, track):
-        mycompletion = lambda trackID: self._setLengthCompletion(length, trackID)
+        mycompletion = lambda trackID, length=length:\
+            self._setLengthCompletion(length, trackID)
         track.getID(mycompletion)
         
     def addTagName(self, tagName):
@@ -1349,11 +1394,11 @@ class Database(DatabaseEventHandler):
             tagNames.append(name)
         completion(tagNames)#
             
-    def getAllTagNames(self, completion):
-        mycompletion = lambda names: self._getAllTagNamesCompletion(names,
-                                                                    completion)
-        self._executeAndFetchAll("select name from tagnames", (),
-                                      mycompletion)
+    def getAllTagNames(self, completion, priority=None):
+        mycompletion = lambda names, completion=completion:\
+            self._getAllTagNamesCompletion(names, completion)
+        self._executeAndFetchAll("select name from tagnames", (), mycompletion,
+                                 priority=priority)
         
     def getTagNameID(self, tagName, completion):
         self._executeAndFetchOne(
@@ -1362,22 +1407,24 @@ class Database(DatabaseEventHandler):
             
     def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames):
         if tagName not in tagNames:
-            mycompletion = lambda result:\
+            mycompletion = lambda result, tagName=tagName:\
                 self._logger.info("Tagging track with '"+tagName+"'.")
             self._execute("""insert into tags (trackid, tagnameid) values
                                   (?, ?)""", (trackID, tagNameID), mycompletion)
             
     def setTag(self, track, tagName):
         multicompletion =\
-            MultiCompletion(3, lambda trackID, tagNames, tagNameID:\
-                            self._setTagCompletion(trackID, tagName, tagNameID,
-                                                   tagNames))
-        track.getID(lambda trackID: multicompletion.put(0, trackID))
-        self.getTags(track, lambda tagNames: multicompletion.put(1,
-                                                                      tagNames))
-        self.getTagNameID(tagName,
-                               lambda tagNameID: multicompletion.put(2,
-                                                                     tagNameID))
+            MultiCompletion(3, lambda trackID, tagNames, tagNameID,\
+                                tagName=tagName:\
+                                    self._setTagCompletion(trackID, tagName,
+                                                           tagNameID, tagNames))
+        track.getID(lambda trackID, multicompletion=multicompletion:\
+                        multicompletion.put(0, trackID))
+        self.getTags(track, lambda tagNames, multicompletion=multicompletion:\
+                        multicompletion.put(1, tagNames))
+        self.getTagNameID(tagName, lambda tagNameID,\
+                            multicompletion=multicompletion:\
+                                multicompletion.put(2, tagNameID))
         
     def _unsetTagCompletion(self, trackID, tagNameID):
         self._execute("""delete from tags where tagnameid = ? and
@@ -1388,20 +1435,19 @@ class Database(DatabaseEventHandler):
         multicompletion =\
             MultiCompletion(2, lambda trackID, tagNameID:\
                             self._unsetTagCompletion(trackID, tagNameID))
-        track.getID(lambda trackID: multicompletion.put(0, trackID))
-        self.getTagNameID(tagName,
-                               lambda tagNameID: multicompletion.put(1,
-                                                                     tagNameID))
+        track.getID(lambda trackID, multicompletion=multicompletion:\
+                        multicompletion.put(0, trackID))
+        self.getTagNameID(tagName, lambda tagNameID,\
+                            multicompletion=multicompletion:\
+                                multicompletion.put(1, tagNameID))
         
-    def _getTagNameListCompletion(self, completion):
-        completion(self._tagNames)
-        
-    def getTagNameFromID(self, tagNameID, completion):
+    def getTagNameFromID(self, tagNameID, completion, priority=None):
         self._executeAndFetchOne(
             "select name from tagnames where tagnameid = ?", (tagNameID, ),
-            completion)
+            completion, priority=priority)
         
-    def _getTagsFromTrackIDCompletion(self, tagNameIDs, completion):
+    def _getTagsFromTrackIDCompletion(self, tagNameIDs, completion,
+                                      priority=None):
         self._logger.debug("Retrieving track tags.")
         if tagNameIDs == None:
             completion([])
@@ -1409,20 +1455,22 @@ class Database(DatabaseEventHandler):
         self._tagNames = []
         for (tagNameID, ) in tagNameIDs:
             mycompletion = lambda tagName: self._tagNames.append(tagName)
-            self.getTagNameFromID(tagNameID, mycompletion)
-        self.complete(
-            lambda result: self._getTagNameListCompletion(completion))
+            self.getTagNameFromID(tagNameID, mycompletion, priority=priority)
+        self.complete(lambda result: completion(self._tagNames),
+                      priority=priority)
     
-    def getTagsFromTrackID(self, trackID, completion):
-        mycompletion = lambda tagNameIDs:\
-            self._getTagsFromTrackIDCompletion(tagNameIDs, completion)
+    def getTagsFromTrackID(self, trackID, completion, priority=None):
+        mycompletion = lambda tagNameIDs, completion=completion,\
+            priority=priority: self._getTagsFromTrackIDCompletion(
+                tagNameIDs, completion, priority=priority)
         self._executeAndFetchAll(
             "select tagnameid from tags where trackid = ?", (trackID, ),
-            mycompletion, throwException=False)
+            mycompletion, priority=priority, throwException=False)
         
-    def getTags(self, track, completion):
-        mycompletion = lambda trackID: self.getTagsFromTrackID(trackID,
-                                                                    completion)
+    def getTags(self, track, completion, priority=None):
+        mycompletion = lambda trackID, completion=completion,\
+            priority=priority: self.getTagsFromTrackID(trackID, completion,
+                                                       priority=priority)
         track.getID(mycompletion)
         
     def _getIsScoredCompletion(self, unscored, completion):
@@ -1434,25 +1482,29 @@ class Database(DatabaseEventHandler):
             completion(True)
 
     ## determines whether user has changed score for this track
-    def _getIsScored(self, completion, track=None, trackID=None):
-        if self._debugMode == True:
+    def _getIsScored(self, completion, track=None, trackID=None, debug=True,
+                     priority=None):
+        if self._debugMode == True and debug == True:
             debugMessage = "Retrieving track's unscored status."
         else:
             debugMessage = None
-        mycompletion = lambda details: self._getDetailCompletion(
-            details, self._unscoredIndex,
-            lambda unscored: self._getIsScoredCompletion(unscored, completion),
-            debugMessage=debugMessage)
+        mycompletion = lambda details, completion=completion,\
+            debugMessage=debugMessage: self._getDetailCompletion(
+                details, self._unscoredIndex, lambda unscored,\
+                    completion=completion, debugMessage=debugMessage:\
+                        self._getIsScoredCompletion(unscored, completion),
+                debugMessage=debugMessage)
         if trackID != None:
-            self._getTrackDetails(mycompletion, trackID=trackID)
+            self._getTrackDetails(mycompletion, trackID=trackID,
+                                  priority=priority)
         else:
-            self._getTrackDetails(mycompletion, track=track)
+            self._getTrackDetails(mycompletion, track=track, priority=priority)
 
-    def getIsScored(self, track, completion):
-        self._getIsScored(completion, track=track)
+    def getIsScored(self, track, completion, priority=None):
+        self._getIsScored(completion, track=track, priority=priority)
 
-    def getIsScoredFromID(self, trackID, completion):
-        self._getIsScored(completion, trackID=trackID)
+    def getIsScoredFromID(self, trackID, completion, debug=True):
+        self._getIsScored(completion, trackID=trackID, debug=debug)
     
     ## poss should add a record to scores table
     def setUnscored(self, track):
@@ -1464,60 +1516,74 @@ class Database(DatabaseEventHandler):
         
     def _setScoreCompletion(self, trackID, score):
         self._execute("update tracks set unscored = 0 where trackid = ?",
-                           (trackID, ), lambda result: doNothing())
+                      (trackID, ), lambda result: doNothing())
         self._execute("""insert into scores (trackid, score, datetime)
-                              values (?, ?, datetime('now'))""",
-                           (trackID, score), lambda result: self._logger.debug(
-                                                "Setting track's score."))
+                         values (?, ?, datetime('now'))""", (trackID, score),
+                      lambda result: self._logger.debug(
+                            "Setting track's score."))
         
     ## poss add track if track not in library
     def setScore(self, track, score):
-        track.getID(lambda trackID: self._setScoreCompletion(trackID, score))
+        track.getID(lambda trackID, score=score: self._setScoreCompletion(
+                        trackID, score))
         
-    def _internalGetScoreCompletion(self, score, completion):
-        self._logger.debug("Retrieving track's score.")
+    def _internalGetScoreCompletion(self, score, completion, debug=True):
+        if debug == True:
+            self._logger.debug("Retrieving track's score.")
         completion(score)
         
-    def _getScore(self, completion, track=None, trackID=None):
-        mycompletion = lambda trackID: self._executeAndFetchOneOrNull(
-            "select score from scores where trackid = ? order by scoreid desc",
-            (trackID, ),
-            lambda score: self._internalGetScoreCompletion(score, completion))
+    def _getScore(self, completion, track=None, trackID=None, debug=True,
+                  priority=None):
+        mycompletion = lambda trackID, completion=completion, debug=debug,\
+            priority=priority: self._executeAndFetchOneOrNull(
+                """select score from scores where trackid = ? order by scoreid
+                   desc""", (trackID, ),
+                lambda score, completion=completion, debug=debug:\
+                    self._internalGetScoreCompletion(score, completion,
+                                                     debug=debug),
+                priority=priority)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError # FIXME: probably doesn't work
-            trackID = track.getID(mycompletion)
+            track.getID(mycompletion, priority=priority)
             return
         mycompletion(trackID)
     
     def _getScoreCompletion(self, isScored, completion, completeWithDash=False,
-                            track=None, trackID=None):
+                            track=None, trackID=None, debug=True,
+                            priority=None):
         if isScored == False:
             if completeWithDash == True:
                 completion("-")
             else:
                 completion(self._defaultScore)
         else:
-            self._getScore(completion, track=track, trackID=trackID)
+            self._getScore(completion, track=track, trackID=trackID,
+                           debug=debug, priority=priority)
             
     def getScore(self, track, completion):
         self.getIsScored(
-            track, lambda isScored: self._getScoreCompletion(
-                        isScored, completion, completeWithDash=True,
-                        track=track))
+            track, lambda isScored, completion=completion, track=track:\
+                self._getScoreCompletion(isScored, completion,
+                                         completeWithDash=True, track=track))
     
-    def getScoreValue(self, track, completion):
+    def getScoreValue(self, track, completion, priority=None):
         self.getIsScored(
-            track, lambda isScored: self._getScoreCompletion(isScored,
-                                                             completion,
-                                                             track=track))
+            track, lambda isScored, completion=completion, track=track,\
+                priority=priority: self._getScoreCompletion(isScored,
+                                                            completion,
+                                                            track=track,
+                                                            priority=priority),
+            priority=priority)
     
-    def getScoreValueFromID(self, trackID, completion):
+    def getScoreValueFromID(self, trackID, completion, debug=True):
         self.getIsScoredFromID(
-            trackID, lambda isScored: self._getScoreCompletion(isScored,
-                                                               completion,
-                                                               trackID=trackID))
+            trackID, lambda isScored, completion=completion, trackID=trackID,\
+                debug=debug: self._getScoreCompletion(isScored, completion,
+                                                      trackID=trackID,
+                                                      debug=debug),
+            debug=debug)
 
     def maybeGetIDFromPath(self, path, completion):
         path = os.path.realpath(path)
@@ -1529,25 +1595,26 @@ class Database(DatabaseEventHandler):
 #        if id is None:
 #            raise PathNotFoundError()
 
-    def getNumberOfTracks(self, completion):
-        self._executeAndFetchOne("select count(*) from tracks", (),
-                                      completion)
+    def getNumberOfTracks(self, completion, priority=None):
+        self._executeAndFetchOne("select count(*) from tracks", (), completion,
+                                 priority=priority)
     
     # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
     # or this is slow!
-    def getNumberOfUnplayedTracks(self, completion):
+    def getNumberOfUnplayedTracks(self, completion, priority=None):
         self._executeAndFetchOne(
             """select count(*) from tracks left outer join plays using(trackid)
-               where plays.trackid is null""", (), completion)
+               where plays.trackid is null""", (), completion,
+            priority=priority)
         
     # returns an array of [ score, count ]
-    def getScoreTotals(self, completion):
+    def getScoreTotals(self, completion, priority=None):
         self._executeAndFetchAll(
             """select score, count(score)
                from (select max(scoreid), x.trackid, score
                      from scores, (select distinct trackid from scores) as x
                      where scores.trackid = x.trackid group by scores.trackid)
-               group by score;""", (), completion)
+               group by score;""", (), completion, priority=priority)
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger,

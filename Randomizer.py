@@ -5,10 +5,10 @@
 
 import ConfigParser
 from Errors import *
+import random
+#import time
 from Time import roughAge
 from Util import plural, MultiCompletion
-import random
-import time
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -95,15 +95,17 @@ class Randomizer:
             try:
                 self._trackFactory.getTrackFromID(
                     self._db, trackID,
-                    lambda track: self._addTrackToListCallback(track, weight))
+                    lambda track, weight=weight: self._addTrackToListCallback(
+                        track, weight))
             except NoTrackError: # FIXME: probably doesn't work
                 self._db.setHistorical(True, trackID)
-        self._db.complete(lambda result: self._completeTracks(completion))
+        self._db.complete(lambda result, completion=completion:\
+                            self._completeTracks(completion))
 
     def chooseTracks(self, number, exclude, completion, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
-        mycompletion = lambda trackIDs: self._chooseTracksCompletion(trackIDs,
-                                                                     completion)
+        mycompletion = lambda trackIDs, completion=completion:\
+            self._chooseTracksCompletion(trackIDs, completion)
         self._chooseTrackIDs(number, exclude, mycompletion, tags)
 
     def _chooseTrackIDsCompletion(self, number, trackWeightList, totalWeight,
@@ -129,22 +131,23 @@ class Randomizer:
     ## will throw exception if database is empty?
     def _chooseTrackIDs(self, number, exclude, completion, tags=None):
 ##        print time.time()
-        mycompletion = lambda trackWeightList, totalWeight: \
-                            self._chooseTrackIDsCompletion(number,
-                                                           trackWeightList,
-                                                           totalWeight,
-                                                           completion)
+        mycompletion = lambda trackWeightList, totalWeight, number=number,\
+            completion=completion: self._chooseTrackIDsCompletion(
+                number, trackWeightList, totalWeight, completion)
         self._createLists(exclude, mycompletion, tags)
         
     def _getTimeAndScoreCompletion(self, trackID, time, score, oldest):
         if time == None:
             time = oldest
-        if score < self._scoreThreshold + 11:
+        if score < self._scoreThreshold:
             score = 0
+        else:
+            score += 11 # creates a positive score
         weight = self.getWeight(score, time)
         self._trackWeightList.append([trackID, weight])
         self._totalWeight += weight
 
+    # FIXME: do this in its own thread
     def _createListsCompletion(self, exclude, oldest, rawTrackIDList,
                                completion):
         if rawTrackIDList == []:
@@ -160,34 +163,41 @@ class Randomizer:
             if trackID in exclude:
                 continue
             multicompletion = MultiCompletion(
-                2, lambda time, score: self._getTimeAndScoreCompletion(trackID,
-                                                                       time,
-                                                                       score,
-                                                                       oldest))
-            self._db.getSecondsSinceLastPlayedFromID(
-                trackID, lambda time: multicompletion.put(0, time))
-            self._db.getScoreValueFromID(
-                trackID, lambda score: multicompletion.put(1, score+11))
-            ## creates a positive score
-#            if time == None:
-#                time = oldest
-#            if score < self._scoreThreshold + 11:
-#                score = 0
-#            weight = self.getWeight(score, time)
-#            trackWeightList.append([trackID, weight])
-#            totalWeight += weight
-        self._db.complete(lambda: completion(self._trackWeightList,
-                                                  self._totalWeight))
+                2, lambda time, score, trackID=trackID, oldest=oldest: 
+                    self._getTimeAndScoreCompletion(trackID, time, score,
+                                                    oldest))
+            self._db.complete(
+                lambda result, trackID=trackID,\
+                    multicompletion=multicompletion:\
+                        self._db.getSecondsSinceLastPlayedFromID(
+                            trackID,
+                            lambda time, multicompletion=multicompletion:\
+                                multicompletion.put(0, time), debug=False))
+            self._db.complete(
+                lambda result, trackID=trackID,\
+                    multicompletion=multicompletion:\
+                        self._db.getScoreValueFromID(
+                            trackID,
+                            lambda score, multicompletion=multicompletion:\
+                                multicompletion.put(1, score), debug=False))
+        self._db.complete(lambda result: completion(self._trackWeightList,
+                                                    self._totalWeight),
+                          priority=2.1) # FIXME: needs to complete after all
+                                        #        previous bits are done but 
+                                        #        before the next iteration 
+                                        #        starts
         
     def _createLists(self, exclude, completion, tags=None):
         self._logger.debug("Creating weighted list of tracks.")
-        mycompletion = MultiCompletion(2,
-            lambda rawTrackIDList, oldest: \
-            self._createListsCompletion(exclude, oldest, rawTrackIDList,
-                                        completion))
-        trackListCompletion = lambda rawTrackIDList: \
-                              mycompletion.put(0, rawTrackIDList)
-        oldestCompletion = lambda oldest: mycompletion.put(1, oldest)
+        multicompletion = MultiCompletion(2,
+            lambda rawTrackIDList, oldest, exclude=exclude,\
+                completion=completion: self._createListsCompletion(
+                    exclude, oldest, rawTrackIDList, completion))
+        trackListCompletion = lambda rawTrackIDList,\
+            multicompletion=multicompletion: multicompletion.put(0,
+                                                                 rawTrackIDList)
+        oldestCompletion = lambda oldest, multicompletion=multicompletion:\
+            multicompletion.put(1, oldest)
         
         self._db.getOldestLastPlayed(oldestCompletion)
         if tags == None:

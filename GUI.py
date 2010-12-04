@@ -412,7 +412,7 @@ class MainWindow(wx.Frame):
         self._tagMenu.AppendSeparator()
         
         self._db.getAllTagNames(
-            lambda tags: self._getAllTagsCompletion(tags))
+            lambda tags: self._getAllTagsCompletion(tags), priority=1)
 
         self.Bind(wx.EVT_MENU, self._onNewTag, newTagMenu)
 
@@ -566,14 +566,17 @@ class MainWindow(wx.Frame):
             currentTrack = self._trackFactory.getTrackFromPath(self._db,
                                                                currentTrackPath)
             multicompletion = MultiCompletion(
-                2, lambda currentTrackID, oldTrackID:\
-                    self._compareTracksCompletion(currentTrack, currentTrackID,
-                                                  oldTrackID))
-            currentTrack.getID(lambda trackID: multicompletion.put(0, trackID))
+                2, lambda currentTrackID, oldTrackID,\
+                    currentTrack=currentTrack: self._compareTracksCompletion(
+                        currentTrack, currentTrackID, oldTrackID))
+            currentTrack.getID(lambda trackID, multicompletion=multicompletion:\
+                                    multicompletion.put(0, trackID),
+                               priority=1)
             errcompletion = ErrorCompletion(EmptyDatabaseError,
                                             lambda: doNothing())
             self._db.getLastPlayedTrackID(
-                lambda trackID: multicompletion.put(1, trackID), errcompletion)
+                lambda trackID, multicompletion=multicompletion:\
+                    multicompletion.put(1, trackID), errcompletion, priority=1)
 #            try:
 #                if currentTrackID != self._db.getLastPlayedTrackID():
 #                    self._logger.debug("Adding play for current track.")
@@ -582,7 +585,8 @@ class MainWindow(wx.Frame):
 #                pass
             self._db.getLastPlayedInSeconds(
                 currentTrack,
-                lambda previous: currentTrack.setPreviousPlay(previous))
+                lambda previous, currentTrack=currentTrack:\
+                    currentTrack.setPreviousPlay(previous), priority=1)
             self.addTrack(currentTrack)
         except NoTrackError:
             pass
@@ -660,7 +664,7 @@ class MainWindow(wx.Frame):
 
             self.Bind(wx.EVT_MENU, lambda e, score=score:
                       self._onRate(e, score), menuItem)
-
+            
     def _onTrackRightClick(self, e):
         self.resetInactivityTimer()
         self._logger.debug("Popping up track right click menu.")
@@ -686,11 +690,13 @@ class MainWindow(wx.Frame):
             3, lambda number, numberUnplayed, totals:\
                 self._onAboutCompletion(number, numberUnplayed, totals))
         self._db.getNumberOfTracks(
-            lambda number: multicompletion.put(0, number))
+            lambda number, multicompletion=multicompletion: multicompletion.put(
+                0, number), priority=1)
         self._db.getNumberOfUnplayedTracks(
-            lambda numberUnplayed: multicompletion.put(1, numberUnplayed))
-        self._db.getScoreTotals(lambda totals: multicompletion.put(2,
-                                                                        totals))
+            lambda numberUnplayed, multicompletion=multicompletion:\
+                multicompletion.put(1, numberUnplayed), priority=1)
+        self._db.getScoreTotals(lambda totals, multicompletion=multicompletion:\
+                                    multicompletion.put(2, totals), priority=1)
         
     def _onPrefs(self, e):
         self._logger.debug("Opening preferences window.")
@@ -826,9 +832,9 @@ class MainWindow(wx.Frame):
                                                                   secondPath)
                 self._db.getLinkID(
                     firstTrack, secondTrack,
-                    lambda linkID: self._onRemoveLinkCompletion(linkID,
-                                                                firstTrack,
-                                                                secondTrack))
+                    lambda linkID, firstTrack=firstTrack,\
+                        secondTrack=secondTrack: self._onRemoveLinkCompletion(
+                            linkID, firstTrack, secondTrack))
             secondDialog.Destroy()
         firstDialog.Destroy()
         
@@ -849,8 +855,9 @@ class MainWindow(wx.Frame):
                                +" Retrieving new score.")
             score = self._scoreSlider.GetValue()
             self._track.getScore(
-                lambda oldScore: self._onScoreChangeCompletion(self._track,
-                                                               oldScore, score))
+                lambda oldScore, track=self._track, score=score:\
+                    self._onScoreChangeCompletion(track, oldScore, score),
+                priority=1)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -873,7 +880,8 @@ class MainWindow(wx.Frame):
         self.resetInactivityTimer()
         try:
             self._track.getScoreValue(
-                lambda score: self._onRateUpCompletion(self._track, score))
+                lambda score, track=self._track: self._onRateUpCompletion(
+                    track, score), priority=1)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -892,7 +900,8 @@ class MainWindow(wx.Frame):
         self.resetInactivityTimer()
         try:
             self._track.getScoreValue(
-                lambda score: self._onRateDownCompletion(self._track, score))
+                lambda score, track=self._track: self._onRateDownCompletion(
+                    track, score), priority=1)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -903,9 +912,9 @@ class MainWindow(wx.Frame):
         self.resetInactivityTimer()
         try:
             self._track.getScore(
-                lambda oldScore: self._onScoreChangeCompletion(self._track,
-                                                               oldScore, score,
-                                                               warnings=True))
+                lambda oldScore, track=self._track, score=score:\
+                    self._onScoreChangeCompletion(track, oldScore, score,
+                                                  warnings=True), priority=1)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -1048,7 +1057,8 @@ class MainWindow(wx.Frame):
         self._playingTrack = e.getTrack()
         self._db.getLastPlayedInSeconds(
             self._playingTrack,
-            lambda previous: self._playingTrack.setPreviousPlay(previous))
+            lambda previous, track=self._playingTrack:\
+                track.setPreviousPlay(previous), priority=1)
         self._playTimer.Stop()
         if self._playTimer.Start(self._playDelay, oneShot=True) == False:
             self._playingTrack.addPlay()
@@ -1081,7 +1091,9 @@ class MainWindow(wx.Frame):
             trackID = self._trackList.GetItemData(index)
             self._trackFactory.getTrackFromID(
                 self._db, trackID,
-                lambda track: self.refreshPreviousPlay(index, track))
+                lambda track, index=index: self.refreshPreviousPlay(index,
+                                                                    track),
+                priority=1)
 
     def resetInactivityTimer(self):
         self._logger.debug("Restarting inactivity timer.")
@@ -1103,7 +1115,7 @@ class MainWindow(wx.Frame):
         self._track = track
         self.populateDetails(self._track)
         self._track.getScoreValue(
-            lambda score: self.setScoreSliderPosition(score))
+            lambda score: self.setScoreSliderPosition(score), priority=1)
 
     def _onSelectTrack(self, e):
         self.resetInactivityTimer()
@@ -1113,7 +1125,7 @@ class MainWindow(wx.Frame):
         self._index = e.GetIndex()
         self._trackFactory.getTrackFromID(
             self._db, self._trackID,
-            lambda track: self._onSelectTrackCompletion(track))
+            lambda track: self._onSelectTrackCompletion(track), priority=1)
         
 
     def _onDeselectTrack(self, e):
@@ -1154,18 +1166,22 @@ class MainWindow(wx.Frame):
 
     def addTrackAtPos(self, track, index): # TODO: give higher priority?
         multicompletion = MultiCompletion(
-            5, lambda isScored, lastPlayed, score, scoreValue, trackID:\
-                self._addTrackAtPosCompletion(index, track, isScored,
-                                              lastPlayed, score, scoreValue,
-                                              trackID))
+            5, lambda isScored, lastPlayed, score, scoreValue, trackID,\
+                index=index, track=track: self._addTrackAtPosCompletion(
+                    index, track, isScored, lastPlayed, score, scoreValue,
+                    trackID))
         
-        track.getIsScored(lambda isScored: multicompletion.put(0, isScored))
+        track.getIsScored(lambda isScored, multicompletion=multicompletion:\
+                            multicompletion.put(0, isScored), priority=1)
         self._db.getLastPlayedLocalTime(
-            track, lambda lastPlayed: multicompletion.put(1, lastPlayed))
-        track.getScore(lambda score: multicompletion.put(2, score))
-        track.getScoreValue(lambda scoreValue: multicompletion.put(3,
-                                                                   scoreValue))
-        track.getID(lambda trackID: multicompletion.put(4, trackID))
+            track, lambda lastPlayed, multicompletion=multicompletion:\
+                multicompletion.put(1, lastPlayed), priority=1)
+        track.getScore(lambda score, multicompletion=multicompletion:\
+                            multicompletion.put(2, score), priority=1)
+        track.getScoreValue(lambda scoreValue, multicompletion=multicompletion:
+                                multicompletion.put(3, scoreValue), priority=1)
+        track.getID(lambda trackID, multicompletion=multicompletion:\
+                        multicompletion.put(4, trackID), priority=1)
         
 
     def enqueueTrack(self, track):
@@ -1186,11 +1202,12 @@ class MainWindow(wx.Frame):
                            +plural(number)+'.')
         completion = lambda tracks: \
                      self._enqueueRandomTracksCompletion(tracks)
+        # FIXME: poss use a changing value for number to speed up queueing if it
+        #        takes a long time
         self._player.getUnplayedTrackIDs(
-            self._db, lambda exclude: self._randomizer.chooseTracks(number,
-                                                                    exclude,
-                                                                    completion,
-                                                                    tags))
+            self._db, lambda exclude, number=number, completion=completion,\
+                tags=tags: self._randomizer.chooseTracks(number, exclude,
+                                                         completion, tags))
 
     def _enqueueRandomTracksCompletion(self, tracks):
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
@@ -1258,12 +1275,14 @@ class MainWindow(wx.Frame):
     def refreshSelectedTrack(self):
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track)
-        self._track.getScore(lambda score: self.setScoreSliderPosition(score))
+        self._track.getScore(lambda score: self.setScoreSliderPosition(score),
+                             priority=1)
         self.populateDetails(self._track)
 
     def refreshSelectedTrackScore(self):
         self.refreshScore(self._index, self._track)
-        self._track.getScore(lambda score: self.setScoreSliderPosition(score))
+        self._track.getScore(lambda score: self.setScoreSliderPosition(score),
+                             priority=1)
         self.populateDetails(self._track)
 
     def refreshTrack(self, index, track):
@@ -1294,12 +1313,15 @@ class MainWindow(wx.Frame):
 
     def refreshScore(self, index, track):
         multicompletion = MultiCompletion(
-            3, lambda isScored, scoreValue, score: self._refreshScoreCompletion(
-                index, isScored, scoreValue, score))
-        track.getIsScored(lambda isScored: multicompletion.put(0, isScored))
-        track.getScoreValue(lambda scoreValue: multicompletion.put(1,
-                                                                   scoreValue))
-        track.getScore(lambda score: multicompletion.put(2, score))
+            3, lambda isScored, scoreValue, score, index=index:\
+                self._refreshScoreCompletion(index, isScored, scoreValue,
+                                             score))
+        track.getIsScored(lambda isScored, multicompletion=multicompletion:\
+                            multicompletion.put(0, isScored), priority=1)
+        track.getScoreValue(lambda scoreValue, multicompletion=multicompletion:\
+                                multicompletion.put(1, scoreValue), priority=1)
+        track.getScore(lambda score, multicompletion=multicompletion:\
+                            multicompletion.put(2, score), priority=1)
         
     def _refreshLastPlayedCompletion(self, index, lastPlayed):
         if lastPlayed == None:
@@ -1310,8 +1332,8 @@ class MainWindow(wx.Frame):
     def refreshLastPlayed(self, index, track):
         self._db.getLastPlayedLocalTime(
             track,
-            lambda lastPlayed: self._refreshLastPlayedCompletion(index,
-                                                                 lastPlayed))
+            lambda lastPlayed, index=index: self._refreshLastPlayedCompletion(
+                index, lastPlayed), priority=1)
 
     def refreshPreviousPlay(self, index, track):
         previous = track.getPreviousPlay()
@@ -1363,15 +1385,19 @@ class MainWindow(wx.Frame):
 ## TODO: should focus on the top of the details
     def populateDetails(self, track): # FIXME: make higher priority?
         multicompletion = MultiCompletion(
-            4, lambda score, playCount, lastPlayed, tags:\
+            4, lambda score, playCount, lastPlayed, tags, track=track:\
                 self._populateDetailsCompletion(track, score, playCount,
                                                 lastPlayed, tags))
         
-        track.getScore(lambda score: multicompletion.put(0, score))
-        track.getPlayCount(lambda playCount: multicompletion.put(1, playCount))
+        track.getScore(lambda score, multicompletion=multicompletion:\
+                            multicompletion.put(0, score), priority=1)
+        track.getPlayCount(lambda playCount, multicompletion=multicompletion:\
+                                multicompletion.put(1, playCount), priority=1)
         self._db.getLastPlayedLocalTime(
-            track, lambda lastPlayed: multicompletion.put(2, lastPlayed))
-        track.getTags(lambda tags: multicompletion.put(3, tags))
+            track, lambda lastPlayed, multicompletion=multicompletion:\
+                multicompletion.put(2, lastPlayed), priority=1)
+        track.getTags(lambda tags, multicompletion=multicompletion:\
+                        multicompletion.put(3, tags), priority=1)
 
     def addToDetails(self, detail):
         self._details.AppendText(detail)
@@ -1397,7 +1423,7 @@ class MainWindow(wx.Frame):
 
     def resetTagMenu(self):
         self._db.getAllTagNames(
-            lambda tags: self._resetTagMenuCompletion(tags))
+            lambda tags: self._resetTagMenuCompletion(tags), priority=1)
 
     def _getTagID(self, tag):
         for (tagID, tagName) in self._allTags.iteritems():

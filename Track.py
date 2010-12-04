@@ -51,7 +51,7 @@ class TrackFactory:
             return track
         try:
             track = AudioTrack(db, path, self._logger, useCache=useCache)
-            track.getID(lambda id: db.setHistorical(False, id))
+            track.getID(lambda id, db=db: db.setHistorical(False, id))
         except UnknownTrackType:
             raise NoTrackError
 #            return None
@@ -70,13 +70,14 @@ class TrackFactory:
             raise TypeError(str(trackID)+" is not a valid track ID")
         return self._trackCache.get(trackID, None)
     
-    def getTrackFromID(self, db, trackID, completion):
+    def getTrackFromID(self, db, trackID, completion, priority=None):
         track = self._getTrackFromCache(trackID)
         if track == None:
             self._logger.debug("Track not in cache.")
             db.getPathFromID(
-                trackID, lambda path: completion(self.getTrackFromPath(db,
-                                                                       path)))
+                trackID, lambda path, db=db: completion(self.getTrackFromPath(
+                    db, path)),
+                priority=priority)
         else:
             completion(track)
     
@@ -100,7 +101,8 @@ class TrackFactory:
             assert track is self._trackPathCache[path]
 
     def addTrackToCache(self, track):
-        track.getID(lambda id: self._addTrackToCacheCompletion(track, id))
+        track.getID(lambda id, track=track: self._addTrackToCacheCompletion(
+                        track, id))
 
 class Track:
     def __init__(self, db, path, logger, useCache=True):
@@ -119,9 +121,9 @@ class Track:
         return self._path
 
 ## poss should add to cache?
-    def getID(self, completion):
+    def getID(self, completion, priority=None):
         if self._id == None: # FIXME: none of these actually save track details
-            self._db.getTrackID(self, completion)
+            self._db.getTrackID(self, completion, priority=priority)
             return
         completion(self._id)
 
@@ -131,9 +133,9 @@ class Track:
         if self._useCache == True:
             factory.addTrackToCache(self)
 
-    def getTags(self, completion):
+    def getTags(self, completion, priority=None):
         if self._tags == None:
-            self._db.getTags(self, completion)
+            self._db.getTags(self, completion, priority=priority)
             return
         completion(self._tags)
 
@@ -158,9 +160,9 @@ class Track:
             return
         self._playCount += 1
 
-    def getPlayCount(self, completion):
+    def getPlayCount(self, completion, priority=None):
         if self._playCount == None:
-            self._db.getPlayCount(completion, track=self)
+            self._db.getPlayCount(completion, track=self, priority=priority)
             return
         completion(self._playCount)
 
@@ -181,19 +183,20 @@ class Track:
         self._score = score
         self._isScored = True
         
-    def _getScoreCompletion(self, isScored, completion):
+    def _getScoreCompletion(self, isScored, completion, priority=None):
         if isScored == False:
             completion("-")
         else:
-            self.getScoreValue(completion)
+            self.getScoreValue(completion, priority=priority)
 
-    def getScore(self, completion):
-        self.getIsScored(lambda isScored: self._getScoreCompletion(isScored,
-                                                                   completion))
+    def getScore(self, completion, priority=None):
+        self.getIsScored(lambda isScored, completion=completion,\
+                            priority=priority: self._getScoreCompletion(
+                                isScored, completion, priority=priority))
 
-    def getScoreValue(self, completion):
+    def getScoreValue(self, completion, priority=None):
         if self._score == None:
-            self._db.getScoreValue(self, completion)
+            self._db.getScoreValue(self, completion, priority=priority)
             return
         completion(self._score)
 
@@ -202,9 +205,9 @@ class Track:
         self._score = None
         self._db.setUnscored(self)
 
-    def getIsScored(self, completion):
+    def getIsScored(self, completion, priority=None):
         if self._isScored == None:
-            self._db.getIsScored(self, completion)
+            self._db.getIsScored(self, completion, priority=priority)
             return
         completion(self._isScored)
 
