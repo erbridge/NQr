@@ -119,11 +119,17 @@ class Track:
 
     def getPath(self):
         return self._path
+    
+    def _getIDCompletion(self, id, completion):
+        self._id = id
+        completion(id)
 
 ## poss should add to cache?
     def getID(self, completion, priority=None):
-        if self._id == None: # FIXME: none of these actually save track details
-            self._db.getTrackID(self, completion, priority=priority)
+        if self._id == None:
+            self._db.getTrackID(
+                self, lambda id, completion=completion: self._getIDCompletion(
+                    id, completion), priority=priority)
             return
         completion(self._id)
 
@@ -134,7 +140,7 @@ class Track:
             factory.addTrackToCache(self)
 
     def getTags(self, completion, priority=None):
-        if self._tags == None:
+        if self._tags == None: # FIXME: none of these actually save track details
             self._db.getTags(self, completion, priority=priority)
             return
         completion(self._tags)
