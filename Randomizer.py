@@ -80,9 +80,6 @@ class Randomizer:
             if newPart != "":
                 return False
         return True
-    
-    def _completeTracks(self, completion):
-        completion(self._tracks)
         
     def _addTrackToListCallback(self, track, weight):
         track.setWeight(weight)
@@ -99,7 +96,7 @@ class Randomizer:
             except NoTrackError: # FIXME: probably doesn't work
                 self._db.setHistorical(True, trackID)
         self._db.complete(lambda result, completion=completion:\
-                            self._completeTracks(completion))
+                            completion(self._tracks))
 
     def chooseTracks(self, number, exclude, completion, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
