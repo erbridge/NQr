@@ -6,7 +6,6 @@
 import ConfigParser
 from Errors import *
 import random
-#import time
 from Time import roughAge
 from Util import plural, MultiCompletion
 
@@ -130,7 +129,6 @@ class Randomizer:
     
     ## will throw exception if database is empty?
     def _chooseTrackIDs(self, number, exclude, completion, tags=None):
-##        print time.time()
         mycompletion = lambda trackWeightList, totalWeight, number=number,\
             completion=completion: self._chooseTrackIDsCompletion(
                 number, trackWeightList, totalWeight, completion)
@@ -144,8 +142,8 @@ class Randomizer:
             raise EmptyDatabaseError
         self._logger.info("Oldest is "+str(oldest)+" seconds old ("\
                           +roughAge(oldest)+" old).")
-        self._trackWeightList = []
-        self._totalWeight = 0
+        trackWeightList = []
+        totalWeight = 0
         for (trackID, ) in rawTrackIDList:
             # |exclude| is probably the list of currently enqueued but
             # unplayed tracks.
@@ -160,9 +158,9 @@ class Randomizer:
             else:
                 score += 11 # creates a positive score
             weight = self.getWeight(score, time)
-            self._trackWeightList.append([trackID, weight])
-            self._totalWeight += weight
-        completion(self._trackWeightList, self._totalWeight)
+            trackWeightList.append([trackID, weight])
+            totalWeight += weight
+        completion(trackWeightList, totalWeight)
         
     def _createLists(self, exclude, completion, tags=None):
         self._logger.debug("Creating weighted list of tracks.")

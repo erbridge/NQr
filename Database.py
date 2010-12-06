@@ -1198,13 +1198,17 @@ class Database(DatabaseEventHandler):
                                                                    completion):
         dict = {}
         for row in rawList:
-            dict[row[0]] = (row[1], row[2])
+            if row[3] == 1:
+                score = self._defaultScore
+            else:
+                score = row[2]
+            dict[row[0]] = (row[1], score)
         completion(dict)
         
     def getAllSecondsSinceLastPlayedAndScoreDictNoDebug(self, completion):
         self._executeAndFetchAll("""select trackid, strftime('%s', 'now') - 
-                                    strftime('%s', lastplayed), score from
-                                    tracks""", (),
+                                    strftime('%s', lastplayed), score, unscored
+                                    from tracks""", (),
                                  lambda result, completion=completion:\
                 self._getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(
                     result, completion))
