@@ -1192,6 +1192,22 @@ class Database(DatabaseEventHandler):
                 details, self._secondsSinceLastPlayedIndex, completion,
                 debugMessage)
         self._getLastPlayed(mycompletion, trackID=trackID, debug=debug)
+        
+    def _getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(self,
+                                                                   rawList,
+                                                                   completion):
+        dict = {}
+        for row in rawList:
+            dict[row[0]] = (row[1], row[2])
+        completion(dict)
+        
+    def getAllSecondsSinceLastPlayedAndScoreDictNoDebug(self, completion):
+        self._executeAndFetchAll("""select trackid, strftime('%s', 'now') - 
+                                    strftime('%s', lastplayed), score from
+                                    tracks""", (),
+                                 lambda result, completion=completion:\
+                self._getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(
+                    result, completion))
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     # played again, this will get stuck. We need to keep track of
