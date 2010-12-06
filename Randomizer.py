@@ -137,11 +137,12 @@ class Randomizer:
     # FIXME: do this in its own thread?
     def _createListsCompletion(self, exclude, oldest, rawTrackIDList,
                                timeAndScoreDict, completion):
+        self._logger.debug("Creating weighted list of tracks.")
         if rawTrackIDList == []:
             self._logger.error("No tracks in database.")
             raise EmptyDatabaseError
-        self._logger.info("Oldest is "+str(oldest)+" seconds old ("\
-                          +roughAge(oldest)+" old).")
+        self._logger.info("Oldest track was played "+str(oldest)\
+                          +" seconds ago ("+roughAge(oldest)+" ago).")
         trackWeightList = []
         totalWeight = 0
         for (trackID, ) in rawTrackIDList:
@@ -163,7 +164,6 @@ class Randomizer:
         completion(trackWeightList, totalWeight)
         
     def _createLists(self, exclude, completion, tags=None):
-        self._logger.debug("Creating weighted list of tracks.")
         multicompletion = MultiCompletion(3,
             lambda rawTrackIDList, oldest, timeAndScoreDict, exclude=exclude,\
                 completion=completion: self._createListsCompletion(
