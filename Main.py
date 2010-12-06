@@ -13,6 +13,7 @@
 ## TODO: make refocussing on window reselect current track
 ##
 ## FIXME: queues wrong track if track changes at time of start up
+## FIXME: database threads may not end
 
 import ConfigParser
 import Database

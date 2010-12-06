@@ -44,6 +44,7 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         while True:
             got = self._queue.get()
             got[2](self, cursor, got[3])
+            conn.commit()
             
     def _raise(self, err, errcompletion=None):
         try:
@@ -82,6 +83,15 @@ class DatabaseEventHandler(wx.EvtHandler):
         mycompletion = lambda result, completion=completion: wx.PostEvent(
             self, DatabaseEvent(result, completion))
         self._dbThread.execute(stmt, args, mycompletion, priority, trace=trace)
+    
+    def _executeMany(self, stmts, args, completion, priority=None, trace=[]):
+        if priority == None:
+            priority = self._priority
+        trace = extractTraceStack(trace)
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
+        self._dbThread.executeMany(stmts, args, mycompletion, priority,
+                                   trace=trace)
     
     def _executeAndFetchOne(self, stmt, args, completion, priority=None,
                             returnTuple=False, trace=[], errcompletion=None):
@@ -341,7 +351,8 @@ class DatabaseThread(Thread):
     def complete(self, completion, priority=2, trace=[]):
         trace = extractTraceStack(trace)
         self.queue(lambda thread, cursor, traceBack, completion=completion:\
-                        self.doComplete(completion, traceBack), trace, priority)
+                        thread.doComplete(completion, traceBack), trace,
+                   priority)
             
     def doExecute(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
@@ -354,6 +365,18 @@ class DatabaseThread(Thread):
                                                                 args,
                                                                 completion,
                                                                 traceBack),
+                   trace, priority)
+        
+    def doExecuteMany(self, cursor, stmts, args, completion, trace):
+        for index in range(len(stmts)):
+            cursor.execute(stmts[index], args[index])
+        completion(None)
+
+    def executeMany(self, stmts, args, completion, priority=2, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, stmts=stmts, args=args,\
+                        completion=completion: thread.doExecuteMany(
+                            cursor, stmts, args, completion, traceBack),
                    trace, priority)
 
     def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace,
@@ -492,7 +515,6 @@ class Database(DatabaseEventHandler):
         self._logger.debug("Opening connection to database at "\
                            +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
-        self._conn.isolation_level = None
         self._initMaybeCreateTrackTable()
         self._initMaybeCreateDirectoryTable()
         self._initMaybeCreatePlaysTable()
@@ -503,7 +525,6 @@ class Database(DatabaseEventHandler):
         self._initMaybeCreateTagNamesTable()
         self._initMaybeCreateTagsTable()
         self._conn.commit()
-        self._cursor = self._conn.cursor()
         
         self._dbThread.start()
         
@@ -521,7 +542,8 @@ class Database(DatabaseEventHandler):
                                               artist text, album text,
                                               title text, tracknumber text,
                                               unscored integer, length real, bpm
-                                              integer, historical integer)""")
+                                              integer, historical integer, score
+                                              integer, lastplayed datetime)""")
             self._logger.info("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":
@@ -542,6 +564,25 @@ class Database(DatabaseEventHandler):
                 self._logger.debug("Adding historical column to track table.")
                 c.execute("alter table tracks add column historical integer")
                 c.execute("update tracks set historical = 0")
+            if columnNames.count('score') == 0:
+                self._logger.debug("Adding score column to track table.")
+                c.execute("alter table tracks add column score integer")
+                c.execute("""update tracks set
+                             score = (select scores.score from scores where
+                                      scores.trackid = tracks.trackid order by
+                                      scores.scoreid desc limit 1)
+                             where exists (select scores.score from scores where
+                                           scores.trackid = tracks.trackid)""")
+            if columnNames.count('lastplayed') == 0:
+                self._logger.debug("Adding last played column to track table.")
+                c.execute("alter table tracks add column lastplayed datetime")
+                c.execute("""update tracks set
+                             lastplayed = (select plays.datetime from plays
+                                           where plays.trackid = tracks.trackid
+                                           order by plays.playid desc limit 1)
+                             where exists (select plays.datetime from plays
+                                           where
+                                           plays.trackid = tracks.trackid)""")
         c.close()
 
     def _initMaybeCreateDirectoryTable(self):
@@ -733,12 +774,11 @@ class Database(DatabaseEventHandler):
     ## FIXME: not working yet, poss works for one tag
     def getAllTrackIDsWithTags(self, completion, tags):
         self._logger.debug("Retrieving all track IDs with tags: "+str(tags)+".")
-        self._cursor.execute(
+        self._executeAndFetchAll(
             """select trackid from tracks left outer join
                (select trackid from tags left outer join tagnames using (tagid)
                 on tagnames.tagid = tags.tagid, tagnames.name in ?) on
-                tags.trackid = tracks.trackid""", tags)
-        completion(self._cursor.fetchall())
+                tags.trackid = tracks.trackid""", tags, completion)
 
 #    def _getTrackID(self, track):#, update=False):
 #        path = track.getPath()
@@ -1048,9 +1088,12 @@ class Database(DatabaseEventHandler):
         self.getLastPlayedInSeconds(
             track, lambda previousPlay, track=track: track.setPreviousPlay(
                 previousPlay))
-        self._execute("""insert into plays (trackid, datetime) values
-                              (?, datetime(?))""", (trackID, playTime),
-                           lambda result: doNothing())
+        self._executeMany(["""insert into plays (trackid, datetime) values
+                              (?, datetime(?))""",
+                           """update tracks set lastplayed = datetime(?) where
+                              trackid = ?"""], [(trackID, playTime),
+                                                (playTime, trackID)],
+                            lambda result: doNothing())
         
     def addPlay(self, track, msDelay=0):
         mycompletion = lambda trackID, track=track, msDelay=msDelay:\
@@ -1515,12 +1558,12 @@ class Database(DatabaseEventHandler):
                     "Setting track as unscored.")))
         
     def _setScoreCompletion(self, trackID, score):
-        self._execute("update tracks set unscored = 0 where trackid = ?",
-                      (trackID, ), lambda result: doNothing())
-        self._execute("""insert into scores (trackid, score, datetime)
-                         values (?, ?, datetime('now'))""", (trackID, score),
-                      lambda result: self._logger.debug(
-                            "Setting track's score."))
+        self._executeMany(
+            ["update tracks set unscored = 0, score = ? where trackid = ?",
+             """insert into scores (trackid, score, datetime) values
+                (?, ?, datetime('now'))"""],
+            [(score, trackID), (trackID, score)],
+            lambda result: self._logger.debug("Setting track's score."))
         
     ## poss add track if track not in library
     def setScore(self, track, score):
