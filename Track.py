@@ -138,10 +138,17 @@ class Track:
         self._id = id
         if self._useCache == True:
             factory.addTrackToCache(self)
+            
+    def _getTagsCompletion(self, tags, completion):
+        self._tags = tags
+        completion(tags)
 
     def getTags(self, completion, priority=None):
-        if self._tags == None: # FIXME: none of these actually save track details
-            self._db.getTags(self, completion, priority=priority)
+        if self._tags == None:
+            self._db.getTags(self,
+                             lambda tags, completion=completion:\
+                                self._getTagsCompletion(tags, completion),
+                             priority=priority)
             return
         completion(self._tags)
 
@@ -165,10 +172,16 @@ class Track:
                 lambda playCount: self._addPlayCompletion(playCount))
             return
         self._playCount += 1
+        
+    def _getPlayCount(self, playCount, completion):
+        self._playCount = playCount
+        completion(playCount)
 
     def getPlayCount(self, completion, priority=None):
         if self._playCount == None:
-            self._db.getPlayCount(completion, track=self, priority=priority)
+            self._db.getPlayCount(lambda playCount, completion=completion:\
+                                    self._getPlayCount(playCount, completion),
+                                  track=self, priority=priority)
             return
         completion(self._playCount)
 
@@ -199,10 +212,18 @@ class Track:
         self.getIsScored(lambda isScored, completion=completion,\
                             priority=priority: self._getScoreCompletion(
                                 isScored, completion, priority=priority))
+        
+    def _getScoreValueCompletion(self, score, completion):
+        self._score = score
+        completion(score)
 
     def getScoreValue(self, completion, priority=None):
         if self._score == None:
-            self._db.getScoreValue(self, completion, priority=priority)
+            self._db.getScoreValue(self,
+                                   lambda score, completion=completion:\
+                                        self._getScoreValueCompletion(
+                                            score, completion),
+                                   priority=priority)
             return
         completion(self._score)
 
@@ -210,10 +231,18 @@ class Track:
         self._isScored = False
         self._score = None
         self._db.setUnscored(self)
+        
+    def _getIsScoredCompletion(self, isScored, completion):
+        self._isScored = isScored
+        completion(isScored)
 
     def getIsScored(self, completion, priority=None):
         if self._isScored == None:
-            self._db.getIsScored(self, completion, priority=priority)
+            self._db.getIsScored(self,
+                                 lambda isScored, completion=completion:\
+                                    self._getIsScoredCompletion(isScored,
+                                                                completion),
+                                 priority=priority)
             return
         completion(self._isScored)
 
