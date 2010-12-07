@@ -67,30 +67,31 @@ class DatabaseEventHandler(wx.EvtHandler):
         
     def _onExceptionEvent(self, e):
         raise e.getException()
+    
+    def _completionEvent(self, completion):
+        return lambda result, completion=completion:\
+            wx.PostEvent(self, DatabaseEvent(result, completion))
 
     def complete(self, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result, completion=completion: wx.PostEvent(
-            self, DatabaseEvent(result, completion))
-        self._dbThread.complete(mycompletion, priority, trace=trace)
+        self._dbThread.complete(self._completionEvent(completion), priority,
+                                trace=trace)
         
     def _execute(self, stmt, args, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result, completion=completion: wx.PostEvent(
-            self, DatabaseEvent(result, completion))
-        self._dbThread.execute(stmt, args, mycompletion, priority, trace=trace)
+        self._dbThread.execute(stmt, args, self._completionEvent(completion),
+                               priority, trace=trace)
     
     def _executeMany(self, stmts, args, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result, completion=completion: wx.PostEvent(
-            self, DatabaseEvent(result, completion))
-        self._dbThread.executeMany(stmts, args, mycompletion, priority,
+        self._dbThread.executeMany(stmts, args,
+                                   self._completionEvent(completion), priority,
                                    trace=trace)
     
     def _executeAndFetchOne(self, stmt, args, completion, priority=None,
@@ -98,10 +99,9 @@ class DatabaseEventHandler(wx.EvtHandler):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result, completion=completion: wx.PostEvent(
-            self, DatabaseEvent(result, completion))
-        self._dbThread.executeAndFetchOne(stmt, args, mycompletion, priority,
-                                          returnTuple, trace=trace,
+        self._dbThread.executeAndFetchOne(stmt, args,
+                                          self._completionEvent(completion),
+                                          priority, returnTuple, trace=trace,
                                           errcompletion=errcompletion)
         
     def _executeAndFetchOneOrNull(self, stmt, args, completion, priority=None,
@@ -109,21 +109,19 @@ class DatabaseEventHandler(wx.EvtHandler):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result, completion=completion: wx.PostEvent(
-            self, DatabaseEvent(result, completion))
-        self._dbThread.executeAndFetchOneOrNull(stmt, args, mycompletion,
-                                                priority, returnTuple,
-                                                trace=trace)
+        self._dbThread.executeAndFetchOneOrNull(stmt, args,
+                                                self._completionEvent(
+                                                    completion), priority,
+                                                returnTuple, trace=trace)
         
     def _executeAndFetchAll(self, stmt, args, completion, priority=None,
                             throwException=True, trace=[], errcompletion=None):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result, completion=completion: wx.PostEvent(
-            self, DatabaseEvent(result, completion))
-        self._dbThread.executeAndFetchAll(stmt, args, mycompletion, priority,
-                                          throwException, trace=trace,
+        self._dbThread.executeAndFetchAll(stmt, args,
+                                          self._completionEvent(completion),
+                                          priority, throwException, trace=trace,
                                           errcompletion=errcompletion)
         
     def _executeAndFetchLastRowID(self, stmt, args, completion, priority=None,
@@ -131,10 +129,10 @@ class DatabaseEventHandler(wx.EvtHandler):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        mycompletion = lambda result, completion=completion: wx.PostEvent(
-            self, DatabaseEvent(result, completion))
-        self._dbThread.executeAndFetchLastRowID(stmt, args, mycompletion,
-                                                priority, trace=trace)
+        self._dbThread.executeAndFetchLastRowID(stmt, args,
+                                                self._completionEvent(
+                                                    completion), priority,
+                                                trace=trace)
         
     def _getTrackID(self, track, completion, priority=None):
         path = track.getPath()
