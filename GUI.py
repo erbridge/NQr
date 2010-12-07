@@ -144,7 +144,7 @@ class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
                  loggerFactory, prefsFactory, configParser, title="NQr",
                  restorePlaylist=False, enqueueOnStartup=True,
-                 rescanOnStartup=False, defaultPlaylistLength=11,
+                 defaultRescanOnStartup=False, defaultPlaylistLength=11,
                  defaultPlayDelay=4000, defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|"+\
                  "All files|*.*", defaultDirectory="", defaultIgnore=False,
@@ -187,7 +187,7 @@ class MainWindow(wx.Frame):
         self._configParser = configParser
         self._restorePlaylist = restorePlaylist
         self._enqueueOnStartup = enqueueOnStartup
-        self._rescanOnStartup = rescanOnStartup
+        self._defaultRescanOnStartup = defaultRescanOnStartup
         self._defaultPlaylistLength = defaultPlaylistLength
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
         self._defaultPlayDelay = defaultPlayDelay
@@ -245,15 +245,15 @@ class MainWindow(wx.Frame):
             self._optionsMenu.Check(self._ID_TOGGLENQR, True)
             self._onToggleNQr()
 
-        if self._rescanOnStartup == True:
-            self._onRescan()
-
         self._initCreateHotKeyTable()
         self._logger.debug("Drawing main window.")
         self.Show(True) ## FIXME: make window draw fully before queueing?
         
         self.maintainPlaylist()
         self.selectTrack(0)
+
+        if self._rescanOnStartup == True:
+            self._onRescan()
 
     def _initCreateMenuBar(self):
         self._logger.debug("Creating menu bar.")
@@ -1435,7 +1435,8 @@ class MainWindow(wx.Frame):
     def getPrefsPage(self, parent, logger):
         return PrefsPage(
             parent, self._configParser, logger, self._defaultPlayDelay,
-            self._defaultInactivityTime, self._defaultIgnore), "GUI"
+            self._defaultInactivityTime, self._defaultIgnore,
+            self._defaultHaveLogPanel, self._defaultRescanOnStartup), "GUI"
 
     def loadSettings(self):
         try:
@@ -1456,16 +1457,28 @@ class MainWindow(wx.Frame):
                 "GUI", "ignoreNewTracks")
         except ConfigParser.NoOptionError:
             self._ignoreNewTracks = self._defaultIgnore
-        self._haveLogPanel = self._defaultHaveLogPanel
+        try:
+            self._rescanOnStartup = self._configParser.getboolean(
+                "GUI", "rescanOnStartup")
+        except ConfigParser.NoOptionError:
+            self._rescanOnStartup = self._defaultRescanOnStartup
+        try:
+            self._haveLogPanel = self._configParser.getboolean(
+                "GUI", "haveLogPanel")
+        except ConfigParser.NoOptionError:
+            self._haveLogPanel = self._defaultHaveLogPanel
 
 class PrefsPage(wx.Panel):
     def __init__(self, parent, configParser, logger, defaultPlayDelay,
-                 defaultInactivityTime, defaultIgnore):
+                 defaultInactivityTime, defaultIgnore, defaultHaveLogPanel,
+                 defaultRescanOnStartup):
         wx.Panel.__init__(self, parent)
         self._logger = logger
         self._defaultPlayDelay = defaultPlayDelay
         self._defaultInactivityTime = defaultInactivityTime
         self._defaultIgnore = defaultIgnore
+        self._defaultHaveLogPanel = defaultHaveLogPanel
+        self._defaultRescanOnStartup = defaultRescanOnStartup
         self._settings = {}
         self._configParser = configParser
         try:
@@ -1476,11 +1489,15 @@ class PrefsPage(wx.Panel):
         self._initCreatePlayDelaySizer()
         self._initCreateInactivityTimeSizer()
         self._initCreateIgnoreCheckBox()
+        self._initCreateRescanCheckBox()
+        self._initCreateLogCheckBox()
 
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         mainSizer.Add(self._playDelaySizer, 0)
         mainSizer.Add(self._inactivityTimeSizer, 0)
         mainSizer.Add(self._ignoreCheckBox, 0)
+        mainSizer.Add(self._rescanCheckBox, 0)
+        mainSizer.Add(self._logCheckBox, 0)
 
         self.SetSizer(mainSizer)
 
@@ -1528,6 +1545,25 @@ class PrefsPage(wx.Panel):
             self._ignoreCheckBox.SetValue(False)
 
         self.Bind(wx.EVT_CHECKBOX, self._onIgnoreChange, self._ignoreCheckBox)
+        
+    def _initCreateRescanCheckBox(self):
+        self._rescanCheckBox = wx.CheckBox(self, -1,
+                                           "Rescan Library on Startup")
+        if self._settings["rescanOnStartup"] == True:
+            self._rescanCheckBox.SetValue(True)
+        else:
+            self._rescanCheckBox.SetValue(False)
+
+        self.Bind(wx.EVT_CHECKBOX, self._onRescanChange, self._rescanCheckBox)
+        
+    def _initCreateLogCheckBox(self):
+        self._logCheckBox = wx.CheckBox(self, -1, "Show Log Panel")
+        if self._settings["haveLogPanel"] == True:
+            self._logCheckBox.SetValue(True)
+        else:
+            self._logCheckBox.SetValue(False)
+
+        self.Bind(wx.EVT_CHECKBOX, self._onLogChange, self._logCheckBox)
 
     def _onPlayDelayChange(self, e):
         playDelay = self._playDelayControl.GetLineText(0)
@@ -1544,6 +1580,18 @@ class PrefsPage(wx.Panel):
             self._settings["ignoreNewTracks"] = True
         else:
             self._settings["ignoreNewTracks"] = False
+            
+    def _onRescanChange(self, e):
+        if self._rescanCheckBox.IsChecked():
+            self._settings["rescanOnStartup"] = True
+        else:
+            self._settings["rescanOnStartup"] = False
+            
+    def _onLogChange(self, e):
+        if self._logCheckBox.IsChecked():
+            self._settings["haveLogPanel"] = True
+        else:
+            self._settings["haveLogPanel"] = False
 
     def savePrefs(self):
         self._logger.debug("Saving GUI preferences.")
@@ -1569,3 +1617,13 @@ class PrefsPage(wx.Panel):
             self._settings["ignoreNewTracks"] = ignore
         except ConfigParser.NoOptionError:
             self._settings["ignoreNewTracks"] = self._defaultIgnore
+        try:
+            rescan = self._configParser.getboolean("GUI", "rescanOnStartup")
+            self._settings["rescanOnStartup"] = rescan
+        except ConfigParser.NoOptionError:
+            self._settings["rescanOnStartup"] = self._defaultRescanOnStartup
+        try:
+            log = self._configParser.getboolean("GUI", "haveLogPanel")
+            self._settings["haveLogPanel"] = log
+        except ConfigParser.NoOptionError:
+            self._settings["haveLogPanel"] = self._defaultHaveLogPanel
