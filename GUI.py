@@ -25,6 +25,8 @@
 ## TODO: use less processing - only refresh tracks that need it, and maybe
 ##       check tracks less often.
 ## TODO: add "select current track" keyboard shortcut and menu item
+##
+## FIXME: track refreshes should only refresh things that will change
 
 from collections import deque
 import ConfigParser
@@ -248,8 +250,8 @@ class MainWindow(wx.Frame):
 
         self._initCreateHotKeyTable()
         self._logger.debug("Drawing main window.")
-        self.Show(True) ## FIXME: make window draw fully before queueing
-
+        self.Show(True) ## FIXME: make window draw fully before queueing?
+        
         self.maintainPlaylist()
         self.selectTrack(0)
 
@@ -1379,10 +1381,10 @@ class MainWindow(wx.Frame):
         
         self.clearDetails()
         self.addToDetails(detailString)
+        self._details.SetInsertionPoint(0)
         
 ## the first populateDetails seems to produce a larger font than subsequent
 ## calls in Mac OS
-## TODO: should focus on the top of the details
     def populateDetails(self, track): # FIXME: make higher priority?
         multicompletion = MultiCompletion(
             4, lambda score, playCount, lastPlayed, tags, track=track:\
