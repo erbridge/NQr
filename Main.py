@@ -6,7 +6,6 @@
 ## TODO: allow import of directories with a score
 ## TODO: ORGANIZE CODE
 ## TODO: add track with tag retrieval?
-## TODO: prevent multiple instances of NQr
 ## TODO: populate prefs window including customizable score range (with
 ##	     database converter)?
 ## TODO: read settings from settings file
@@ -22,6 +21,7 @@ import Logger
 import platform
 import Prefs
 import Randomizer
+import socket
 import sys
 import traceback
 import Track
@@ -138,6 +138,9 @@ class Main(wx.App):
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
         
+    def criticalLog(self, message):
+        self._logger.critical(message)
+        
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger,
                          self._defaultDebugMode), "Dev"
@@ -203,4 +206,16 @@ class PrefsPage(wx.Panel):
         
 if __name__ == '__main__':
     NQr = Main()
-    NQr.run()
+    try:
+        # I'm not sure what this really does (Felix)
+        sock = socket.socket()
+        host = socket.gethostname()
+        port = 35636 # FIXME: make sure this port is not used on this system
+        sock.bind((host, port))
+        NQr.run()
+    except socket.error as (errno, msg):
+        if errno != 10048:
+            raise
+        NQr.criticalLog("NQr is already running.")
+        # TODO: make running NQr focus
+    
