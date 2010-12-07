@@ -13,7 +13,6 @@
 ## TODO: make refocussing on window reselect current track
 ##
 ## FIXME: queues wrong track if track changes at time of start up
-## FIXME: database threads may not end
 
 import ConfigParser
 import Database
@@ -26,6 +25,10 @@ import Randomizer
 import sys
 import traceback
 import Track
+
+import wxversion
+wxversion.select([x for x in wxversion.getInstalled()
+                  if x.find('unicode') != -1])
 import wx
 
 class Main(wx.App):
@@ -37,7 +40,9 @@ class Main(wx.App):
         self._configParser.read(self._prefsFile)
 
         self._noQueue = False
-        self._debugMode = False
+        self._defaultDebugMode = False
+        
+        self.loadSettings()
         
         self._loggerFactory = Logger.LoggerFactory(debugMode=self._debugMode)
         self._logger = self._loggerFactory.getLogger("NQr", "debug")
@@ -114,7 +119,7 @@ class Main(wx.App):
                                            self._loggerFactory,
                                            self._configParser)
 
-        modules = [player, trackFactory, db, randomizer]
+        modules = [player, trackFactory, db, randomizer, self]
         prefsFactory = Prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
                                           modules, self._configParser)
         
@@ -129,9 +134,72 @@ class Main(wx.App):
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
         ## TODO: remove command window at this point and stop logging to stream
-        ##         if we are not in dev mode
+        ##       if we are not in dev mode
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
+        
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger,
+                         self._defaultDebugMode), "Dev"
+
+    def loadSettings(self):
+        try:
+            self._configParser.add_section("Main")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        try:
+            self._debugMode = self._configParser.getboolean("Main", "debugMode")
+        except ConfigParser.NoOptionError:
+            self._debugMode = self._defaultDebugMode
+        
+class PrefsPage(wx.Panel):
+    def __init__(self, parent, configParser, logger, defaultDebugMode):
+        wx.Panel.__init__(self, parent)
+        self._logger = logger
+        self._defaultDebugMode = defaultDebugMode
+        self._settings = {}
+        self._configParser = configParser
+        try:
+            self._configParser.add_section("Main")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        self._loadSettings()
+        self._initCreateDebugCheckBox()
+        
+        mainSizer = wx.BoxSizer(wx.VERTICAL)
+        mainSizer.Add(self._debugCheckBox, 0)
+        
+        self.SetSizer(mainSizer)
+        
+    def _initCreateDebugCheckBox(self):
+        self._debugCheckBox = wx.CheckBox(self, -1, "Debug Mode")
+        if self._settings["debugMode"] == True:
+            self._debugCheckBox.SetValue(True)
+        else:
+            self._debugCheckBox.SetValue(False)
+
+        self.Bind(wx.EVT_CHECKBOX, self._onDebugChange, self._debugCheckBox)
+        
+    def _onDebugChange(self, e):
+        if self._debugCheckBox.IsChecked():
+            self._settings["debugMode"] = True
+        else:
+            self._settings["debugMode"] = False
+
+    def savePrefs(self):
+        self._logger.debug("Saving player preferences.")
+        for (name, value) in self._settings.items():
+            self.setSetting(name, value)
+
+    def setSetting(self, name, value):
+        self._configParser.set("Main", name, str(value))
+
+    def _loadSettings(self):
+        try:
+            debugMode = self._configParser.getboolean("Main", "debugMode")
+            self._settings["debugMode"] = debugMode
+        except ConfigParser.NoOptionError:
+            self._settings["debugMode"] = self._defaultDebugMode
         
 if __name__ == '__main__':
     NQr = Main()
