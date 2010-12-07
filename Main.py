@@ -10,15 +10,16 @@
 ## TODO: populate prefs window including customizable score range (with
 ##	     database converter)?
 ## TODO: read settings from settings file
+## TODO: make refocussing on window reselect current track
 ##
 ## FIXME: queues wrong track if track changes at time of start up
+## FIXME: database threads may not end
 
 import ConfigParser
 import Database
 import getopt
 import GUI
 import Logger
-import os
 import platform
 import Prefs
 import Randomizer
@@ -30,7 +31,7 @@ import wx
 class Main(wx.App):
     def __init__(self):
         wx.App.__init__(self, False)
-        self._prefsFile = os.path.realpath("settings")
+        self._prefsFile = "settings"
 
         self._configParser = ConfigParser.SafeConfigParser()
         self._configParser.read(self._prefsFile)

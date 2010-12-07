@@ -1,5 +1,10 @@
 from Errors import *
 import math
+import os
+import Queue
+import sqlite3
+import threading
+import traceback
 
 def plural(count):
     if count == 1:
@@ -38,7 +43,19 @@ def convertToUnicode(string, logger, logging=True):
         if logging == True:
             logger.warning("Bad characters resolved.")
     return unicodeString
+        
+def doNothing():
+    pass
 
+def extractTraceStack(trace):
+    newTrace = traceback.extract_stack()[:-1]
+    if trace == None:
+        return newTrace
+    for index in range(len(trace)):
+        if trace[index] != newTrace[index]:
+            return trace + newTrace[index:]
+    return trace
+    
 class RedirectErr:
     def __init__(self, textCtrl, stderr):
         self._out = textCtrl
@@ -74,3 +91,14 @@ class MultiCompletion:
     def _complete(self):
         self._completion(*self._slots)
         
+class ErrorCompletion:
+    def __init__(self, exceptions, completion):
+        self._exceptions = exceptions
+        self._completion = completion
+    
+    def __call__(self, err, *args, **kwargs):
+        for exception in self._exceptions:
+            if isinstance(err, exception):
+                self._completion(*args, **kwargs)
+                return
+        raise err

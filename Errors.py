@@ -1,7 +1,9 @@
 ## Errors
 
 class Error(Exception):
-    pass
+    def __init__(self, trace=None):
+        Exception.__init__(self)
+        self.trace = trace
 
 class EmptyDatabaseError(Error):
     pass
@@ -19,9 +21,7 @@ class PathNotFoundError(Error):
     pass
 
 class NoResultError(Error):
-    def __init__(self, trace=None):
-        Error.__init__(self)
-        self.trace = trace
+    pass
 
 class UnsafeInputError(Error):
     pass

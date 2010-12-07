@@ -56,19 +56,26 @@ class MediaPlayer:
     def getTrackPathAtPos(self, trackPosition, logging=True):
         path = self._getTrackPathAtPos(trackPosition, logging)
         return os.path.realpath(path)
-
-    def getUnplayedTrackIDs(self, db):
-        ids = []
+    
+    def _getUnplayedTrackIDsCompletion(self, id):
+        # The track may be one we don't know added directly to the player
+        if id is not None:
+            self._ids.append(id)
+        else:
+            ## FIXME: why skip them rather than adding them to db? (Felix)
+            self._logger.info("Skipping unknown unplayed track "+path)
+            
+    def _getUnplayedTrackIDListCompletion(self, completion):
+        completion(self._ids)
+        
+    def getUnplayedTrackIDs(self, db, completion):
+        self._ids = []
         for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
             path = self.getTrackPathAtPos(pos)
-            id = db.maybeGetIDFromPath(path)
-            # The track may be one we don't know added directly to the player
-            if id is not None:
-                ids.append(id)
-            else:
-                ## FIXME: why skip them rather than adding them to db? (Felix)
-                self._logger.info("Skipping unknown unplayed track "+path)
-        return ids
+            db.maybeGetIDFromPath(
+                path, lambda id: self._getUnplayedTrackIDsCompletion(id))
+        db.complete(
+            lambda result: self._getUnplayedTrackIDListCompletion(completion))
 
     def addTrack(self, filepath):
         if self._noQueue:

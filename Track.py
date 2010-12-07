@@ -41,14 +41,17 @@ class TrackFactory:
         self.addTrackToCache(track)
         return track
 
-    def getTrackFromPathNoID(self, db, path):
+    def getTrackFromPathNoID(self, db, path, useCache=True):
         path = os.path.realpath(path)
-        track = self._trackPathCache.get(path)
+        if useCache == True:
+            track = self._trackPathCache.get(path)
+        else:
+            track = None
         if track != None:
             return track
         try:
-            track = AudioTrack(db, path, self._logger)
-            db.setHistorical(False, track.getID())
+            track = AudioTrack(db, path, self._logger, useCache=useCache)
+            track.getID(lambda id, db=db: db.setHistorical(False, id))
         except UnknownTrackType:
             raise NoTrackError
 #            return None
@@ -66,26 +69,28 @@ class TrackFactory:
             self._logger.error(str(trackID)+" is not a valid track ID")
             raise TypeError(str(trackID)+" is not a valid track ID")
         return self._trackCache.get(trackID, None)
-
-    def getTrackFromID(self, db, trackID):
+    
+    def getTrackFromID(self, db, trackID, completion, priority=None):
         track = self._getTrackFromCache(trackID)
         if track == None:
             self._logger.debug("Track not in cache.")
-            path = db.getPathFromID(trackID)
-            track = self.getTrackFromPath(db, path)
-        return track
-
-    def addTrackToCache(self, track):
+            db.getPathFromID(
+                trackID, lambda path, db=db: completion(self.getTrackFromPath(
+                    db, path)),
+                priority=priority)
+        else:
+            completion(track)
+    
+    def _addTrackToCacheCompletion(self, track, id):
         self._logger.debug("Adding track to cache.")
         if len(self._trackCache) > 10000:
             del self._trackCache[self._trackIDList.pop(0)]
-        id = track.getID()
         if id not in self._trackCache:
             self._trackCache[id] = track
             self._trackIDList.append(id)
         else:
             assert track is self._trackCache[id]
-
+            
         if len(self._trackPathCache) > 10000:
             del self._trackPathCache[self._trackPathList.pop(0)]
         path = track.getPath()
@@ -95,11 +100,16 @@ class TrackFactory:
         else:
             assert track is self._trackPathCache[path]
 
+    def addTrackToCache(self, track):
+        track.getID(lambda id, track=track: self._addTrackToCacheCompletion(
+                        track, id))
+
 class Track:
-    def __init__(self, db, path, logger):
+    def __init__(self, db, path, logger, useCache=True):
         self._path = os.path.realpath(path)
         self._db = db
         self._logger = logger
+        self._useCache = useCache
         self._id = None
         self._tags = None
         self._weight = None
@@ -109,22 +119,38 @@ class Track:
 
     def getPath(self):
         return self._path
+    
+    def _getIDCompletion(self, id, completion):
+        self._id = id
+        completion(id)
 
 ## poss should add to cache?
-    def getID(self):#, update=False):
+    def getID(self, completion, priority=None):
         if self._id == None:
-            return self._db.getTrackID(self)#, update)
-        return self._id
+            self._db.getTrackID(
+                self, lambda id, completion=completion: self._getIDCompletion(
+                    id, completion), priority=priority)
+            return
+        completion(self._id)
 
     def setID(self, factory, id):
         self._logger.debug("Setting track's ID to "+str(id)+".")
         self._id = id
-        factory.addTrackToCache(self)
+        if self._useCache == True:
+            factory.addTrackToCache(self)
+            
+    def _getTagsCompletion(self, tags, completion):
+        self._tags = tags
+        completion(tags)
 
-    def getTags(self):
+    def getTags(self, completion, priority=None):
         if self._tags == None:
-            self._tags = self._db.getTags(self)
-        return self._tags
+            self._db.getTags(self,
+                             lambda tags, completion=completion:\
+                                self._getTagsCompletion(tags, completion),
+                             priority=priority)
+            return
+        completion(self._tags)
 
     def setTag(self, tag):
         self._db.setTag(self, tag)
@@ -135,15 +161,29 @@ class Track:
     def unsetTag(self, tag):
         self._db.unsetTag(self, tag)
         self._tags.remove(tag)
+        
+    def _addPlayCompletion(self, playCount):
+        self._playCount = playCount
 
     def addPlay(self, delay=0):
         self._db.addPlay(self, delay)
-        self._playCount = self.getPlayCount() + 1
-
-    def getPlayCount(self):
         if self._playCount == None:
-            self._playCount = self._db.getPlayCount(self)
-        return self._playCount
+            self.getPlayCount(
+                lambda playCount: self._addPlayCompletion(playCount))
+            return
+        self._playCount += 1
+        
+    def _getPlayCount(self, playCount, completion):
+        self._playCount = playCount
+        completion(playCount)
+
+    def getPlayCount(self, completion, priority=None):
+        if self._playCount == None:
+            self._db.getPlayCount(lambda playCount, completion=completion:\
+                                    self._getPlayCount(playCount, completion),
+                                  track=self, priority=priority)
+            return
+        completion(self._playCount)
 
     def setPreviousPlay(self, previous):
         self._previous = previous
@@ -161,39 +201,63 @@ class Track:
         self._db.setScore(self, score)
         self._score = score
         self._isScored = True
+        
+    def _getScoreCompletion(self, isScored, completion, priority=None):
+        if isScored == False:
+            completion("-")
+        else:
+            self.getScoreValue(completion, priority=priority)
 
-    def getScore(self):
-        if self.getIsScored == False:
-            return "-"
-        return self.getScoreValue()
+    def getScore(self, completion, priority=None):
+        self.getIsScored(lambda isScored, completion=completion,\
+                            priority=priority: self._getScoreCompletion(
+                                isScored, completion, priority=priority))
+        
+    def _getScoreValueCompletion(self, score, completion):
+        self._score = score
+        completion(score)
 
-    def getScoreValue(self):
+    def getScoreValue(self, completion, priority=None):
         if self._score == None:
-            self._score = self._db.getScoreValue(self)
-        return self._score
+            self._db.getScoreValue(self,
+                                   lambda score, completion=completion:\
+                                        self._getScoreValueCompletion(
+                                            score, completion),
+                                   priority=priority)
+            return
+        completion(self._score)
 
     def setUnscored(self):
         self._isScored = False
         self._score = None
         self._db.setUnscored(self)
+        
+    def _getIsScoredCompletion(self, isScored, completion):
+        self._isScored = isScored
+        completion(isScored)
 
-    def getIsScored(self):
+    def getIsScored(self, completion, priority=None):
         if self._isScored == None:
-            self._isScored = self._db.getIsScored(self)
-        return self._isScored
+            self._db.getIsScored(self,
+                                 lambda isScored, completion=completion:\
+                                    self._getIsScoredCompletion(isScored,
+                                                                completion),
+                                 priority=priority)
+            return
+        completion(self._isScored)
 
 class AudioTrack(Track):
-    def __init__(self, db, path, logger):
-        Track.__init__(self, db, path, logger)
+    def __init__(self, db, path, logger, useCache=True):
+        Track.__init__(self, db, path, logger, useCache=useCache)
 #        self._path = self.getPath()
         try:
             self._logger.debug("Creating track from \'"+self._path+"\'.")
             self._track = mutagen.File(self._path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
-            self._logger.error("File has no metadata.")
+            self._logger.debug("File has no metadata.")
             raise NoMetadataError
         if self._track is None:
-            self._logger.error("File is not a supported audio file.")
+            self._logger.debug("File is not a supported audio file.")
             raise UnknownTrackType
         self._logger.debug("Track created.")
         self._initGetAttributes()

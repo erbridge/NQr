@@ -6,14 +6,17 @@
 ## TODO: add functions to populate ignore list
 ## TODO: check if track table already exists first to confirm whether or not
 ##       to create other tables (poss corruption)
+## TODO: finish asyncing track links
+##
+## FIXME: make tracebacks work properly for all completions
 
 import ConfigParser
+#from collections import deque
 import datetime
 from Errors import *
 import os
 import Queue
 import sqlite3
-import sys
 import threading
 import traceback
 from Util import *
@@ -23,76 +26,449 @@ wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
 import wx
 
-class DatabaseThread(threading.Thread):
-    def __init__(self, db, path):
-        threading.Thread.__init__(self, name="Database")
+class Thread(threading.Thread): # FIXME: add interrupt?
+    def __init__(self, db, path, name):
+        threading.Thread.__init__(self, name=name)
         self._db = db
         self._databasePath = os.path.realpath(path)
-        self._queue = Queue.Queue()
-
-    def queue(self, thing):
-        self._queue.put(thing)
+        self._queue = Queue.PriorityQueue()
+        self._eventCount = 0
+        
+    def queue(self, thing, trace, priority=2):
+        self._eventCount += 1
+        self._queue.put((priority, self._eventCount, thing, trace))
 
     def run(self):
         conn = sqlite3.connect(self._databasePath)
         cursor = conn.cursor()
         while True:
             got = self._queue.get()
-            got(self, cursor)
+            got[2](self, cursor, got[3])
+            conn.commit()
+            
+    def _raise(self, err, errcompletion=None):
+        try:
+            errcompletion(err)
+        except:
+            wx.PostEvent(self._db, ExceptionEvent(err))
+            
+class DatabaseEventHandler(wx.EvtHandler):
+    def __init__(self, dbThread, priority):
+        wx.EvtHandler.__init__(self)
+        self._dbThread = dbThread
+        self._priority = priority
+        
+        EVT_DATABASE(self, self._onDatabaseEvent)
+        EVT_EXCEPTION(self, self._onExceptionEvent)
+        
+    def _onDatabaseEvent(self, e):
+        self._logger.debug("Got event.")
+        e.complete()
+        
+    def _onExceptionEvent(self, e):
+        raise e.getException()
 
-    def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace):
+    def complete(self, completion, priority=None, trace=[]):
+        if priority == None:
+            priority = self._priority
+        trace = extractTraceStack(trace)
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
+        self._dbThread.complete(mycompletion, priority, trace=trace)
+        
+    def _execute(self, stmt, args, completion, priority=None, trace=[]):
+        if priority == None:
+            priority = self._priority
+        trace = extractTraceStack(trace)
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
+        self._dbThread.execute(stmt, args, mycompletion, priority, trace=trace)
+    
+    def _executeMany(self, stmts, args, completion, priority=None, trace=[]):
+        if priority == None:
+            priority = self._priority
+        trace = extractTraceStack(trace)
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
+        self._dbThread.executeMany(stmts, args, mycompletion, priority,
+                                   trace=trace)
+    
+    def _executeAndFetchOne(self, stmt, args, completion, priority=None,
+                            returnTuple=False, trace=[], errcompletion=None):
+        if priority == None:
+            priority = self._priority
+        trace = extractTraceStack(trace)
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
+        self._dbThread.executeAndFetchOne(stmt, args, mycompletion, priority,
+                                          returnTuple, trace=trace,
+                                          errcompletion=errcompletion)
+        
+    def _executeAndFetchOneOrNull(self, stmt, args, completion, priority=None,
+                                  returnTuple=False, trace=[]):
+        if priority == None:
+            priority = self._priority
+        trace = extractTraceStack(trace)
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
+        self._dbThread.executeAndFetchOneOrNull(stmt, args, mycompletion,
+                                                priority, returnTuple,
+                                                trace=trace)
+        
+    def _executeAndFetchAll(self, stmt, args, completion, priority=None,
+                            throwException=True, trace=[], errcompletion=None):
+        if priority == None:
+            priority = self._priority
+        trace = extractTraceStack(trace)
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
+        self._dbThread.executeAndFetchAll(stmt, args, mycompletion, priority,
+                                          throwException, trace=trace,
+                                          errcompletion=errcompletion)
+        
+    def _executeAndFetchLastRowID(self, stmt, args, completion, priority=None,
+                                  trace=[]):
+        if priority == None:
+            priority = self._priority
+        trace = extractTraceStack(trace)
+        mycompletion = lambda result, completion=completion: wx.PostEvent(
+            self, DatabaseEvent(result, completion))
+        self._dbThread.executeAndFetchLastRowID(stmt, args, mycompletion,
+                                                priority, trace=trace)
+        
+    def _getTrackID(self, track, completion, priority=None):
+        path = track.getPath()
+        self._executeAndFetchOneOrNull(
+            "select trackid from tracks where path = ?", (path, ), completion,
+            priority=priority)
+        
+    def getTrackID(self, track, completion, priority=None):
+        mycompletion = lambda trackID, track=track, completion=completion:\
+            self._getTrackIDCompletion(track, trackID, completion)
+        self._getTrackID(track, mycompletion, priority=priority)
+        
+    def _getDirectoryIDCompletion(self, directory, directoryID, completion):
+        self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
+        if directoryID == None:
+            self._logger.debug("\'"+directory+"\' is not in the watch list.")
+        completion(directoryID)
+        
+    def _getDirectoryID(self, directory, completion):
+        directory = os.path.realpath(directory)
+        mycompletion = lambda directoryID, directory=directory,\
+            completion=completion: self._getDirectoryIDCompletion(directory,
+                                                                  directoryID,
+                                                                  completion)
+        self._executeAndFetchOneOrNull(
+            "select directoryid from directories where path = ?", (directory, ),
+            mycompletion)
+        
+    def _updateTrackDetailsCompletion(self, track, trackID, infoLogging=True):
+        path = track.getPath()
+        self._logger.debug("Updating \'"+path+"\' in the library.")
+        if trackID != None:
+            if infoLogging == True:
+                mycompletion = lambda result, path=path: self._logger.info(
+                    "\'"+path+"\' has been updated in the library.")
+            else:
+                mycompletion = lambda result, path=path: self._logger.debug(
+                    "\'"+path+"\' has been updated in the library.")
+            self._execute(
+                """update tracks set path = ?, artist = ?, album = ?, title = ?,
+                   tracknumber = ?, length = ?, bpm = ? where trackid = ?""",
+                (path, track.getArtist(), track.getAlbum(), track.getTitle(),
+                 track.getTrackNumber(), track.getLength(), track.getBPM(),
+                 trackID), mycompletion)
+        else:
+            self._logger.debug("\'"+path+"\' is not in the library.")
+            
+    def _updateTrackDetails(self, track, infoLogging=True):
+        mycompletion = lambda trackID, track=track, infoLogging=infoLogging:\
+            self._updateTrackDetailsCompletion(track, trackID, infoLogging)
+        self._getTrackID(track, mycompletion)
+            
+    def setHistorical(self, historical, trackID):
+        if historical == True:
+            mycompletion = lambda result:\
+                self._logger.debug("Making track non-current.")
+            historical = 1
+        elif historical == False:
+            mycompletion = lambda result:\
+                self._logger.debug("Making track current.")
+            historical = 0
+        self._execute("update tracks set historical = ? where trackID = ?",
+                           (historical, trackID), mycompletion)
+        
+# FIXME: should somehow indicate that it is working/finished without spamming
+class DirectoryWalkThread(Thread, DatabaseEventHandler):
+    def __init__(self, db, path, logger, trackFactory, dbThread):
+        DatabaseEventHandler.__init__(self, dbThread, 3)
+        Thread.__init__(self, db, path, "Directory Walk")
+        self._logger = logger
+        self._trackFactory = trackFactory
+        
+    def _getTrackIDCompletion(self, track, trackID, completion):
+        path = track.getPath()
+        self._logger.debug("Retrieving track ID for \'"+path+"\'.")
+        if trackID == None:
+            self._logger.debug("\'"+path+"\' is not in the library.")
+        track.setID(self._trackFactory, trackID)
+        completion(trackID)
+        
+    def _addTrackCompletion(self, path, track, trackID):
+        self._logger.debug("Adding \'"+path+"\' to the library.")
+#        if hasTrackID == False or trackID == None:
+        if trackID == None:
+            mycompletion = lambda result, path=path:\
+                self._logger.info("\'"+path+"\' has been added to the library.")
+            self._execute("""insert into tracks (path, artist, album,
+                                  title, tracknumber, unscored, length, bpm,
+                                  historical) values
+                                  (?, ?, ?, ?, ?, 1, ?, ?, 0)""",
+                               (path, track.getArtist(), track.getAlbum(),
+                                track.getTitle(), track.getTrackNumber(),
+                                track.getLength(), track.getBPM()),
+                               mycompletion)
+#            trackID = cursor.lastrowid
+#            self._logger.info("\'"+path+"\' has been added to the library.")
+        else:
+            self._logger.debug("\'"+path+"\' is already in the library.")
+        track.setID(self._trackFactory, trackID)
+#        return trackID
+        
+    def doAddTrack(self, path, trace):
+        try:
+            track = self._trackFactory.getTrackFromPathNoID(self, path,
+                                                            useCache=False)
+        except NoTrackError:
+#            track = None
+            self._logger.debug("\'"+path+"\' is an invalid file.")
+            return
+#        if track == None:
+#            self._logger.debug("\'"+path+"\' is an invalid file.")
+#            return None
+#        trackID = None
+#        if hasTrackID == True:
+        mycompletion = lambda trackID, path=path, track=track:\
+            self._addTrackCompletion(path, track, trackID)
+        track.getID(mycompletion)
+
+    def _addTrack(self, path, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, path=path:\
+                        thread.doAddTrack(path, traceBack), trace)
+            
+    def doWalkDirectoryNoWatch(self, directory, callback, trace):
+        self._logger.debug("Finding files from \'"+directory+"\'.")
+        contents = os.listdir(directory)
+        for n in range(len(contents)):
+            path = os.path.realpath(directory+'/'+contents[n])
+            if os.path.isdir(path):
+                self.walkDirectoryNoWatch(path, callback)
+            else:
+                callback(path)
+    
+    def walkDirectoryNoWatch(self, directory, callback, trace=[]):
+        directory = os.path.realpath(directory)
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, directory=directory,\
+                        callback=callback: thread.doWalkDirectoryNoWatch(
+                            directory, callback, traceBack), trace)
+        
+    def addDirectoryNoWatch(self, directory):
+        mycallback = lambda path: self._addTrack(path)
+        self.walkDirectoryNoWatch(directory, mycallback)
+        
+    def doGetDirectoryID(self, directory, completion, trace):
+        self._getDirectoryID(directory, completion)
+    
+    def getDirectoryID(self, directory, completion, trace=[]):
+        directory = os.path.realpath(directory)
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, directory=directory,\
+                        completion=completion: thread.doGetDirectoryID(
+                            directory, completion, traceBack), trace)
+        
+    def maybeAddToWatch(self, directory, directoryID):
+        if directoryID == None:
+            mycompletion = lambda result, directory=directory:\
+                self._logger.info("\'"+directory\
+                                  +"\' has been added to the watch list.")
+            self._execute("insert into directories (path) values (?)",
+                          (directory, ), mycompletion)
+        else:
+            self._logger.debug("\'"+directory\
+                               +"\' is already in the watch list.")
+    
+    def doWalkDirectory(self, directory, callback, trace):
+        self._logger.debug("Adding \'"+directory+"\' to the watch list.")
+        mycompletion = lambda directoryID, directory=directory:\
+            self.maybeAddToWatch(directory, directoryID)
+        self.getDirectoryID(directory, mycompletion)
+        self.walkDirectoryNoWatch(directory, callback)
+        
+    def walkDirectory(self, directory, callback, trace=[]):
+        directory = os.path.realpath(directory)
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, directory=directory:\
+                        thread.doWalkDirectory(directory, callback, traceBack),
+                   trace)
+        
+    def addDirectory(self, directory):
+        mycallback = lambda path: self._addTrack(path)
+        self.walkDirectory(directory, mycallback)
+        
+    def _rescanDirectoriesCompletion(self, paths):
+        for (directory, ) in paths:
+            self.addDirectoryNoWatch(directory)
+        
+    def doRescanDirectories(self, trace):
+        self._logger.info("Rescanning the watch list for new files.")
+        errcompletion = ErrorCompletion(
+            NoResultError,
+            lambda: self._logger.info("The watch list is empty."))
+        mycompletion = lambda paths: self._rescanDirectoriesCompletion(paths)
+        self._executeAndFetchAll("select path from directories", (),
+                                 mycompletion, errcompletion=errcompletion)
+#        except NoResultError: # FIXME: does this work?
+#            self._logger.info("The watch list is empty.")
+    
+    def rescanDirectories(self, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack:
+                   thread.doRescanDirectories(traceBack), trace)
+
+    def maybeUpdateTrackDetails(self, track):
+        self._updateTrackDetails(track, infoLogging=False)
+
+class DatabaseThread(Thread):
+    def __init__(self, db, path):
+        Thread.__init__(self, db, path, "Database")
+        
+    def doComplete(self, completion, trace):
+        completion(None)
+        
+    def complete(self, completion, priority=2, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, completion=completion:\
+                        thread.doComplete(completion, traceBack), trace,
+                   priority)
+            
+    def doExecute(self, cursor, stmt, args, completion, trace):
+        cursor.execute(stmt, args)
+        completion(None)
+
+    def execute(self, stmt, args, completion, priority=2, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion: thread.doExecute(cursor, stmt,
+                                                                args,
+                                                                completion,
+                                                                traceBack),
+                   trace, priority)
+        
+    def doExecuteMany(self, cursor, stmts, args, completion, trace):
+        for index in range(len(stmts)):
+            cursor.execute(stmts[index], args[index])
+        completion(None)
+
+    def executeMany(self, stmts, args, completion, priority=2, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, stmts=stmts, args=args,\
+                        completion=completion: thread.doExecuteMany(
+                            cursor, stmts, args, completion, traceBack),
+                   trace, priority)
+
+    def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace,
+                             returnTuple=False, errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         if result is None:
-            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+            err = NoResultError(trace=trace)
+            self._raise(err, errcompletion)
+            return
+        if returnTuple == True:
+            completion(result)
             return
         completion(result[0])
 
-    def executeAndFetchOne(self, stmt, args, completion):
-        trace = traceback.extract_stack()
-        self.queue(lambda thread, cursor:
-                   thread.doExecuteAndFetchOne(cursor, stmt, args, completion,
-                                               trace))
+    def executeAndFetchOne(self, stmt, args, completion, priority=2,
+                           returnTuple=False, trace=[], errcompletion=None):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion, returnTuple=returnTuple,\
+                        errcompletion=errcompletion:\
+                            thread.doExecuteAndFetchOne(cursor, stmt, args,
+                                                        completion, traceBack,
+                                                        returnTuple,
+                                                        errcompletion), trace,
+                    priority)
         
-    def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace):
+    def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace,
+                                   errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.lastrowid
         if result is None:
-            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+            err = NoResultError(trace=trace)
+            self._raise(err, errcompletion)
             return
         completion(result)
 
-    def executeAndFetchLastRowID(self, stmt, args, completion):
-        trace = traceback.extract_stack()
-        self.queue(lambda thread, cursor:
-                   thread.doExecuteAndFetchLastRowID(cursor, stmt, args,
-                                                     completion, trace))
+    def executeAndFetchLastRowID(self, stmt, args, completion, priority=2,
+                                 trace=[], errcompletion=None):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion, errcompletion=errcompletion:\
+                            thread.doExecuteAndFetchLastRowID(cursor, stmt,
+                                                              args, completion,
+                                                              traceBack,
+                                                              errcompletion),
+                   trace, priority)
         
-    def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion):
+    def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion, trace,
+                                   returnTuple=False):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         if result is None:
             completion(None)
+            return
+        if returnTuple == True:
+            completion(result)
+            return
         completion(result[0])
 
-    def executeAndFetchOneOrNull(self, stmt, args, completion):
-        self.queue(lambda thread, cursor:
-                   thread.doExecuteAndFetchOneOrNull(cursor, stmt, args,
-                                                     completion))
+    def executeAndFetchOneOrNull(self, stmt, args, completion, priority=2,
+                                 returnTuple=False, trace=[]):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion, returnTuple=returnTuple:\
+                            thread.doExecuteAndFetchOneOrNull(cursor, stmt,
+                                                              args, completion,
+                                                              traceBack,
+                                                              returnTuple),
+                    trace, priority)
 
-    def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace):
+    def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace,
+                             throwException=True, errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.fetchall()
-        if result is None:
-            wx.PostEvent(self._db, ExceptionEvent(NoResultError, trace))
+        if result is None and throwException is True:
+            err = NoResultError(trace=trace)
+            self._raise(err, errcompletion)
             return
         completion(result)
 
-    def executeAndFetchAll(self, stmt, args, completion):
-        trace = traceback.extract_stack()
-        self.queue(lambda thread, cursor:
-                   thread.doExecuteAndFetchAll(cursor, stmt, args, completion,
-                                               trace))
+    def executeAndFetchAll(self, stmt, args, completion, priority=2,
+                           throwException=True, trace=[], errcompletion=None):
+        trace = extractTraceStack(trace)
+        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
+                        completion=completion, throwException=throwException,\
+                        errcompletion=errcompletion:\
+                            thread.doExecuteAndFetchAll(cursor, stmt, args,
+                                                        completion, traceBack,
+                                                        throwException,
+                                                        errcompletion),
+                   trace, priority)
 
 ID_EVT_DATABASE = wx.NewId()
 
@@ -115,30 +491,30 @@ def EVT_EXCEPTION(handler, func):
     handler.Connect(-1, -1, ID_EVT_EXCEPTION, func)
 
 class ExceptionEvent(wx.PyEvent):
-    def __init__(self, err, trace):
+    def __init__(self, err):
         wx.PyEvent.__init__(self)
         self.SetEventType(ID_EVT_EXCEPTION)
-        self._err = err(trace=trace)
+        self._err = err
         
     def getException(self):
         return self._err
 
-class Database(wx.EvtHandler):
+class Database(DatabaseEventHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,
                  debugMode=False, databasePath="database",
                  defaultDefaultScore=10):
-        wx.EvtHandler.__init__(self)
+        DatabaseEventHandler.__init__(self, DatabaseThread(self, databasePath),
+                                      2)
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         self._configParser = configParser
         self._defaultDefaultScore = defaultDefaultScore
         self.loadSettings()
         self._debugMode = debugMode
-        self._databasePath = os.path.realpath(databasePath)
+        self._databasePath = databasePath
         self._logger.debug("Opening connection to database at "\
                            +self._databasePath+".")
         self._conn = sqlite3.connect(self._databasePath)
-        self._conn.isolation_level = None
         self._initMaybeCreateTrackTable()
         self._initMaybeCreateDirectoryTable()
         self._initMaybeCreatePlaysTable()
@@ -149,26 +525,13 @@ class Database(wx.EvtHandler):
         self._initMaybeCreateTagNamesTable()
         self._initMaybeCreateTagsTable()
         self._conn.commit()
-        self._cursor = self._conn.cursor()
-
-        EVT_DATABASE(self, self._onDatabaseEvent)
-        EVT_EXCEPTION(self, self._onExceptionEvent)
         
-        self._dbThread = DatabaseThread(self, self._databasePath)
         self._dbThread.start()
-
-    def async(self, stmt, args, completion):
-        mycompletion = lambda result: wx.PostEvent(self,
-                                                   DatabaseEvent(result,
-                                                                 completion))
-        self._dbThread.executeAndFetchOne(stmt, args, mycompletion)
-
-    def _onDatabaseEvent(self, e):
-        self._logger.debug("Got event.")
-        e.complete()
         
-    def _onExceptionEvent(self, e):
-        raise e.getException()
+        self._directoryWalkThread = DirectoryWalkThread(
+            self, self._databasePath, self._logger, self._trackFactory,
+            self._dbThread)
+        self._directoryWalkThread.start()
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
@@ -179,7 +542,8 @@ class Database(wx.EvtHandler):
                                               artist text, album text,
                                               title text, tracknumber text,
                                               unscored integer, length real, bpm
-                                              integer, historical integer)""")
+                                              integer, historical integer, score
+                                              integer, lastplayed datetime)""")
             self._logger.info("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":
@@ -200,6 +564,25 @@ class Database(wx.EvtHandler):
                 self._logger.debug("Adding historical column to track table.")
                 c.execute("alter table tracks add column historical integer")
                 c.execute("update tracks set historical = 0")
+            if columnNames.count('score') == 0:
+                self._logger.debug("Adding score column to track table.")
+                c.execute("alter table tracks add column score integer")
+                c.execute("""update tracks set
+                             score = (select scores.score from scores where
+                                      scores.trackid = tracks.trackid order by
+                                      scores.scoreid desc limit 1)
+                             where exists (select scores.score from scores where
+                                           scores.trackid = tracks.trackid)""")
+            if columnNames.count('lastplayed') == 0:
+                self._logger.debug("Adding last played column to track table.")
+                c.execute("alter table tracks add column lastplayed datetime")
+                c.execute("""update tracks set
+                             lastplayed = (select plays.datetime from plays
+                                           where plays.trackid = tracks.trackid
+                                           order by plays.playid desc limit 1)
+                             where exists (select plays.datetime from plays
+                                           where
+                                           plays.trackid = tracks.trackid)""")
         c.close()
 
     def _initMaybeCreateDirectoryTable(self):
@@ -312,47 +695,29 @@ class Database(wx.EvtHandler):
                 raise err
             self._logger.debug("Tags table found.")
         c.close()
-
-    def _executeAndFetchOneOrNull(self, stmt, args=()):
-        self._cursor.execute(stmt, args)
-        result = self._cursor.fetchone()
-        if result is None:
-            return None
-        return result[0]
-
-    def _completionEvent(self, completion):
-        return lambda result: wx.PostEvent(self,
-                                           DatabaseEvent(result, completion))
-    
-    def _asyncExecuteAndFetchOneOrNull(self, stmt, args, completion):
-        self._dbThread.executeAndFetchOneOrNull(stmt, args,
-                                              self._completionEvent(completion))
-
-    def _executeAndFetchOne(self, stmt, args=()):
-        result = self._executeAndFetchOneOrNull(stmt, args)
-        if result is None:
-            raise NoResultError()
-        return result
-    
-    def _asyncExecuteAndFetchOne(self, stmt, args, completion):
-        self._dbThread.executeAndFetchOne(stmt, args,
-                                          self._completionEvent(completion))
         
-    def _asyncExecuteAndFetchLastRowID(self, stmt, args, completion):
-        self._dbThread.executeAndFetchLastRowID(stmt, args,
-                                              self._completionEvent(completion))
-
-    def _asyncExecuteAndFetchAll(self, stmt, args, completion):
-        self._dbThread.executeAndFetchAll(stmt, args,
-                                          self._completionEvent(completion))
-
-    def asyncAddTrack(self, path=None, hasTrackID=True, track=None,
-                      completion=None):
-        mycompletion = lambda result: \
-            self._addTrackCompletion(path, hasTrackID, track, completion)
-        mycompletion2 = lambda thread, cursor: \
-            wx.PostEvent(self, DatabaseEvent(None, mycompletion))
-        self._dbThread.queue(mycompletion2)
+    def _setTrackIDCompletion(self, track, trackID, completion, wasAdded=False):
+        path = track.getPath()
+        if trackID == None:
+            mycompletion = lambda result, track=track, completion=completion: \
+                self._setTrackIDCompletion(track, result, completion,
+                                           wasAdded=True)
+            self._executeAndFetchLastRowID(
+                """insert into tracks (path, artist, album, title, tracknumber,
+                   unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
+                   ?, ?, 0)""", (path, track.getArtist(), track.getAlbum(),
+                                 track.getTitle(), track.getTrackNumber(),
+                                 track.getLength(), track.getBPM()),
+                mycompletion)
+            return
+        if wasAdded == True:
+            self._logger.info("\'"+path+"\' has been added to the library.")
+        else:
+            self._logger.debug("\'"+path+"\' is already in the library.")
+        track.setID(self._trackFactory, trackID)
+        if completion == None:
+            return
+        completion(trackID)
         
     def _addTrackCompletion(self, path=None, hasTrackID=True, track=None,
                             completion=None):
@@ -371,18 +736,15 @@ class Database(wx.EvtHandler):
         if track == None:
             self._logger.debug("\'"+path+"\' is an invalid file.")
             return None
-        c = self._conn.cursor()
-        trackID = None
         if hasTrackID == True:
-            mycompletion = lambda result: self._setTrackIDCompletion(track,
-                                                                     result,
-                                                                     completion)
-            self._asyncGetTrackID(track, mycompletion)
+            mycompletion = lambda result, track=track, completion=completion:\
+                self._setTrackIDCompletion(track, result, completion)
+            self._getTrackID(track, mycompletion)
         elif hasTrackID == False:
-            mycompletion = lambda result: \
+            mycompletion = lambda result, track=track, completion=completion:\
                 self._setTrackIDCompletion(track, result, completion,
                                            wasAdded=True)
-            self._asyncExecuteAndFetchLastRowID(
+            self._executeAndFetchLastRowID(
                 """insert into tracks (path, artist, album, title, tracknumber,
                    unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
                    ?, ?, 0)""", (path, track.getArtist(), track.getAlbum(),
@@ -390,64 +752,13 @@ class Database(wx.EvtHandler):
                                  track.getLength(), track.getBPM()),
                 mycompletion)
 
-    def _setTrackIDCompletion(self, track, trackID, completion, wasAdded=False):
-        path = track.getPath()
-        if trackID == None:
-            mycompletion = lambda result: \
-                self._setTrackIDCompletion(track, result, completion,
-                                           wasAdded=True)
-            self._asyncExecuteAndFetchLastRowID(
-                """insert into tracks (path, artist, album, title, tracknumber,
-                   unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
-                   ?, ?, 0)""", (path, track.getArtist(), track.getAlbum(),
-                                 track.getTitle(), track.getTrackNumber(),
-                                 track.getLength(), track.getBPM()),
-                mycompletion)
-            return
-        if wasAdded == True:
-            self._logger.info("\'"+path+"\' has been added to the library.")
-        else:
-            self._logger.debug("\'"+path+"\' is already in the library.")
-        track.setID(self._trackFactory, trackID)
-        if completion == None:
-            return
-        completion(trackID)
-
-    def addTrack(self, path=None, hasTrackID=True, track=None):
-        if path == None:
-            if track == None:
-                self._logger.error("No track has been identified.")
-                raise NoTrackError
-            path = track.getPath()
-        path = os.path.realpath(path)
-        self._logger.debug("Adding \'"+path+"\' to the library.")
-        if track == None:
-            try:
-                track = self._trackFactory.getTrackFromPathNoID(self, path)
-            except NoTrackError:
-                track = None
-        if track == None:
-            self._logger.debug("\'"+path+"\' is an invalid file.")
-            return None
-        c = self._conn.cursor()
-        trackID = None
-        if hasTrackID == True:
-            trackID = self._getTrackID(track)
-        if hasTrackID == False or trackID == None:
-            c.execute("""insert into tracks (path, artist, album, title,
-                         tracknumber, unscored, length, bpm, historical) values
-                         (?, ?, ?, ?, ?, 1, ?, ?, 0)""",
-                      (path, track.getArtist(), track.getAlbum(),
-                       track.getTitle(), track.getTrackNumber(),
-                       track.getLength(), track.getBPM()))
-            trackID = c.lastrowid
-            self._logger.info("\'"+path+"\' has been added to the library.")
-        else:
-            self._logger.debug("\'"+path+"\' is already in the library.")
-        c.close()
-        self._conn.commit()
-        track.setID(self._trackFactory, trackID)
-        return trackID
+    # FIXME: make clearer?
+    def addTrack(self, path=None, hasTrackID=True, track=None,
+                      completion=None):
+        mycompletion = lambda result, path=path, hasTrackID=hasTrackID,\
+            track=track, completion=completion:\
+                self._addTrackCompletion(path, hasTrackID, track, completion)
+        self.complete(mycompletion)
 
     ## returns a list of tuples of the form (trackID, )
     ## FIXME: make faster by doing something like: select
@@ -455,388 +766,522 @@ class Database(wx.EvtHandler):
     ## join scores using (trackid) left outer join plays using
     ## (trackid); with some select trackid, max(datetime) from plays
     ## group by trackid; thrown in.
-    def asyncGetAllTrackIDs(self, completion):
+    def getAllTrackIDs(self, completion):
         self._logger.debug("Retrieving all track IDs.")
-        self._asyncExecuteAndFetchAll("select trackid from tracks", (),
+        self._executeAndFetchAll("select trackid from tracks", (),
                                       completion)
     
     ## FIXME: not working yet, poss works for one tag
-    def asyncGetAllTrackIDsWithTags(self, completion, tags):
+    def getAllTrackIDsWithTags(self, completion, tags):
         self._logger.debug("Retrieving all track IDs with tags: "+str(tags)+".")
-        self._cursor.execute(
+        self._executeAndFetchAll(
             """select trackid from tracks left outer join
                (select trackid from tags left outer join tagnames using (tagid)
                 on tagnames.tagid = tags.tagid, tagnames.name in ?) on
-                tags.trackid = tracks.trackid""", tags)
-        completion(self._cursor.fetchall())
+                tags.trackid = tracks.trackid""", tags, completion)
 
-    def _getTrackID(self, track):#, update=False):
-        path = track.getPath()
-        self._logger.debug("Retrieving track ID for \'"+path+"\'.")
-        result = self._executeAndFetchOneOrNull(
-            "select trackid from tracks where path = ?", (path, ))
-        if result == None:
-            self._logger.debug("\'"+path+"\' is not in the library.")
-#            if update == True:
-#                raise NoTrackError
-        return result
-
-    def getTrackID(self, track):#, update=False):
-        trackID = self._getTrackID(track)#, update)
-        if trackID == None:
-            return self.addTrack(hasTrackID=False, track=track)
-        return trackID
-    
-    def asyncGetTrackID(self, track, completion):
-        mycompletion = lambda trackID: self._getTrackIDCompletion(track,
-                                                                  trackID,
-                                                                  completion)
-        self._asyncGetTrackID(track, mycompletion)
-        
-    def _asyncGetTrackID(self, track, completion):
-        path = track.getPath()
-        self._asyncExecuteAndFetchOneOrNull(
-            "select trackid from tracks where path = ?", (path, ),
-            self._completionEvent(completion))
+#    def _getTrackID(self, track):#, update=False):
+#        path = track.getPath()
+#        self._logger.debug("Retrieving track ID for \'"+path+"\'.")
+#        result = self._executeAndFetchOneOrNull(
+#            "select trackid from tracks where path = ?", (path, ))
+#        if result == None:
+#            self._logger.debug("\'"+path+"\' is not in the library.")
+##            if update == True:
+##                raise NoTrackError
+#        return result
         
     def _getTrackIDCompletion(self, track, trackID, completion):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
         if trackID == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
-            self.asyncAddTrack(path=path, hasTrackID=False, track=track,
-                               completion=completion)
+            self.addTrack(path=path, hasTrackID=False, track=track,
+                          completion=completion)
             return
         completion(trackID)
-
-    def addDirectory(self, directory):
-        directory = os.path.realpath(directory)
-        self._logger.debug("Adding \'"+directory+"\' to the watch list.")
-        c = self._conn.cursor()
-        directoryID = self.getDirectoryID(directory)
-        if directoryID == None:
-            c.execute("insert into directories (path) values (?)",
-                      (directory, ))
-            self._logger.info("\'"+directory\
-                              +"\' has been added to the watch list.")
-        else:
-            self._logger.debug("\'"+directory\
-                               +"\' is already in the watch list.")
-        c.close()
-        self._conn.commit()
-        self.addDirectoryNoWatch(directory)
-
-    def getDirectoryID(self, directory):
-        directory = os.path.realpath(directory)
-        self._logger.debug("Retrieving directory ID for \'"+directory+"\'.")
-        result = self._executeAndFetchOneOrNull(
-            "select directoryid from directories where path = ?", (directory, ))
-        if result == None:
-            self._logger.debug("\'"+directory+"\' is not in the watch list.")
-        return result
-    
-    def asyncAddDirectoryNoWatch(self, directory):
-        mycompletion = lambda result: \
-            self._addDirectoryNoWatchCompletion(directory)
-        mycompletion2 = lambda thread, cursor: \
-            wx.PostEvent(self, DatabaseEvent(None, mycompletion))
-        self._dbThread.queue(mycompletion2)
         
-    def _addDirectoryNoWatchCompletion(self, directory):
-        directory = os.path.realpath(directory)
-        self._logger.debug("Adding files in \'"+directory+"\' to the library.")
-        contents = os.listdir(directory)
-        for n in range(0, len(contents)):
-            path = os.path.realpath(directory+'/'+contents[n])
-            if os.path.isdir(path):
-                self.asyncAddDirectoryNoWatch(path)
-            else: ## or: elif contents[n][-4:]=='.mp3':
-                self.asyncAddTrack(path)
-
+    def getDirectoryID(self, directory, completion):
+        self._getDirectoryID(directory, completion)
+        
+    def addDirectory(self, directory):
+        self._directoryWalkThread.addDirectory(directory)
+    
     def addDirectoryNoWatch(self, directory):
-        directory = os.path.realpath(directory)
-        self._logger.debug("Adding files in \'"+directory+"\' to the library.")
-        contents = os.listdir(directory)
-        for n in range(0, len(contents)):
-            path = os.path.realpath(directory+'/'+contents[n])
-            if os.path.isdir(path):
-                self.addDirectoryNoWatch(path)
-            else: ## or: elif contents[n][-4:]=='.mp3':
-                self.addTrack(path)
-
-    def removeDirectory(self, directory):
+        self._directoryWalkThread.addDirectoryNoWatch(directory)
+                
+    def _removeDirectoryCompletion(self, directory, directoryID):
         directory = os.path.realpath(directory)
         self._logger.debug("Removing \'"+directory+"\' from the watch list.")
-        c = self._conn.cursor()
-        directoryID = self.getDirectoryID(directory)
         if directoryID != None:
-            c.execute("delete from directories where path = ?", (directory, ))
-            self._logger.info("\'"+directory\
-                              +"\' has been removed from the watch list.")
+            mycompletion = lambda result, directory=directory:\
+                self._logger.info("\'"+directory\
+                                  +"\' has been removed from the watch list.")
+            self._execute("delete from directories where path = ?",
+                               (directory, ), mycompletion)
+            
         else:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
-        c.close()
-        self._conn.commit()
+                
+    def removeDirectory(self, directory):
+        mycompletion = lambda directoryID, directory=directory:\
+            self._removeDirectoryCompletion(directory, directoryID)
+        self.getDirectoryID(directory, mycompletion)
 
-    def asyncRescanDirectories(self):
-        mycompletion = lambda result: self._rescanDirectoriesCompletion(result)
-        self._asyncExecuteAndFetchAll("select path from directories", (),
-                                      mycompletion)
-#        c = self._conn.cursor()
-#        c.execute("select path from directories")
-#        result = c.fetchall()
+    def rescanDirectories(self):
+        self._directoryWalkThread.rescanDirectories()
         
-    def _rescanDirectoriesCompletion(self, result):
-        self._logger.info("Rescanning the watch list for new files.")
-        for (directory, ) in result:
-            self.asyncAddDirectoryNoWatch(directory)
-        self._conn.commit()
-
-## FIXME: needs to deal with two links using the same first or second track
-    def addLink(self, firstTrack, secondTrack):
-        self._logger.debug("Creating track link.")
-        c = self._conn.cursor()
-        firstTrackID = firstTrack.getID()
-        secondTrackID = secondTrack.getID()
-        firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
-        secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-        linkID = self.getLinkID(firstTrack, secondTrack)
+    def _getTrackPathsCompletion(self, firstTrackID, secondTrackID, linkID,
+                                 completion):
+        multicompletion = MultiCompletion(
+            2, lambda firstPath, secondPath, firstTrackID=firstTrackID,\
+                secondTrackID=secondTrackID, linkID=linkID:\
+                    completion(firstTrackID, firstPath, secondTrackID,
+                               secondPath, linkID))
+        self.getPathFromIDNoDebug(
+            firstTrackID, lambda firstPath, multicompletion=multicompletion:\
+                multicompletion.put(0, firstPath))
+        self.getPathFromIDNoDebug(
+            secondTrackID, lambda secondPath, multicompletion=multicompletion:\
+                multicompletion.put(1, secondPath))
+        
+    def _addLinkCompletion(self, firstTrackID, firstTrackPath, secondTrackID, 
+                           secondTrackPath, linkID):
         if linkID == None:
-            c.execute("""insert into links (firsttrackid, secondtrackid) values
-                         (?, ?)""", (firstTrackID, secondTrackID))
-            self._logger.info("\'"+firstTrackPath+"\' has been linked to \'"\
-                              +secondTrackPath+"\'.")
+            mycompletion = lambda result, firstTrackPath=firstTrackPath,\
+                secondTrackPath=secondTrackPath: self._logger.info(
+                    "\'"+firstTrackPath+"\' has been linked to \'"\
+                    +secondTrackPath+"\'.")
+            self._execute(
+                "insert into links (firsttrackid, secondtrackid) values (?, ?)",
+                (firstTrackID, secondTrackID), mycompletion)
         else:
             self._logger.debug("\'"+firstTrackPath+"\' is already linked to \'"\
                                +secondTrackPath+"\'.")
-        c.close()
-        self._conn.commit()
-
-    def getLinkID(self, firstTrack, secondTrack):
+        
+    ## FIXME: needs to deal with two links using the same first or second track
+    def addLink(self, firstTrack, secondTrack):
+        mycompletion = lambda firstTrackID, firstTrackPath, secondTrackID,\
+            secondTrackPath, linkID: self._addLinkCompletion(firstTrackID,
+                                                             firstTrackPath,
+                                                             secondTrackID,
+                                                             secondTrackPath,
+                                                             linkID)
+        self.getLinkID(
+            firstTrack, secondTrack,
+            lambda firstTrackID, secondTrackID, linkID,\
+                mycompletion=mycompletion:\
+                    self._getTrackPathsCompletion(firstTrackID, secondTrackID,
+                                                  linkID, mycompletion),
+            completeTrackIDs=True)
+        
+    def _getLinkIDCompletion2(self, firstTrackID, secondTrackID, linkID,
+                              completion, completeTrackIDs=False):
         self._logger.debug("Retrieving link ID.")
-        firstTrackID = firstTrack.getID()
-        secondTrackID = secondTrack.getID()
-        firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
-        secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-        result = self._executeAndFetchOneOrNull(
+        if linkID == None:
+            self._logger.debug("The tracks are not linked.")
+        if completeTrackIDs == True:
+            completion(firstTrackID, secondTrackID, linkID)
+        else:
+            completion(linkID)
+            
+    def _getLinkIDCompletion(self, firstTrackID, secondTrackID, completion,
+                             completeTrackIDs=False):
+        mycompletion = lambda linkID, firstTrackID=firstTrackID,\
+            secondTrackID=secondTrackID, completion=completion,\
+            completeTrackIDs=completeTrackIDs:\
+                self._getLinkIDCompletion2(firstTrackID, secondTrackID, linkID,
+                                           completion, completeTrackIDs)
+        self._executeAndFetchOneOrNull(
             """select linkid from links where firsttrackid = ? and
-               secondtrackid = ?""", (firstTrackID, secondTrackID))
-        if result == None:
-            self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
-                               +secondTrackPath+"\'.")
-        return result
+               secondtrackid = ?""", (firstTrackID, secondTrackID),
+            mycompletion)
+        
+    def getLinkID(self, firstTrack, secondTrack, completion,
+                  completeTrackIDs=False):
+        multicompletion = MultiCompletion(
+            2, lambda firstTrackID, secondTrackID, completion=completion,\
+                completeTrackIDs=completeTrackIDs:\
+                    self._getLinkIDCompletion(firstTrackID, secondTrackID,
+                                              completion, completeTrackIDs))
+        firstTrack.getID(lambda firstTrackID, multicompletion=multicompletion:\
+                         multicompletion.put(0, firstTrackID))
+        secondTrack.getID(
+            lambda secondTrackID, multicompletion=multicompletion:\
+                multicompletion.put(1, secondTrackID))
+    
+#    def _returnTracksCompletion(self, callback):
+#        for track in self._trackQueue:
+#            callback(track)
+#            
+#    def _addToTrackQueueCallback(self, trackID, appendLeft=False):
+#        track = self._trackFactory.getTrackFromID(self, trackID)
+#        if appendLeft == True:
+#            self._trackQueue.appendleft(track)
+#        else:
+#            self._trackQueue.append(track)
+#            
+#    def _getEarlierTracksCompletion(self, linkIDs, oldLinkIDs):
+#        while True:
+#            for linkID in linkIDs:
+#                if linkID not in oldLinkIDs:
+#                    (newTrackID,
+#                     trackID) = self._db.getLinkedTrackIDs(linkID)
+#                    track = self._trackFactory.getTrackFromID(
+#                        self._db, newTrackID)
+#                    self._trackQueue.appendleft(track)
+#                    oldLinkIDs = linkIDs
+#                    linkIDs = self._db.getLinkIDs(track)
+#            if oldLinkIDs == linkIDs:
+#                break
+#    
+#    def _getLinksCompletion3(self, linkIDs, oldLinkIDs, firstTrack,
+#                             firstLinkIDs, secondTrack, secondLinkIDs,
+#                             callback):
+#        self._trackQueue = deque([firstTrack, secondTrack])
+#        ## finds earlier tracks
+#        while True:
+#            for linkID in firstLinkIDs:
+#                if linkID not in oldLinkIDs:
+#                    (newTrackID,
+#                     trackID) = self._db.getLinkedTrackIDs(linkID)
+#                    track = self._trackFactory.getTrackFromID(
+#                        self._db, newTrackID)
+#                    self._trackQueue.appendleft(track)
+#                    oldLinkIDs = firstLinkIDs
+#                    firstLinkIDs = self._db.getLinkIDs(track)
+#            if oldLinkIDs == firstLinkIDs:
+#                break
+#        self.complete(
+#            lambda result: self._returnTracksCompletion(callback))
+#    
+#    def _getLinksCompletion2(self, linkIDs, oldLinkIDs, trackIDs, callback):
+#        firstTrack = self._trackFactory.getTrackFromID(self, trackIDs[0])
+#        secondTrack = self._trackFactory.getTrackFromID(self, trackIDs[1])
+#        multicompletion = MultiCompletion(
+#            2, lambda firstLinkIDs, secondLinkIDs: self._getLinksCompletion3(
+#                linkIDs, oldLinkIDs, firstTrack, firstLinkIDs, secondTrack,
+#                secondLinkIDs, callback))
+#        self.getLinkIDs(
+#            firstTrack, lambda firstLinkIDs: multicompletion.put(0,
+#                                                                 firstLinkIDs))
+#        self.getLinkIDs(
+#            secondTrack, lambda secondLinkIDs: multicompletion.put(
+#                                1, secondLinkIDs))
+#        
+#    def _getLinksCompletion(self, track, linkIDs, callback):
+#        if linkIDs == (None, None):
+#            callback(track)
+#            return
+#        elif linkIDs[0] != None:
+#            linkID = linkIDs[0]
+#        else:
+#            linkID = linkIDs[1]
+#        self.getLinkedTrackIDs(
+#            linkID, lambda trackIDs: self._getLinksCompletion2(linkIDs, linkID,
+#                                                               trackIDs,
+#                                                               callback))
+#    
+#    def getLinks(self, track, callback):
+#        self.getLinkIDs(
+#            track, lambda linkIDs: self._getLinksCompletion(track, linkIDs,
+#                                                            callback))
+        
+    def _getLinkIDsCompletion2(self, trackID, firstLinkID, secondLinkID,
+                               completion):
+        self._logger.debug("Retrieving link IDs.")
+        if firstLinkID == None and secondLinkID == None:
+            self.getPathFromIDNoDebug(
+                trackID, lambda path: self._logger.debug(
+                    "\'"+path+"\' is not linked to another track."))
+        completion(firstLinkID, secondLinkID)
+        
+    def _getLinkIDsCompletion(self, trackID, completion):
+        multicompletion = MultiCompletion(
+            2, lambda firstLinkID, secondLinkID, trackID=trackID,\
+                completion=completion:\
+                    self._getLinkIDsCompletion2(trackID, firstLinkID,
+                                                secondLinkID, completion))
+        self._executeAndFetchOneOrNull(
+            "select linkid from links where secondtrackid = ?", (trackID, ),
+            lambda firstLinkID, multicompletion=multicompletion:\
+                multicompletion.put(0, firstLinkID))
+        self._executeAndFetchOneOrNull(
+            "select linkid from links where firsttrackid = ?", (trackID, ),
+            lambda secondLinkID, multicompletion=multicompletion:\
+                multicompletion.put(1, secondLinkID))
 
+        
     ## if there are two links for a track, returns the link with track as second
     ## track first for queueing ease
-    def getLinkIDs(self, track):
-        self._logger.debug("Retrieving link IDs.")
-        trackID = track.getID()
-        path = self.getPathFromIDNoDebug(trackID)
-        firstResult = self._executeAndFetchOneOrNull(
-            "select linkid from links where secondtrackid = ?", (trackID, ))
-        secondResult = self._executeAndFetchOneOrNull(
-            "select linkid from links where firsttrackid = ?", (trackID, ))
-        if firstResult == None:
-            if secondResult == None:
-                self._logger.debug("\'"+path\
-                                   +"\' is not linked to another track.")
-            return secondResult
-        else:
-            if secondResult == None:
-                return firstResult
-            else:
-                return firstResult, secondResult
+    def getLinkIDs(self, track, completion):
+        track.getID(lambda trackID, completion=completion:\
+                        self._getLinkIDsCompletion(trackID, completion))
 
-    def getLinkedTrackIDs(self, linkID):
+    def _getLinkedTrackIDsCompletion(self, trackIDs, completion):
         self._logger.debug("Retrieving track IDs for linked tracks.")
-        result = self._executeAndFetchOneOrNull(
-            "select firsttrackid, secondtrackid from links where linkid = ?",
-            (linkID, ))
-        if result == None:
+        if trackIDs == None:
             self._logger.debug("No such link exists.")
-        return result
+        completion(trackIDs)
+            
+    def getLinkedTrackIDs(self, linkID, completion):
+        mycompletion = lambda trackIDs, completion=completion:\
+            self._getLinkedTrackIDsCompletion(trackIDs, completion)
+        self._executeAndFetchOneOrNull(
+            "select firsttrackid, secondtrackid from links where linkid = ?",
+            (linkID, ), mycompletion, returnTuple=True)
+        
 
-    def removeLink(self, firstTrack, secondTrack):
+    def _removeLinkCompletion(self, firstTrack, secondTrack, linkID):
         self._logger.debug("Removing link.")
-        c = self._conn.cursor()
-        firstTrackID = firstTrack.getID()
-        secondTrackID = secondTrack.getID()
-        firstTrackPath = self.getPathFromIDNoDebug(firstTrackID)
-        secondTrackPath = self.getPathFromIDNoDebug(secondTrackID)
-        linkID = self.getLinkID(firstTrack, secondTrack)
+        firstTrackPath = firstTrack.getPath()
+        secondTrackPath = secondTrack.getPath()
         if linkID != None:
-            c.execute("""delete from links where firsttrackid = ? and
-                         secondtrackid = ?""", (firstTrackID, secondTrackID))
-            self._logger.info("\'"+firstTrackPath\
-                              +"\' is no longer linked to \'"+secondTrackPath\
-                              +"\'.")
+            mycompletion = lambda result, firstTrackPath=firstTrackPath,\
+                secondTrackPath=secondTrackPath: self._logger.info(
+                    "\'"+firstTrackPath+"\' is no longer linked to \'"\
+                    +secondTrackPath+"\'.")
+            self._execute("delete from links where linkid = ?", (linkID, ),
+                          mycompletion)
         else:
             self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
                                +secondTrackPath+"\'.")
-        c.close()
-        self._conn.commit()
-
-    def addEnqueue(self, track):
-        self._logger.debug("Adding enqueue.")
-        c = self._conn.cursor()
-        trackID = track.getID()
-        c.execute("""insert into enqueues (trackid, datetime) values
-                     (?, datetime('now'))""", (trackID, ))
-        c.close()
-        self._conn.commit()
-
-    def getSecondsSinceLastEnqueuedFromID(self, trackID):
-        if trackID == None:
-            self._logger.error("No track has been identified.")
-            raise NoTrackError
-        return self._executeAndFetchOneOrNull(
-            """select strftime('%s', 'now') - strftime('%s', datetime)
-               from enqueues where trackid = ? order by enqueueid desc""",
-            (trackID, ))
-
-    def addPlay(self, track, msDelay=0):
-        self._logger.debug("Adding play.")
-        trackID = track.getID()
-        track.setPreviousPlay(self.getLastPlayedInSeconds(track))
+            
+    def removeLink(self, firstTrack, secondTrack):
+        mycompletion = lambda linkID, firstTrack=firstTrack,\
+            secondTrack=secondTrack: self._removeLinkCompletion(firstTrack,
+                                                                secondTrack,
+                                                                linkID)
+        self.getLinkID(firstTrack, secondTrack, mycompletion)
         
-        delay = datetime.timedelta(0, 0, 0, msDelay)
-        now = datetime.datetime.now()
-        playTime = now - delay
-        self._cursor.execute("""insert into plays (trackid, datetime) values
-                                (?, datetime(?))""", (trackID, playTime))
+#    def asyncAddEnqueue(self, track):
+#        track.getID(lambda trackID: self._addEnqueueCompletion(trackID))
+#    
+#    def _addEnqueueCompletion(self, trackID):
+#        self._execute("""insert into enqueues (trackid, datetime) values
+#                              (?, datetime('now'))""", (trackID, ),
+#                           lambda result: self._logger.debug("Adding enqueue."))
+#
+#    def addEnqueue(self, track):
+#        self._logger.debug("Adding enqueue.")
+#        c = self._conn.cursor()
+#        trackID = track.getID()
+#        c.execute("""insert into enqueues (trackid, datetime) values
+#                     (?, datetime('now'))""", (trackID, ))
+#        c.close()
+#        self._conn.commit()
+#
+#    def getSecondsSinceLastEnqueuedFromID(self, trackID):
+#        if trackID == None:
+#            self._logger.error("No track has been identified.")
+#            raise NoTrackError
+#        return self._executeAndFetchOneOrNull(
+#            """select strftime('%s', 'now') - strftime('%s', datetime)
+#               from enqueues where trackid = ? order by enqueueid desc""",
+#            (trackID, ))
 
-    def getLastPlayedTrackID(self):
-        result = self._executeAndFetchOneOrNull(
-            "select trackid from plays order by playid desc")
-        if result != None:
-            return result
+    def _addPlayCompletion(self, track, trackID, msDelay=0):
+        self._logger.debug("Adding play.")
+        now = datetime.datetime.now()
+        delay = datetime.timedelta(0, 0, 0, msDelay)
+        playTime = now - delay
+        self.getLastPlayedInSeconds(
+            track, lambda previousPlay, track=track: track.setPreviousPlay(
+                previousPlay))
+        self._executeMany(["""insert into plays (trackid, datetime) values
+                              (?, datetime(?))""",
+                           """update tracks set lastplayed = datetime(?) where
+                              trackid = ?"""], [(trackID, playTime),
+                                                (playTime, trackID)],
+                            lambda result: doNothing())
+        
+    def addPlay(self, track, msDelay=0):
+        mycompletion = lambda trackID, track=track, msDelay=msDelay:\
+            self._addPlayCompletion(track, trackID, msDelay)
+        track.getID(mycompletion)
+        
+    def _getLastPlayedTrackIDCompletion(self, trackID, completion,
+                                        errcompletion):
+        if trackID != None:
+            completion(trackID)
         else:
             self._logger.error("No plays recorded.")
-            raise EmptyDatabaseError
+            errcompletion(EmptyDatabaseError)
+             
+    def getLastPlayedTrackID(self, completion, errcompletion, priority=None):
+        mycompletion = lambda trackID, completion=completion,\
+            errcompletion=errcompletion: self._getLastPlayedTrackIDCompletion(
+                trackID, completion, errcompletion)
+        self._executeAndFetchOneOrNull(
+            "select trackid from plays order by playid desc", (), mycompletion,
+            priority=priority)
+        
+    def _getLastPlayedCompletion2(self, trackID, playDetails, completion,
+                                  debug=True):
+        if playDetails == None and self._debugMode == True and debug == True:
+            self.getPathFromIDNoDebug(
+                trackID, lambda path: self._logger.debug(
+                    "\'"+path+"\' has never been played."))
+        completion(playDetails)
+        
+    def _getLastPlayedCompletion(self, trackID, completion, debug=True,
+                                 priority=None):
+        (self._basicLastPlayedIndex, self._localLastPlayedIndex,
+         self._secondsSinceLastPlayedIndex,
+         self._lastPlayedInSecondsIndex) = range(4)
+        mycompletion = lambda playDetails, trackID=trackID,\
+            completion=completion, debug=debug: self._getLastPlayedCompletion2(
+                trackID, playDetails, completion, debug=debug)
+        self._executeAndFetchOneOrNull(
+            """select datetime, datetime(datetime, 'localtime'),
+               strftime('%s', 'now') - strftime('%s', datetime),
+               strftime('%s', datetime) from plays where trackid = ? order by
+               playid desc""", (trackID, ), mycompletion, returnTuple=True,
+            priority=priority)
 
-    def _getLastPlayed(self, track=None, trackID=None):
-        (self.basicLastPlayedIndex, self.localLastPlayedIndex,
-         self.secondsSinceLastPlayedIndex,
-         self.lastPlayedInSecondsIndex) = range(4)
+    def _getLastPlayed(self, completion, track=None, trackID=None, debug=True,
+                       priority=None):
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError
-            trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("""select datetime, datetime(datetime, 'localtime'),
-                     strftime('%s', 'now') - strftime('%s', datetime),
-                     strftime('%s', datetime) from plays
-                     where trackid = ? order by playid desc""", (trackID, ))
-        result = c.fetchone()
-        c.close()
-        if result != None:
-            return result
+                raise NoTrackError # FIXME: probably broken
+            mycompletion = lambda newTrackID, completion=completion,\
+                priority=priority: self._getLastPlayedCompletion(
+                    newTrackID, completion, priority=priority)
+            track.getID(mycompletion, priority=priority)
+            return
+        self._getLastPlayedCompletion(trackID, completion, debug=debug,
+                                      priority=priority)
+
+        
+    def getLastPlayed(self, track, completion):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._basicLastPlayedIndex,
+                                      completion,
+                                      "Retrieving time of last play.")
+        self._getLastPlayed(mycompletion, track=track)
+    
+    def getLastPlayedLocalTime(self, track, completion, priority=None):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._localLastPlayedIndex,
+                                      completion,
+                                      "Retrieving time of last play in localtime.")
+        self._getLastPlayed(mycompletion, track=track, priority=priority)
+        
+    def _getLastPlayedInSecondsCompletion(self, lastPlayed, completion):
+        if lastPlayed != None:
+            lastPlayed = int(lastPlayed)
+        completion(lastPlayed)
+            
+    def getLastPlayedInSeconds(self, track, completion, priority=None):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(
+                details, self._lastPlayedInSecondsIndex,
+                lambda lastPlayed, completion=completion:\
+                    self._getLastPlayedInSecondsCompletion(lastPlayed,
+                                                           completion))
+        self._getLastPlayed(mycompletion, track=track, priority=priority)
+    
+    def getSecondsSinceLastPlayedFromID(self, trackID, completion, debug=True):
+        if self._debugMode == True and debug == True:
+            debugMessage = "Calculating time since last played."
         else:
-            if self._debugMode == True:
-                self._logger.debug("\'"+self.getPathFromIDNoDebug(trackID)\
-                                   +"\' has never been played.")
-            return None
-
-    def getLastPlayed(self, track):
-        self._logger.debug("Retrieving time of last play.")
-        details = self._getLastPlayed(track=track)
-        if details == None:
-            return None
-        return details[self.basicLastPlayedIndex]
-
-    def getLastPlayedLocalTime(self, track):
-        self._logger.debug("Retrieving time of last play in localtime.")
-        details = self._getLastPlayed(track=track)
-        if details == None:
-            return None
-        return details[self.localLastPlayedIndex]
-
-    def getLastPlayedInSeconds(self, track):
-        details = self._getLastPlayed(track=track)
-        if details == None:
-            return None
-        return int(details[self.lastPlayedInSecondsIndex])
-
-    def getSecondsSinceLastPlayedFromID(self, trackID):
-        if self._debugMode == True:
-            self._logger.debug("Calculating time since last played.")
-        details = self._getLastPlayed(trackID=trackID)
-        if details == None:
-            return None
-        return details[self.secondsSinceLastPlayedIndex]
+            debugMessage = None
+        mycompletion = lambda details, completion=completion,\
+            debugMessage=debugMessage: self._getDetailCompletion(
+                details, self._secondsSinceLastPlayedIndex, completion,
+                debugMessage)
+        self._getLastPlayed(mycompletion, trackID=trackID, debug=debug)
+        
+    def _getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(self,
+                                                                   rawList,
+                                                                   completion):
+        dict = {}
+        for row in rawList:
+            if row[3] == 1:
+                score = self._defaultScore
+            else:
+                score = row[2]
+            dict[row[0]] = (row[1], score)
+        completion(dict)
+        
+    def getAllSecondsSinceLastPlayedAndScoreDictNoDebug(self, completion):
+        self._executeAndFetchAll("""select trackid, strftime('%s', 'now') - 
+                                    strftime('%s', lastplayed), score, unscored
+                                    from tracks""", (),
+                                 lambda result, completion=completion:\
+                self._getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(
+                    result, completion))
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     # played again, this will get stuck. We need to keep track of
     # whether entries are current or historical. Partially fixed: 
     # currently bad tracks rely on being chosen by randomizer to update 
     # historical status.
-    def asyncGetOldestLastPlayed(self, completion):
-        try:
-            self._asyncExecuteAndFetchOne(
-                """select strftime('%s', 'now') - strftime('%s', min(datetime))
-                   from (select max(playid) as id, trackid from plays,
-                         (select trackid as historicalid from tracks where
-                          historical = 0) as historicaltracks where
-                         plays.trackid = historicaltracks.historicalid group by
-                         trackid) as maxplays, plays where maxplays.id =
-                   plays.playid""", (), completion)
-        except NoResultError:
-            completion(0)
+    def getOldestLastPlayed(self, completion):
+        errcompletion = ErrorCompletion(
+            NoResultError, lambda completion=completion: completion(0))
+        self._executeAndFetchOne(
+            """select strftime('%s', 'now') - strftime('%s', min(datetime))
+               from (select max(playid) as id, trackid from plays,
+                     (select trackid as historicalid from tracks where
+                      historical = 0) as historicaltracks where
+                     plays.trackid = historicaltracks.historicalid group by
+                     trackid) as maxplays, plays where maxplays.id =
+               plays.playid""", (), completion, errcompletion=errcompletion)
 
-    def getPlayCount(self, track=None, trackID=None):
+    def _getPlayCountCompletion(self, plays, completion):
+        if plays == None:
+            completion(0)
+            return
+        completion(len(plays))
+        
+    def getPlayCount(self, completion, track=None, trackID=None, priority=None):
         self._logger.debug("Retrieving play count.")
+        mycompletion = lambda plays, completion=completion:\
+            self._getPlayCountCompletion(plays, completion)
+        mycompletion2 = lambda trackID, mycompletion=mycompletion,\
+            priority=priority: self._executeAndFetchAll(
+                """select datetime from plays where trackid = ? order by playid
+                   desc""", (trackID, ), mycompletion, priority=priority)
+        if trackID == None:
+            if track == None:
+                self._logger.error("No track has been identified.")
+                raise NoTrackError # FIXME: probably broken
+            trackID = track.getID(mycompletion2, priority=priority)
+            return
+        mycompletion2(trackID)
+    
+#    def updateAllTrackDetails(self):
+#        trackIDs = self.getAllTrackIDs()
+#        for trackID in trackIDs:
+#            try:
+#                track = self._trackFactory.getTrackFromID()
+#                self.maybeUpdateTrackDetails(track)
+#            except NoTrackError:
+#                self.setHistorical(True, trackID)
+
+    def _getTrackDetails(self, completion, track=None, trackID=None,
+                         priority=None):
+        self._numberIndices = 9
+        (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
+         self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
+         self._bpmIndex, self._historicalIndex) = range(self._numberIndices)
+        mycompletion = lambda trackID, completion=completion,\
+            priority=priority: self._executeAndFetchOne(
+                """select path, artist, album, title, tracknumber, unscored,
+                   length, bpm, historical from tracks where trackid = ?""",
+                (trackID, ), completion, returnTuple=True, priority=priority)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
-##                return None
-            trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("""select datetime from plays where trackid = ? order by
-                     playid desc""", (trackID, ))
-        result = c.fetchall()
-        c.close()
-        if result == None:
-            return 0
-        count = len(result)
-        return count
-    
-    def updateAllTrackDetails(self):
-        trackIDs = self.getAllTrackIDs()
-        for trackID in trackIDs:
-            try:
-                track = self._trackFactory.getTrackFromID()
-                self.maybeUpdateTrackDetails(track)
-            except NoTrackError:
-                self.setHistorical(True, trackID)
-
-    def maybeUpdateTrackDetails(self, track):
-        if self._getTrackDetailsChange(track) == True:
-            self._updateTrackDetails(track)
-
-    def _updateTrackDetails(self, track):
-        path = track.getPath()
-        self._logger.debug("Updating \'"+path+"\' in the library.")
-        c = self._conn.cursor()
-        trackID = self._getTrackID(track)#, update=True)
-        if trackID != None:
-            c.execute("""update tracks set path = ?, artist = ?, album = ?,
-                         title = ?, tracknumber = ?, length = ?, bpm = ? where
-                         trackid = ?""", (path, track.getArtist(),
-                                          track.getAlbum(), track.getTitle(),
-                                          track.getTrackNumber(),
-                                          track.getLength(), track.getBPM(),
-                                          trackID))
-            self._logger.info("\'"+path+"\' has been updated in the library.")
+            track.getID(mycompletion, priority=priority)
         else:
-            self._logger.debug("\'"+path+"\' is not in the library.")
-        c.close()
-        self._conn.commit()
-
-    def _getTrackDetailsChange(self, track):
+            mycompletion(trackID)
+        
+    def _getTrackDetailsChangeCompletion(self, track, details, completion):
         self._logger.debug("Checking whether track details have changed.")
-        details = self._getTrackDetails(track=track)#, update=True)
         newDetails = {}
         newDetails[self._pathIndex] = track.getPath()
         newDetails[self._artistIndex] = track.getArtist()
@@ -845,293 +1290,394 @@ class Database(wx.EvtHandler):
         newDetails[self._trackNumberIndex] = track.getTrackNumber()
         newDetails[self._lengthIndex] = track.getLength()
         newDetails[self._bpmIndex] = track.getBPM()
-        for n in range(9):
+        for n in range(self._numberIndices):
             try:
                 if details[n] != newDetails[n]:
-                    return True
+                    completion(True)
+                    return
             except KeyError:
                 continue
-        return False
-
-    def _getTrackDetails(self, track=None, trackID=None):#, update=False):
-        (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
-         self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
-         self._bpmIndex, self._historicalIndex) = range(9)
-        if trackID == None:
-            if track == None:
-                self._logger.error("No track has been identified.")
-                raise NoTrackError
-            trackID = track.getID()#update)
-        c = self._conn.cursor()
-        c.execute("""select path, artist, album, title, tracknumber, unscored,
-                     length, bpm, historical from tracks where trackid = ?""",
-                  (trackID, ))
-        result = c.fetchone()
-        c.close()
-        return result
-
-    def getPath(self, track):
+        completion(False)
+    
+    def _getTrackDetailsChange(self, track, completion):
+        mycompletion = lambda details, track=track, completion=completion:\
+            self._getTrackDetailsChangeCompletion(track, details, completion)
+        self._getTrackDetails(mycompletion, track=track)
+        
+    def _maybeUpdateTrackDetailsCompletion(self, track, change):
+        if change == True:
+            self._updateTrackDetails(track)
+            
+    def maybeUpdateTrackDetails(self, track):
+        mycompletion = lambda change, track=track:\
+            self._maybeUpdateTrackDetailsCompletion(track, change)
+        self._getTrackDetailsChange(track, mycompletion)
+            
+    def _getPathCompletion(self, path, completion):
         self._logger.debug("Retrieving track's path.")
-        return self.getPathNoDebug(track)
-
-    def getPathNoDebug(self, track):
-        details = self._getTrackDetails(track=track)
+        completion(path)
+    
+    def getPath(self, track, completion):
+        mycompletion = lambda path, completion=completion:\
+            self._getPathCompletion(path, completion)
+        self.getPathNoDebug(track, mycompletion)
+        
+    def _getDetailCompletion(self, details, index, completion,
+                             debugMessage=None):
+        if debugMessage != None:
+            self._logger.debug(debugMessage)
         if details == None:
-            return None
-        return details[self._pathIndex]
-
-    def getPathFromID(self, trackID):
+            completion(None)
+            return
+        completion(details[index])
+    
+    def getPathNoDebug(self, track, completion):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._pathIndex, completion)
+        self._getTrackDetails(mycompletion, track=track)
+            
+    def _getPathFromIDCompletion(self, path, completion):
         self._logger.debug("Retrieving track's path.")
-        return self.getPathFromIDNoDebug(trackID)
+        completion(path)
+            
+    def getPathFromID(self, trackID, completion, priority=None):
+        mycompletion = lambda path, completion=completion:\
+            self._getPathFromIDCompletion(path, completion)
+        self.getPathFromIDNoDebug(trackID, mycompletion, priority=priority)
+    
+    def getPathFromIDNoDebug(self, trackID, completion, priority=None):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._pathIndex, completion)
+        self._getTrackDetails(mycompletion, trackID=trackID, priority=priority)
+    
+    def getArtist(self, track, completion):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._artistIndex, completion,
+                                      debugMessage="Retrieving track's artist.")
+        self._getTrackDetails(mycompletion, track=track)
+    
+    def getAlbum(self, track, completion):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._albumIndex, completion,
+                                      debugMessage="Retrieving track's album.")
+        self._getTrackDetails(mycompletion, track=track)
+    
+    def getTitle(self, track, completion):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._titleIndex, completion,
+                                      debugMessage="Retrieving track's title.")
+        self._getTrackDetails(mycompletion, track=track)
+    
+    def getTrackNumber(self, track, completion):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(details, self._trackNumberIndex,
+                                      completion,
+                                      debugMessage="Retrieving track's number.")
+        self._getTrackDetails(mycompletion, track=track)
 
-    def getPathFromIDNoDebug(self, trackID):
-        details = self._getTrackDetails(trackID=trackID)
-        if details == None:
-            return None
-        return details[self._pathIndex]
-
-    def getArtist(self, track):
-        self._logger.debug("Retrieving track's artist.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._artistIndex]
-
-    def getAlbum(self, track):
-        self._logger.debug("Retrieving track's album.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._albumIndex]
-
-    def getTitle(self, track):
-        self._logger.debug("Retrieving track's title.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._titleIndex]
-
-    def getTrackNumber(self, track):
-        self._logger.debug("Retrieving track's number.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._trackNumberIndex]
-
-    def getBPM(self, track):
+    def _getBPMCompletion(self, track, details, completion):
         self._logger.debug("Retrieving track's bpm.")
-        details = self._getTrackDetails(track=track)
         if details == None:
-            return None
+            completion(None)
+            return
         bpm = details[self._bpmIndex]
         if bpm == None:
             bpm = track.getBPM()
             self.setBPM(bpm, track)
-        return bpm
-
-    def setBPM(self, bpm, track):
-        self._logger.debug("Adding bpm to track.")
-        trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("update tracks set bpm = ? where trackID = ?", (bpm, trackID))
-        c.close()
-        self._conn.commit()
-        
-    def getHistorical(self, track):
-        self._logger.debug("Retrieving track's currency.")
-        details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        return details[self._historicalIndex]
+        completion(bpm)
     
-    def setHistorical(self, historical, trackID):
-        self._logger.debug("Making track non-current.")
-        c = self._conn.cursor()
-        if historical == True:
-            historical = 1
-        elif historical == False:
-            historical = 0
-        c.execute("update tracks set historical = ? where trackID = ?",
-                  (historical, trackID))
-        c.close()
-        self._conn.commit()
-
-    def getLength(self, track):
+    def getBPM(self, track, completion):
+        mycompletion = lambda details, track=track, completion=completion:\
+            self._getBPMCompletion(track, details, completion)
+        self._getTrackDetails(mycompletion, track=track)    
+            
+    def _setBPMCompletion(self, bpm, trackID):
+        mycompletion = lambda result: self._logger.debug("Adding bpm to track.")
+        self._execute("update tracks set bpm = ? where trackID = ?",
+                           (bpm, trackID), mycompletion)
+    
+    def setBPM(self, bpm, track):
+        mycompletion = lambda trackID, bpm=bpm: self._setBPMCompletion(bpm,
+                                                                       trackID)
+        track.getID(mycompletion)
+    
+    def getHistorical(self, track, completion):
+        mycompletion = lambda details, completion=completion:\
+            self._getDetailCompletion(
+                details, self._historicalIndex, completion,
+                debugMessage="Retrieving track's currency.")
+        self._getTrackDetails(mycompletion, track=track)
+    
+    def _getLengthCompletion(self, track, details, completion):
         self._logger.debug("Retrieving track's length.")
-        details = self._getTrackDetails(track=track)
         if details == None:
-            return None
+            completion(None)
+            return
         length = details[self._lengthIndex]
         if length == None:
             length = track.getLength()
             self.setLength(length, track)
-        return length
+        completion(length)
+        
+    def getLength(self, track, completion):
+        mycompletion = lambda details, track=track, completion=completion:\
+            self._getLengthCompletion(track, details, completion)
+        self._getTrackDetails(mycompletion, track=track)
+        
 
-    def getLengthString(self, track):
-        rawLength = self.getLength(track)
-        return formatLength(rawLength)
-
+    
+    def getLengthString(self, track, completion):
+        mycompletion = lambda rawLength, completion=completion:\
+            completion(formatLength(rawLength))
+        self.getLength(track, mycompletion)
+        
+    def _setLengthCompletion(self, length, trackID):
+        mycompletion = lambda result:\
+            self._logger.debug("Adding length to track.")
+        self._execute("update tracks set length = ? where trackID = ?",
+                           (length, trackID), mycompletion)
+        
     def setLength(self, length, track):
-        self._logger.debug("Adding length to track.")
-        trackID = track.getID()
-        c = self._conn.cursor()
-        c.execute("update tracks set length = ? where trackID = ?", (length,
-                                                                     trackID))
-        c.close()
-        self._conn.commit()
-
+        mycompletion = lambda trackID, length=length:\
+            self._setLengthCompletion(length, trackID)
+        track.getID(mycompletion)
+        
     def addTagName(self, tagName):
-        self._logger.debug("Adding tag name.")
-        self._cursor.execute("insert into tagnames (name) values (?)",
-                             (tagName, ))
-
-    def getAllTagNames(self):
+        mycompletion = lambda result: self._logger.debug("Adding tag name.")
+        self._execute("insert into tagnames (name) values (?)",
+                           (tagName, ), mycompletion)
+        
+    def _getAllTagNamesCompletion(self, names, completion):
         self._logger.debug("Retrieving all tag names.")
-        self._cursor.execute("select name from tagnames")
-        results = self._cursor.fetchall()
-        if results == None:
-            return []
+        if names == None:
+            completion([])
+            return
         tagNames = []
-        for result in results:
-            tagNames.append(result[0])
-        return tagNames
-
-    def getTagNameID(self, tagName):
-        return self._executeAndFetchOne(
-            "select tagnameid from tagnames where name = ?", (tagName, ))
-
-    def setTag(self, track, tagName):
-        self._logger.info("Tagging track with '"+tagName+"'.")
-        trackID = track.getID()
-        tagNames = self.getTags(track)
+        for (name, ) in names:
+            tagNames.append(name)
+        completion(tagNames)#
+            
+    def getAllTagNames(self, completion, priority=None):
+        mycompletion = lambda names, completion=completion:\
+            self._getAllTagNamesCompletion(names, completion)
+        self._executeAndFetchAll("select name from tagnames", (), mycompletion,
+                                 priority=priority)
+        
+    def getTagNameID(self, tagName, completion):
+        self._executeAndFetchOne(
+            "select tagnameid from tagnames where name = ?", (tagName, ),
+            completion)
+            
+    def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames):
         if tagName not in tagNames:
-            tagNameID = self.getTagNameID(tagName)
-            self._cursor.execute("""insert into tags (trackid, tagnameid) values
-									(?, ?)""", (trackID, tagNameID))
-
+            mycompletion = lambda result, tagName=tagName:\
+                self._logger.info("Tagging track with '"+tagName+"'.")
+            self._execute("""insert into tags (trackid, tagnameid) values
+                                  (?, ?)""", (trackID, tagNameID), mycompletion)
+            
+    def setTag(self, track, tagName):
+        multicompletion =\
+            MultiCompletion(3, lambda trackID, tagNames, tagNameID,\
+                                tagName=tagName:\
+                                    self._setTagCompletion(trackID, tagName,
+                                                           tagNameID, tagNames))
+        track.getID(lambda trackID, multicompletion=multicompletion:\
+                        multicompletion.put(0, trackID))
+        self.getTags(track, lambda tagNames, multicompletion=multicompletion:\
+                        multicompletion.put(1, tagNames))
+        self.getTagNameID(tagName, lambda tagNameID,\
+                            multicompletion=multicompletion:\
+                                multicompletion.put(2, tagNameID))
+        
+    def _unsetTagCompletion(self, trackID, tagNameID):
+        self._execute("""delete from tags where tagnameid = ? and
+                              trackid = ?""", (tagNameID, trackID),
+                           lambda result: doNothing())
+        
     def unsetTag(self, track, tagName):
-        trackID = track.getID()
-        tagNameID = self.getTagNameID(tagName)
-        self._cursor.execute("""delete from tags where tagnameid = ? and
-                                trackid = ?""", (tagNameID, trackID))
-
-    def getTags(self, track):
-        trackID = track.getID()
-        return self.getTagsFromTrackID(trackID)
-
-    def getTagsFromTrackID(self, trackID):
+        multicompletion =\
+            MultiCompletion(2, lambda trackID, tagNameID:\
+                            self._unsetTagCompletion(trackID, tagNameID))
+        track.getID(lambda trackID, multicompletion=multicompletion:\
+                        multicompletion.put(0, trackID))
+        self.getTagNameID(tagName, lambda tagNameID,\
+                            multicompletion=multicompletion:\
+                                multicompletion.put(1, tagNameID))
+        
+    def getTagNameFromID(self, tagNameID, completion, priority=None):
+        self._executeAndFetchOne(
+            "select name from tagnames where tagnameid = ?", (tagNameID, ),
+            completion, priority=priority)
+        
+    def _getTagsFromTrackIDCompletion(self, tagNameIDs, completion,
+                                      priority=None):
         self._logger.debug("Retrieving track tags.")
-        c = self._conn.cursor()
-        c.execute("select tagnameid from tags where trackid = ?", (trackID, ))
-        tagNameIDs = c.fetchall()
-        c.close()
         if tagNameIDs == None:
-            return []
-        tagNames = []
-        for tagNameID in tagNameIDs:
-            tagNames.append(self._executeAndFetchOne(
-                "select name from tagnames where tagnameid = ?",
-                (tagNameID[0], )))
-        return tagNames
+            completion([])
+            return
+        self._tagNames = []
+        for (tagNameID, ) in tagNameIDs:
+            mycompletion = lambda tagName: self._tagNames.append(tagName)
+            self.getTagNameFromID(tagNameID, mycompletion, priority=priority)
+        self.complete(lambda result: completion(self._tagNames),
+                      priority=priority)
+    
+    def getTagsFromTrackID(self, trackID, completion, priority=None):
+        mycompletion = lambda tagNameIDs, completion=completion,\
+            priority=priority: self._getTagsFromTrackIDCompletion(
+                tagNameIDs, completion, priority=priority)
+        self._executeAndFetchAll(
+            "select tagnameid from tags where trackid = ?", (trackID, ),
+            mycompletion, priority=priority, throwException=False)
+        
+    def getTags(self, track, completion, priority=None):
+        mycompletion = lambda trackID, completion=completion,\
+            priority=priority: self.getTagsFromTrackID(trackID, completion,
+                                                       priority=priority)
+        track.getID(mycompletion)
+        
+    def _getIsScoredCompletion(self, unscored, completion):
+        if unscored == None:
+            completion(None)
+        elif unscored == 1:
+            completion(False)
+        elif unscored == 0:
+            completion(True)
 
     ## determines whether user has changed score for this track
-    def _getIsScored(self, track=None, trackID=None):
-        if self._debugMode == True:
-            self._logger.debug("Retrieving track's unscored status.")
-        if trackID != None:
-            details = self._getTrackDetails(trackID=trackID)
+    def _getIsScored(self, completion, track=None, trackID=None, debug=True,
+                     priority=None):
+        if self._debugMode == True and debug == True:
+            debugMessage = "Retrieving track's unscored status."
         else:
-            details = self._getTrackDetails(track=track)
-        if details == None:
-            return None
-        if details[self._unscoredIndex] == 1:
-            return False
-        elif details[self._unscoredIndex] == 0:
-            return True
+            debugMessage = None
+        mycompletion = lambda details, completion=completion,\
+            debugMessage=debugMessage: self._getDetailCompletion(
+                details, self._unscoredIndex, lambda unscored,\
+                    completion=completion, debugMessage=debugMessage:\
+                        self._getIsScoredCompletion(unscored, completion),
+                debugMessage=debugMessage)
+        if trackID != None:
+            self._getTrackDetails(mycompletion, trackID=trackID,
+                                  priority=priority)
+        else:
+            self._getTrackDetails(mycompletion, track=track, priority=priority)
 
-    def getIsScored(self, track):
-        return self._getIsScored(track=track)
+    def getIsScored(self, track, completion, priority=None):
+        self._getIsScored(completion, track=track, priority=priority)
 
-    def getIsScoredFromID(self, trackID):
-        return self._getIsScored(trackID=trackID)
-
+    def getIsScoredFromID(self, trackID, completion, debug=True):
+        self._getIsScored(completion, trackID=trackID, debug=debug)
+    
     ## poss should add a record to scores table
     def setUnscored(self, track):
-        self._logger.debug("Setting track as unscored.")
-        c = self._conn.cursor()
-        trackID = track.getID()
-        c.execute("update tracks set unscored = 1 where trackid = ?",
-                  (trackID, ))
-        c.close()
-        self._conn.commit()
-
+        track.getID(
+            lambda trackID: self._execute(
+                "update tracks set unscored = 1 where trackid = ?", (trackID, ),
+                lambda result: self._logger.debug(
+                    "Setting track as unscored.")))
+        
+    def _setScoreCompletion(self, trackID, score):
+        self._executeMany(
+            ["update tracks set unscored = 0, score = ? where trackid = ?",
+             """insert into scores (trackid, score, datetime) values
+                (?, ?, datetime('now'))"""],
+            [(score, trackID), (trackID, score)],
+            lambda result: self._logger.debug("Setting track's score."))
+        
     ## poss add track if track not in library
     def setScore(self, track, score):
-        self._logger.debug("Setting track's score.")
-        c = self._conn.cursor()
-        trackID = track.getID()
-        c.execute("update tracks set unscored = 0 where trackid = ?",
-                  (trackID, ))
-        c.execute("""insert into scores (trackid, score, datetime) values
-                     (?, ?, datetime('now'))""", (trackID, score, ))
-        c.close()
-        self._conn.commit()
-
-    def _getScore(self, track=None, trackID=None):
-        self._logger.debug("Retrieving track's score.")
+        track.getID(lambda trackID, score=score: self._setScoreCompletion(
+                        trackID, score))
+        
+    def _internalGetScoreCompletion(self, score, completion, debug=True):
+        if debug == True:
+            self._logger.debug("Retrieving track's score.")
+        completion(score)
+        
+    def _getScore(self, completion, track=None, trackID=None, debug=True,
+                  priority=None):
+        mycompletion = lambda trackID, completion=completion, debug=debug,\
+            priority=priority: self._executeAndFetchOneOrNull(
+                """select score from scores where trackid = ? order by scoreid
+                   desc""", (trackID, ),
+                lambda score, completion=completion, debug=debug:\
+                    self._internalGetScoreCompletion(score, completion,
+                                                     debug=debug),
+                priority=priority)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError
-            trackID = track.getID()
-        return self._executeAndFetchOneOrNull(
-            "select score from scores where trackid = ? order by scoreid desc",
-            (trackID, ))
+                raise NoTrackError # FIXME: probably doesn't work
+            track.getID(mycompletion, priority=priority)
+            return
+        mycompletion(trackID)
+    
+    def _getScoreCompletion(self, isScored, completion, completeWithDash=False,
+                            track=None, trackID=None, debug=True,
+                            priority=None):
+        if isScored == False:
+            if completeWithDash == True:
+                completion("-")
+            else:
+                completion(self._defaultScore)
+        else:
+            self._getScore(completion, track=track, trackID=trackID,
+                           debug=debug, priority=priority)
+            
+    def getScore(self, track, completion):
+        self.getIsScored(
+            track, lambda isScored, completion=completion, track=track:\
+                self._getScoreCompletion(isScored, completion,
+                                         completeWithDash=True, track=track))
+    
+    def getScoreValue(self, track, completion, priority=None):
+        self.getIsScored(
+            track, lambda isScored, completion=completion, track=track,\
+                priority=priority: self._getScoreCompletion(isScored,
+                                                            completion,
+                                                            track=track,
+                                                            priority=priority),
+            priority=priority)
+    
+    def getScoreValueFromID(self, trackID, completion, debug=True):
+        self.getIsScoredFromID(
+            trackID, lambda isScored, completion=completion, trackID=trackID,\
+                debug=debug: self._getScoreCompletion(isScored, completion,
+                                                      trackID=trackID,
+                                                      debug=debug),
+            debug=debug)
 
-    def getScore(self, track):
-        if self.getIsScored(track) == False:
-            return "-"
-        return self._getScore(track=track)
-
-    def getScoreValue(self, track):
-        if self.getIsScored(track) == False:
-            return self._defaultScore
-        return self._getScore(track=track)
-
-    def getScoreValueFromID(self, trackID):
-        if self.getIsScoredFromID(trackID) == False:
-            return self._defaultScore
-        return self._getScore(trackID=trackID)
-
-    def maybeGetIDFromPath(self, path):
+    def maybeGetIDFromPath(self, path, completion):
         path = os.path.realpath(path)
-        return self._executeAndFetchOneOrNull(
-            "select trackid from tracks where path = ?", (path, ))
+        self._executeAndFetchOneOrNull(
+            "select trackid from tracks where path = ?", (path, ), completion)
 
-    def getIDFromPath(self, path):
-        id = self.maybeGetIDFromPath(path)
-        if id is None:
-            raise PathNotFoundError()
+#    def getIDFromPath(self, path):
+#        id = self.maybeGetIDFromPath(path)
+#        if id is None:
+#            raise PathNotFoundError()
 
-    def getNumberOfTracks(self):
-        return self._executeAndFetchOne("select count(*) from tracks")
-
+    def getNumberOfTracks(self, completion, priority=None):
+        self._executeAndFetchOne("select count(*) from tracks", (), completion,
+                                 priority=priority)
+    
     # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
     # or this is slow!
-    def getNumberOfUnplayedTracks(self):
-        return self._executeAndFetchOne(
+    def getNumberOfUnplayedTracks(self, completion, priority=None):
+        self._executeAndFetchOne(
             """select count(*) from tracks left outer join plays using(trackid)
-               where plays.trackid is null""")
-
+               where plays.trackid is null""", (), completion,
+            priority=priority)
+        
     # returns an array of [ score, count ]
-    def getScoreTotals(self):
-        self._cursor.execute(
+    def getScoreTotals(self, completion, priority=None):
+        self._executeAndFetchAll(
             """select score, count(score)
                from (select max(scoreid), x.trackid, score
                      from scores, (select distinct trackid from scores) as x
                      where scores.trackid = x.trackid group by scores.trackid)
-               group by score;""")
-        return self._cursor.fetchall()
+               group by score;""", (), completion, priority=priority)
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger,
