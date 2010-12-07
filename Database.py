@@ -18,6 +18,7 @@ import os
 import Queue
 import sqlite3
 import threading
+import time
 import traceback
 from Util import *
 
@@ -27,30 +28,47 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class Thread(threading.Thread): # FIXME: add interrupt?
-    def __init__(self, db, path, name):
+    def __init__(self, db, path, name, logger, errcompletion):
         threading.Thread.__init__(self, name=name)
+        self._name = name
+        self._logger = logger
+        self._errcompletion = errcompletion
         self._db = db
         self._databasePath = os.path.realpath(path)
         self._queue = Queue.PriorityQueue()
         self._eventCount = 0
+        self._abortFlag = False
         
     def queue(self, thing, trace, priority=2):
         self._eventCount += 1
         self._queue.put((priority, self._eventCount, thing, trace))
 
     def run(self):
+        self._logger.info("Starting \'"+self._name+"\' thread.")
         conn = sqlite3.connect(self._databasePath)
         cursor = conn.cursor()
         while True:
-            got = self._queue.get()
+            try:
+                got = self._queue.get_nowait()
+            except Queue.Empty:
+                if self._abortFlag == True:
+                    conn.commit()
+                    self._logger.info("Stopping \'"+self._name+"\' thread.")
+                    return
+                self._raise(EmptyQueueError(trace=extractTraceStack([])),
+                            self._errcompletion)
+                continue
             got[2](self, cursor, got[3])
             conn.commit()
-            
+        
     def _raise(self, err, errcompletion=None):
         try:
             errcompletion(err)
         except:
             wx.PostEvent(self._db, ExceptionEvent(err))
+            
+    def abort(self):
+        self._abortFlag = True
             
 class DatabaseEventHandler(wx.EvtHandler):
     def __init__(self, dbThread, priority):
@@ -195,15 +213,28 @@ class DatabaseEventHandler(wx.EvtHandler):
                 self._logger.debug("Making track current.")
             historical = 0
         self._execute("update tracks set historical = ? where trackID = ?",
-                           (historical, trackID), mycompletion)
+                      (historical, trackID), mycompletion)
         
-# FIXME: should somehow indicate that it is working/finished without spamming
 class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def __init__(self, db, path, logger, trackFactory, dbThread):
+        self._working = False
+        self._errorCount = 0
+        errcompletion = ErrorCompletion(EmptyQueueError,
+                                        lambda: self._onEmptyQueueError())
+        Thread.__init__(self, db, path, "Directory Walk", logger,
+                        lambda err: errcompletion(err))
         DatabaseEventHandler.__init__(self, dbThread, 3)
-        Thread.__init__(self, db, path, "Directory Walk")
         self._logger = logger
         self._trackFactory = trackFactory
+        
+    def _onEmptyQueueError(self):
+        if self._working == True:
+            if self._errorCount > 100:
+                self._working = False
+                self._errorCount = 0
+                self._logger.info("Probably finished directory walk.")
+            else:
+                self._errorCount += 1
         
     def _getTrackIDCompletion(self, track, trackID, completion):
         path = track.getPath()
@@ -223,10 +254,10 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                                   title, tracknumber, unscored, length, bpm,
                                   historical) values
                                   (?, ?, ?, ?, ?, 1, ?, ?, 0)""",
-                               (path, track.getArtist(), track.getAlbum(),
-                                track.getTitle(), track.getTrackNumber(),
-                                track.getLength(), track.getBPM()),
-                               mycompletion)
+                           (path, track.getArtist(), track.getAlbum(),
+                            track.getTitle(), track.getTrackNumber(),
+                            track.getLength(), track.getBPM()),
+                           mycompletion)
 #            trackID = cursor.lastrowid
 #            self._logger.info("\'"+path+"\' has been added to the library.")
         else:
@@ -234,7 +265,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         track.setID(self._trackFactory, trackID)
 #        return trackID
         
-    def doAddTrack(self, path, trace):
+    def _doAddTrack(self, path, trace):
         try:
             track = self._trackFactory.getTrackFromPathNoID(self, path,
                                                             useCache=False)
@@ -254,7 +285,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def _addTrack(self, path, trace=[]):
         trace = extractTraceStack(trace)
         self.queue(lambda thread, cursor, traceBack, path=path:\
-                        thread.doAddTrack(path, traceBack), trace)
+                        thread._doAddTrack(path, traceBack), trace)
             
     def doWalkDirectoryNoWatch(self, directory, callback, trace):
         self._logger.debug("Finding files from \'"+directory+"\'.")
@@ -267,6 +298,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                 callback(path)
     
     def walkDirectoryNoWatch(self, directory, callback, trace=[]):
+        self._working = True
         directory = os.path.realpath(directory)
         trace = extractTraceStack(trace)
         self.queue(lambda thread, cursor, traceBack, directory=directory,\
@@ -288,6 +320,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                             directory, completion, traceBack), trace)
         
     def maybeAddToWatch(self, directory, directoryID):
+        self._working = True
         if directoryID == None:
             mycompletion = lambda result, directory=directory:\
                 self._logger.info("\'"+directory\
@@ -306,6 +339,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         self.walkDirectoryNoWatch(directory, callback)
         
     def walkDirectory(self, directory, callback, trace=[]):
+        self._working = True
         directory = os.path.realpath(directory)
         trace = extractTraceStack(trace)
         self.queue(lambda thread, cursor, traceBack, directory=directory:\
@@ -328,8 +362,6 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         mycompletion = lambda paths: self._rescanDirectoriesCompletion(paths)
         self._executeAndFetchAll("select path from directories", (),
                                  mycompletion, errcompletion=errcompletion)
-#        except NoResultError: # FIXME: does this work?
-#            self._logger.info("The watch list is empty.")
     
     def rescanDirectories(self, trace=[]):
         trace = extractTraceStack(trace)
@@ -340,8 +372,10 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         self._updateTrackDetails(track, infoLogging=False)
 
 class DatabaseThread(Thread):
-    def __init__(self, db, path):
-        Thread.__init__(self, db, path, "Database")
+    def __init__(self, db, path, logger):
+        errcompletion = ErrorCompletion(EmptyQueueError, lambda: doNothing())
+        Thread.__init__(self, db, path, "Database", logger,
+                        lambda err: errcompletion(err))
         
     def doComplete(self, completion, trace):
         completion(None)
@@ -501,10 +535,10 @@ class Database(DatabaseEventHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,
                  debugMode=False, databasePath="database",
                  defaultDefaultScore=10):
-        DatabaseEventHandler.__init__(self, DatabaseThread(self, databasePath),
-                                      2)
-        self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
+        DatabaseEventHandler.__init__(self, DatabaseThread(self, databasePath,
+                                                           self._logger), 2)
+        self._trackFactory = trackFactory
         self._configParser = configParser
         self._defaultDefaultScore = defaultDefaultScore
         self.loadSettings()
@@ -530,6 +564,10 @@ class Database(DatabaseEventHandler):
             self, self._databasePath, self._logger, self._trackFactory,
             self._dbThread)
         self._directoryWalkThread.start()
+        
+    def abort(self):
+        self._directoryWalkThread.abort()
+        self._dbThread.abort()
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")

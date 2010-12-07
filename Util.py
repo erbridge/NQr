@@ -93,7 +93,10 @@ class MultiCompletion:
         
 class ErrorCompletion:
     def __init__(self, exceptions, completion):
-        self._exceptions = exceptions
+        if isinstance(exceptions, list):
+            self._exceptions = exceptions
+        else:
+            self._exceptions = [exceptions]
         self._completion = completion
     
     def __call__(self, err, *args, **kwargs):

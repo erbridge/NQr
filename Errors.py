@@ -8,6 +8,9 @@ class Error(Exception):
 class EmptyDatabaseError(Error):
     pass
 
+class EmptyQueueError(Error):
+    pass
+
 class NoTrackError(Error):
     pass
 

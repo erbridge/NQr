@@ -987,6 +987,7 @@ class MainWindow(wx.Frame):
             self._trackMonitor.abort()
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
+        self._db.abort()
         
         self.Destroy()
 
