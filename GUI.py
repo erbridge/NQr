@@ -139,10 +139,53 @@ class TrackMonitor(threading.Thread):
     
     def setEnqueueing(self, status):
         self._enqueueing = status
+        
+ID_EVT_BRING_TO_FRONT = wx.NewId()
+
+def EVT_BRING_TO_FRONT(window, func):
+    window.Connect(-1, -1, ID_EVT_BRING_TO_FRONT, func)
+
+class BringToFrontEvent(wx.PyEvent):
+    def __init__(self):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_BRING_TO_FRONT)
+
+# FIXME: currently turned off since it does nothing
+class SocketMonitor(threading.Thread):
+    def __init__(self, window, socket, loggerFactory):
+        threading.Thread.__init__(self, name="Socket Monitor")
+        self.setDaemon(True)
+        self._window = window
+        self._socket = socket
+        self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
+        self._abortFlag = False
+#        self.start()
+
+    def run(self):
+        self._socket.listen(1)
+        # FIXME: has windows permission issues...
+        (conn, address) = self._socket.accept()
+        # FIXME: doesn't continue until connection made
+        while True:
+            time.sleep(3)
+            if self._abortFlag == True:
+                self._logger.debug("Stopping socket monitor.")
+                conn.close()
+                return
+            if conn.recv(2048) == "raise":
+                self._logger.debug("Received bring to front call.")
+                wx.PostEvent(self._window, BringToFrontEvent())
+            if self._abortFlag == True:
+                self._logger.debug("Stopping socket monitor.")
+                conn.close()
+                return
+
+    def abort(self):
+        self._abortFlag = True
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
-                 loggerFactory, prefsFactory, configParser, title="NQr",
+                 loggerFactory, prefsFactory, configParser, socket, title="NQr",
                  restorePlaylist=False, enqueueOnStartup=True,
                  defaultRescanOnStartup=False, defaultPlaylistLength=11,
                  defaultPlayDelay=4000, defaultInactivityTime=30000,
@@ -227,6 +270,9 @@ class MainWindow(wx.Frame):
         self._logger.info("Starting track monitor.")
         self._trackMonitor = TrackMonitor(self, self._db, self._player,
                                           self._trackFactory, loggerFactory)
+        
+        self._logger.debug("Starting socket monitor.")
+        self._socketMonitor = SocketMonitor(self, socket, loggerFactory)
 
         wx.EVT_TIMER(self, self._ID_PLAYTIMER, self._onPlayTimerDing)
         wx.EVT_TIMER(self, self._ID_INACTIVITYTIMER,
@@ -234,6 +280,7 @@ class MainWindow(wx.Frame):
         wx.EVT_TIMER(self, self._ID_REFRESHTIMER, self._onRefreshTimerDing)
         EVT_TRACK_CHANGE(self, self._onTrackChange)
         EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
+        EVT_BRING_TO_FRONT(self, self._onBringToFront)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
         EVT_TEST(self, self._onTestEvent)
@@ -984,6 +1031,7 @@ class MainWindow(wx.Frame):
         self._optionsMenu.Check(self._ID_TOGGLENQR, False)
         if self._trackMonitor:
             self._trackMonitor.abort()
+        self._socketMonitor.abort()
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
         self._db.abort()
@@ -1069,6 +1117,9 @@ class MainWindow(wx.Frame):
     
     def _onNoNextTrack(self, e):
         self.maintainPlaylist()
+        
+    def _onBringToFront(self, e):
+        self.Raise() # FIXME: doesn't raise above other apps
 
     def _onPlayTimerDing(self, e):
         track = self._playingTrack

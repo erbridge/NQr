@@ -82,7 +82,7 @@ class Main(wx.App):
                                                             traceBack)]))
         sys.exit(1)## poss remove for non-dev versions?
 
-    def run(self):
+    def run(self, socket):
         # Do platform-dependent imports, and choose a player type. For
         # now, we just choose it based on the platform...
         system = platform.system()
@@ -129,7 +129,7 @@ class Main(wx.App):
             title = title + " (no queue)"
         gui = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
                              self._loggerFactory, prefsFactory,
-                             self._configParser, title=title)
+                             self._configParser, socket, title=title)
         gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
@@ -234,16 +234,22 @@ class PrefsPage(wx.Panel):
         
 if __name__ == '__main__':
     NQr = Main()
+    # I'm not sure what this really does (Felix)
+    sock = socket.socket()
+    host = socket.gethostname()
+    port = 35636 # FIXME: make sure this port is not used on this system
     try:
-        # I'm not sure what this really does (Felix)
-        sock = socket.socket()
-        host = socket.gethostname()
-        port = 35636 # FIXME: make sure this port is not used on this system
         sock.bind((host, port))
-        NQr.run()
+        NQr.run(sock)
     except socket.error as (errno, msg):
         if errno != 10048:
             raise
         NQr.criticalLog("NQr is already running.")
         # TODO: make running NQr focus
+#        # FIXME: has windows permission issues...
+#        sock.connect((host, port))
+#        sock.send("raise")
+        dialog = wx.MessageDialog(None, "NQr is already running", "NQr", wx.OK)
+        dialog.ShowModal()
+        dialog.Destroy()
     
