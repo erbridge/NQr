@@ -95,6 +95,7 @@ class WinampWindows(MediaPlayer):
 ##    def playTrack(self, filepath):
 
     def deleteTrack(self, position):
+        self.launchBackground()
         self._logger.debug("Deleting track in position "+str(position)\
                            +" from playlist.")
         playlistEditorHandle = self._winamp.doIpcCommand(IPC_GETWND,
@@ -103,6 +104,7 @@ class WinampWindows(MediaPlayer):
                                           IPC_PE_DELETEINDEX, position)
 
     def clearPlaylist(self):
+        self.launchBackground()
         self._logger.debug("Clearing playlist.")
         self._winamp.clearPlaylist()
 
@@ -138,10 +140,12 @@ class WinampWindows(MediaPlayer):
         self._winamp.fadeStop()
 
     def getShuffle(self):
+        self.launchBackground()
         self._logger.debug("Retrieving shuffle status.")
         return self._winamp.getShuffle()
 
     def setShuffle(self, status):
+        self.launchBackground()
         self._logger.debug("Setting shuffle status.")
         if status == True or status == 1:
             self._winamp.setShuffle(1)
@@ -164,6 +168,7 @@ class WinampWindows(MediaPlayer):
     ## Has logging option so track monitor can call it without spamming the
     ## debug log.
     def _getTrackPathAtPos(self, trackPosition, logging=True):
+        self.launchBackground()
         if logging == True:
             self._logger.debug("Retrieving path of track at position "\
                                +str(trackPosition)+".")
@@ -183,9 +188,6 @@ class WinampWindows(MediaPlayer):
         winampProcess.Close()
         if logging == True:
             self._logger.debug("Retrieving path from memory buffer.")
-        hexlist = []
-        for n in range(256):
-            hexlist.append(hex(n))
         try:
             rawPath = win32api.GetFullPathName(
                 memoryBuffer.raw.split("\x00")[0])
