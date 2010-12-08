@@ -52,14 +52,23 @@ class Thread(threading.Thread): # FIXME: add interrupt?
                 got = self._queue.get_nowait()
             except Queue.Empty:
                 if self._abortFlag == True:
-                    conn.commit()
+                    self._commit(conn)
                     self._logger.info("Stopping \'"+self._name+"\' thread.")
                     return
                 self._raise(EmptyQueueError(trace=extractTraceStack([])),
                             self._errcompletion)
                 continue
             got[2](self, cursor, got[3])
-            conn.commit()
+            self._commit(conn)
+            
+    def _commit(self, conn):
+            try:
+                conn.commit()
+            except sqlite3.OperationalError as err:
+                if str(err) != "disk I/O error":
+                    raise err
+                time.sleep(.01)
+                self._commit(conn)
         
     def _raise(self, err, errcompletion=None):
         try:
