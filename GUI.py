@@ -1488,9 +1488,9 @@ class MainWindow(wx.Frame):
             if tag == tagName:
                 return tagID
 
-    def getPrefsPage(self, parent, logger):
+    def getPrefsPage(self, parent, logger, system):
         return PrefsPage(
-            parent, self._configParser, logger, self._defaultPlayDelay,
+            parent, system, self._configParser, logger, self._defaultPlayDelay,
             self._defaultInactivityTime, self._defaultIgnore,
             self._defaultHaveLogPanel, self._defaultRescanOnStartup), "GUI"
 
@@ -1525,10 +1525,11 @@ class MainWindow(wx.Frame):
             self._haveLogPanel = self._defaultHaveLogPanel
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger, defaultPlayDelay,
+    def __init__(self, parent, system, configParser, logger, defaultPlayDelay,
                  defaultInactivityTime, defaultIgnore, defaultHaveLogPanel,
                  defaultRescanOnStartup):
         wx.Panel.__init__(self, parent)
+        self._system = system
         self._logger = logger
         self._defaultPlayDelay = defaultPlayDelay
         self._defaultInactivityTime = defaultInactivityTime

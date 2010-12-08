@@ -1715,8 +1715,8 @@ class Database(DatabaseEventHandler):
                      where scores.trackid = x.trackid group by scores.trackid)
                group by score;""", (), completion, priority=priority)
 
-    def getPrefsPage(self, parent, logger):
-        return PrefsPage(parent, self._configParser, logger,
+    def getPrefsPage(self, parent, logger, system):
+        return PrefsPage(parent, system, self._configParser, logger,
                          self._defaultDefaultScore), "Database"
 
     def loadSettings(self):
@@ -1731,8 +1731,10 @@ class Database(DatabaseEventHandler):
             self._defaultScore = self._defaultDefaultScore
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger, defaultDefaultScore):
+    def __init__(self, parent, system, configParser, logger,
+                 defaultDefaultScore):
         wx.Panel.__init__(self, parent)
+        self._system = system
         self._logger = logger
         self._defaultDefaultScore = defaultDefaultScore
         self._settings = {}

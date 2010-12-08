@@ -30,8 +30,8 @@ class TrackFactory:
         self._trackPathCache = {}
         self._trackPathList = []
 
-    def getPrefsPage(self, parent, logger):
-        return PrefsPage(parent, self._configParser, logger), "Track"
+    def getPrefsPage(self, parent, logger, system):
+        return PrefsPage(parent, system, self._configParser, logger), "Track"
 
     def loadSettings(self):
         pass
@@ -318,8 +318,9 @@ class AudioTrack(Track):
         return self._lengthString
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger):
+    def __init__(self, parent, system, configParser, logger):
         wx.Panel.__init__(self, parent)
+        self._system = system
         self._logger = logger
         self._settings = {}
         self._configParser = configParser

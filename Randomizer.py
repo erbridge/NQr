@@ -30,10 +30,10 @@ class Randomizer:
         self._defaultWeight = defaultWeight
         self.loadSettings()
         
-    def getPrefsPage(self, parent, logger):
+    def getPrefsPage(self, parent, logger, system):
         return PrefsPage(
-            parent, self._configParser, logger, self._defaultScoreThreshold,
-            self._defaultWeight), "Randomizer"
+            parent, system, self._configParser, logger,
+            self._defaultScoreThreshold, self._defaultWeight), "Randomizer"
 
     def loadSettings(self):
         try:
@@ -191,9 +191,10 @@ class Randomizer:
         return self._weightAlgorithm(score, time)
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger, defaultScoreThreshold,
+    def __init__(self, parent, system, configParser, logger, defaultScoreThreshold,
                  defaultWeight):
         wx.Panel.__init__(self, parent)
+        self._system = system
         self._logger = logger
         self._defaultScoreThreshold = defaultScoreThreshold
         self._defaultWeight = defaultWeight

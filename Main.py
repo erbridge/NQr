@@ -41,6 +41,13 @@ class Main(wx.App):
 
         self._defaultNoQueue = False
         self._defaultDebugMode = False
+        self._system = platform.system()
+        if self._system == "Windows":
+            self._defaultPlayer = "Winamp"
+        elif self._system == "FreeBSD":
+            self._defaultPlayer = "XMMS"
+        elif self._system == "Mac OS X":
+            self._defaultPlayer = "iTunes"
         
         self.loadSettings()
         
@@ -85,25 +92,30 @@ class Main(wx.App):
     def run(self, socket):
         # Do platform-dependent imports, and choose a player type. For
         # now, we just choose it based on the platform...
-        system = platform.system()
-        self._logger.debug("Running on "+system+".")
+        self._logger.debug("Running on "+self._system+".")
         player = None
-        if system == 'Windows':
+        if self._player == "Winamp":
             self._logger.debug("Loading Winamp module.")
             import WinampWindows
             player = WinampWindows.WinampWindows(self._loggerFactory,
                                                  self._noQueue,
                                                  self._configParser)
-            ## should be called early
-        elif system == 'FreeBSD':
+        elif self._player == "XMMS":
             self._logger.debug("Loading XMMS module.")
             import XMMS
             player = XMMS.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser)
-        elif system == 'Mac OS X':
+        elif self._player == "iTunes" and self._system == "Mac OS X":
             self._logger.debug("Loading iTunes module.")
             import iTunesMacOS
             player = iTunesMacOS.iTunesMacOS(self._noQueue)
+        
+        elif self._player == "iTunes" and self._system == "Windows":
+            self._logger.debug("Loading iTunes module.")
+            import iTunesWindows
+            player = iTunesWindows.iTunesWindows(self._loggerFactory,
+                                                 self._noQueue,
+                                                 self._configParser)
 
         self._logger.debug("Initializing track factory.")
         trackFactory = Track.TrackFactory(self._loggerFactory,
@@ -121,14 +133,15 @@ class Main(wx.App):
 
         modules = [player, trackFactory, db, randomizer, self]
         prefsFactory = Prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
-                                          modules, self._configParser)
+                                          modules, self._configParser,
+                                          self._system)
         
         self._logger.debug("Initializing GUI.")
         title = "NQr"
         if self._noQueue:
             title = title + " (no queue)"
-        gui = GUI.MainWindow(None, db, randomizer, player, trackFactory, system,
-                             self._loggerFactory, prefsFactory,
+        gui = GUI.MainWindow(None, db, randomizer, player, trackFactory,
+                             self._system, self._loggerFactory, prefsFactory,
                              self._configParser, socket, title=title)
         gui.Center()
         self._logger.info("Initialization complete.")
@@ -141,8 +154,8 @@ class Main(wx.App):
     def criticalLog(self, message):
         self._logger.critical(message)
         
-    def getPrefsPage(self, parent, logger):
-        return PrefsPage(parent, self._configParser, logger,
+    def getPrefsPage(self, parent, logger, system):
+        return PrefsPage(parent, system, self._configParser, logger,
                          self._defaultDebugMode, self._defaultNoQueue), "Dev"
 
     def loadSettings(self):
@@ -158,11 +171,20 @@ class Main(wx.App):
             self._noQueue = self._configParser.getboolean("Main", "noQueue")
         except ConfigParser.NoOptionError:
             self._noQueue = self._defaultNoQueue
+        try:
+            self._configParser.add_section("Player")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        try: # FIXME: bad values should not be loaded
+            self._player = self._configParser.get("Player", "player")
+        except ConfigParser.NoOptionError:
+            self._player = self._defaultPlayer
         
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger, defaultDebugMode,
+    def __init__(self, parent, system, configParser, logger, defaultDebugMode,
                  defaultNoQueue):
         wx.Panel.__init__(self, parent)
+        self._system = system
         self._logger = logger
         self._defaultDebugMode = defaultDebugMode
         self._defaultNoQueue = defaultNoQueue

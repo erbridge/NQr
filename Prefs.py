@@ -8,18 +8,19 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class PrefsFactory:
-    def __init__(self, filename, loggerFactory, modules, configParser):
+    def __init__(self, filename, loggerFactory, modules, configParser, system):
         self._logger = loggerFactory.getLogger("NQr.Prefs", "debug")
         self._modules = modules
         self._filename = filename
         self._configParser = configParser
+        self._system = system
 
     def getPrefsWindow(self, parent):
         return PrefsWindow(parent, self._logger, self._modules,
-                           self._configParser, self._filename)
+                           self._configParser, self._filename, self._system)
 
 class PrefsWindow(wx.Frame):
-    def __init__(self, parent, logger, modules, configParser, filename):
+    def __init__(self, parent, logger, modules, configParser, filename, system):
         self._logger = logger
         self._gui = parent
         self._modules = modules
@@ -37,7 +38,8 @@ class PrefsWindow(wx.Frame):
         self._pages = {}
         for module in self._modules:
             (prefsPage, prefsPageName) = module.getPrefsPage(self._prefs,
-                                                             self._logger)
+                                                             self._logger,
+                                                             system)
             self.addPage(prefsPage, prefsPageName)
 
         saveButton = wx.Button(panel, wx.ID_SAVE)
