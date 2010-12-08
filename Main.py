@@ -39,7 +39,7 @@ class Main(wx.App):
         self._configParser = ConfigParser.SafeConfigParser()
         self._configParser.read(self._prefsFile)
 
-        self._noQueue = False
+        self._defaultNoQueue = False
         self._defaultDebugMode = False
         
         self.loadSettings()
@@ -143,7 +143,7 @@ class Main(wx.App):
         
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger,
-                         self._defaultDebugMode), "Dev"
+                         self._defaultDebugMode, self._defaultNoQueue), "Dev"
 
     def loadSettings(self):
         try:
@@ -154,12 +154,18 @@ class Main(wx.App):
             self._debugMode = self._configParser.getboolean("Main", "debugMode")
         except ConfigParser.NoOptionError:
             self._debugMode = self._defaultDebugMode
+        try:
+            self._noQueue = self._configParser.getboolean("Main", "noQueue")
+        except ConfigParser.NoOptionError:
+            self._noQueue = self._defaultNoQueue
         
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, configParser, logger, defaultDebugMode):
+    def __init__(self, parent, configParser, logger, defaultDebugMode,
+                 defaultNoQueue):
         wx.Panel.__init__(self, parent)
         self._logger = logger
         self._defaultDebugMode = defaultDebugMode
+        self._defaultNoQueue = defaultNoQueue
         self._settings = {}
         self._configParser = configParser
         try:
@@ -168,9 +174,11 @@ class PrefsPage(wx.Panel):
             pass
         self._loadSettings()
         self._initCreateDebugCheckBox()
+        self._initCreateQueueCheckBox()
         
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         mainSizer.Add(self._debugCheckBox, 0)
+        mainSizer.Add(self._queueCheckBox, 0)
         
         self.SetSizer(mainSizer)
         
@@ -183,11 +191,26 @@ class PrefsPage(wx.Panel):
 
         self.Bind(wx.EVT_CHECKBOX, self._onDebugChange, self._debugCheckBox)
         
+    def _initCreateQueueCheckBox(self):
+        self._queueCheckBox = wx.CheckBox(self, -1, "No Queue Mode")
+        if self._settings["noQueue"] == True:
+            self._queueCheckBox.SetValue(True)
+        else:
+            self._queueCheckBox.SetValue(False)
+
+        self.Bind(wx.EVT_CHECKBOX, self._onQueueChange, self._queueCheckBox)
+        
     def _onDebugChange(self, e):
         if self._debugCheckBox.IsChecked():
             self._settings["debugMode"] = True
         else:
             self._settings["debugMode"] = False
+        
+    def _onQueueChange(self, e):
+        if self._queueCheckBox.IsChecked():
+            self._settings["noQueue"] = True
+        else:
+            self._settings["noQueue"] = False
 
     def savePrefs(self):
         self._logger.debug("Saving player preferences.")
@@ -203,6 +226,11 @@ class PrefsPage(wx.Panel):
             self._settings["debugMode"] = debugMode
         except ConfigParser.NoOptionError:
             self._settings["debugMode"] = self._defaultDebugMode
+        try:
+            noQueue = self._configParser.getboolean("Main", "noQueue")
+            self._settings["noQueue"] = noQueue
+        except ConfigParser.NoOptionError:
+            self._settings["noQueue"] = self._defaultNoQueue
         
 if __name__ == '__main__':
     NQr = Main()
