@@ -250,7 +250,6 @@ class MainWindow(wx.Frame):
         self.Show(True) ## FIXME: make window draw fully before queueing?
         
         self.maintainPlaylist()
-        self.selectTrack(0)
 
         if self._rescanOnStartup == True:
             self._onRescan()
@@ -589,7 +588,7 @@ class MainWindow(wx.Frame):
                 currentTrack,
                 lambda previous, currentTrack=currentTrack:\
                     currentTrack.setPreviousPlay(previous), priority=1)
-            self.addTrack(currentTrack)
+            self.addTrack(currentTrack, select=True)
         except NoTrackError:
             pass
 
@@ -1136,11 +1135,11 @@ class MainWindow(wx.Frame):
         self._logger.debug("Track has been deselected.")
         self.clearDetails()
 
-    def addTrack(self, track):
-        self.addTrackAtPos(track, 0)
+    def addTrack(self, track, select=False):
+        self.addTrackAtPos(track, 0, select=select)
         
     def _addTrackAtPosCompletion(self, index, track, isScored, lastPlayed,
-                                 score, scoreValue, trackID):
+                                 score, scoreValue, trackID, select=False):
         self._logger.debug("Adding track to track playlist.")
         if isScored == False:
             score = "("+str(scoreValue)+")"
@@ -1164,15 +1163,19 @@ class MainWindow(wx.Frame):
         if weight != None:
             self._trackList.SetStringItem(index, 6, str(weight))
         self._trackList.SetItemData(index, trackID)
+        if select == True:
+            self.selectTrack(index)
         if self._index >= index:
             self._index += 1
-
-    def addTrackAtPos(self, track, index): # TODO: give higher priority?
+        
+    # TODO: give higher priority?
+    def addTrackAtPos(self, track, index, select=False):
         multicompletion = MultiCompletion(
             5, lambda isScored, lastPlayed, score, scoreValue, trackID,\
-                index=index, track=track: self._addTrackAtPosCompletion(
-                    index, track, isScored, lastPlayed, score, scoreValue,
-                    trackID))
+                index=index, track=track, select=select:\
+                    self._addTrackAtPosCompletion(index, track, isScored,
+                                                  lastPlayed, score, scoreValue,
+                                                  trackID, select=select))
         
         track.getIsScored(lambda isScored, multicompletion=multicompletion:\
                             multicompletion.put(0, isScored), priority=1)
@@ -1348,6 +1351,7 @@ class MainWindow(wx.Frame):
     def selectTrack(self, index):
         self._logger.debug("Selecting track in position "+str(index)+".")
         self._trackList.SetItemState(index, wx.LIST_STATE_SELECTED, -1)
+        self._trackList.EnsureVisible(index)
         
     def _populateDetailsCompletion(self, track, score, playCount, lastPlayed,
                                    tags):
