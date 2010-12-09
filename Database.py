@@ -49,7 +49,7 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         cursor = conn.cursor()
         while True:
             try:
-                got = self._queue.get_nowait()
+                got = self._queue.get(timeout=3)
             except Queue.Empty:
                 if self._abortFlag == True:
                     self._commit(conn)
@@ -238,12 +238,8 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         
     def _onEmptyQueueError(self):
         if self._working == True:
-            if self._errorCount > 100:
-                self._working = False
-                self._errorCount = 0
-                self._logger.info("Probably finished directory walk.")
-            else:
-                self._errorCount += 1
+            self._working = False
+            self._logger.info("Probably finished directory walk.")
         
     def _getTrackIDCompletion(self, track, trackID, completion):
         path = track.getPath()
