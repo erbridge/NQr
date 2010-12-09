@@ -19,8 +19,10 @@
 ## TODO: gives scores a drop down menu in the track list.
 ## TODO: add "select current track" keyboard shortcut and menu item
 ##
-## FIXME: track refreshes should only refresh things that will change
-## FIXME: reduce processing - e.g. check tracks less often?
+## FIXME: track refreshes should only refresh things that will change - poss no
+##        longer necessary?
+## FIXME: reduce processing - e.g. check tracks less often (if doing this
+##        change delay in _onNext() etc.)
 
 from collections import deque
 import ConfigParser
@@ -578,7 +580,7 @@ class MainWindow(wx.Frame):
         self._trackList.InsertColumn(self._ID_PREVIOUSPLAY, "Last Played",
                                      format=wx.LIST_FORMAT_CENTER, width=120)
         self._trackList.InsertColumn(self._ID_WEIGHT, "Weight",
-                                     format=wx.LIST_FORMAT_LEFT, width=80)
+                                     format=wx.LIST_FORMAT_CENTER, width=80)
 
 
         try:
