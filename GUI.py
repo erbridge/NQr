@@ -13,7 +13,6 @@
 ## TODO: implement ignoring of tracks played not in database
 ##       (option already created)
 ## TODO: make keyboard shortcuts make sense for Macs
-## TODO: pressing next track should select it
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
@@ -1010,18 +1009,23 @@ class MainWindow(wx.Frame):
 
     def _onNext(self, e):
         self._player.nextTrack()
+        self.resetInactivityTimer(1000)
 
     def _onPause(self, e):
         self._player.pause()
+        self.resetInactivityTimer(1)
 
     def _onPlay(self, e):
         self._player.play()
+        self.resetInactivityTimer(1)
 
     def _onPrevious(self, e):
         self._player.previousTrack()
+        self.resetInactivityTimer(1000)
 
     def _onStop(self, e):
         self._player.stop()
+        self.resetInactivityTimer(1)
 
     def _onRequeue(self, e):
         self.resetInactivityTimer()
@@ -1041,6 +1045,7 @@ class MainWindow(wx.Frame):
             position = self._player.getCurrentTrackPos() + 1
             self._player.insertTrack(self._track.getPath(), position)
             self._player.playAtPosition(position)
+            self.resetInactivityTimer(1000)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
@@ -1121,9 +1126,11 @@ class MainWindow(wx.Frame):
                                                                     track),
                 priority=1)
 
-    def resetInactivityTimer(self):
+    def resetInactivityTimer(self, time=None):
         self._logger.debug("Restarting inactivity timer.")
-        self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
+        if time == None:
+            time = self._inactivityTime
+        self._inactivityTimer.Start(time, oneShot=False)
 
     def maintainPlaylist(self):
         if self._toggleNQr == True:
