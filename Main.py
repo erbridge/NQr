@@ -34,17 +34,15 @@ import wx
 class Main(wx.App):
     def __init__(self):
         wx.App.__init__(self, False)
-        self._prefsFile = "settings"
+        self._system = platform.system()
+        self._setDefaults()
 
         self._configParser = ConfigParser.SafeConfigParser()
         self._configParser.read(self._prefsFile)
         
-        self._system = platform.system()
-        
-        self._setDefaults()
         self.loadSettings()
         
-        self._loggerFactory = Logger.LoggerFactory(debugMode=self._debugMode)
+        self._loggerFactory = Logger.LoggerFactory(self._debugMode)
         self._logger = self._loggerFactory.getLogger("NQr", "debug")
 
         sys.excepthook = self._exceptHook
@@ -95,12 +93,14 @@ class Main(wx.App):
                                                  self._configParser,
                                                  self._defaultPlayer,
                                                  self._safePlayers)
+            
         elif self._player == "XMMS":
             self._logger.debug("Loading XMMS module.")
             import XMMS
             player = XMMS.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
                                self._safePlayers)
+            
         elif self._player == "iTunes" and self._system == "Mac OS X":
             self._logger.debug("Loading iTunes module.")
             import iTunesMacOS
@@ -120,12 +120,12 @@ class Main(wx.App):
 
         self._logger.debug("Initializing track factory.")
         trackFactory = Track.TrackFactory(self._loggerFactory,
-                                          self._configParser,
-                                          debugMode=self._debugMode)
+                                          self._configParser, self._debugMode)
 
         self._logger.debug("Initializing database.")
         db = Database.Database(trackFactory, self._loggerFactory,
-                               self._configParser, debugMode=self._debugMode)
+                               self._configParser, self._debugMode,
+                               self._databaseFile, self._defaultDefaultScore)
 
         self._logger.debug("Initializing randomizer.")
         randomizer = Randomizer.Randomizer(db, trackFactory,
@@ -138,12 +138,18 @@ class Main(wx.App):
                                           self._system)
         
         self._logger.debug("Initializing GUI.")
-        title = "NQr"
         if self._noQueue:
-            title = title + " (no queue)"
+            self._title += " (no queue)"
+            self._defaultEnqueueOnStartup = False
         gui = GUI.MainWindow(None, db, randomizer, player, trackFactory,
                              self._system, self._loggerFactory, prefsFactory,
-                             self._configParser, socket, title=title)
+                             self._configParser, socket, self._title,
+                             self._defaultRestorePlaylist,
+                             self._defaultEnqueueOnStartup,
+                             self._defaultRescanOnStartup,
+                             self._defaultPlaylistLength,
+                             self._defaultPlayDelay,
+                             self._defaultIgnoreNewTracks)
         gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
@@ -156,6 +162,9 @@ class Main(wx.App):
         self._logger.critical(message)
         
     def _setDefaults(self):
+        self._prefsFile = "settings"
+        self._databaseFile = "database"
+        self._title = "NQr"
         self._defaultNoQueue = False
         self._defaultDebugMode = False
         if self._system == "Windows":
@@ -167,6 +176,13 @@ class Main(wx.App):
         elif self._system == "Mac OS X":
             self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
+        self._defaultDefaultScore = 10
+        self._defaultRestorePlaylist = False
+        self._defaultEnqueueOnStartup = True
+        self._defaultRescanOnStartup = False
+        self._defaultPlaylistLength = 11
+        self._defaultPlayDelay = 4000
+        self._defaultIgnoreNewTracks = False
         
     def getPrefsPage(self, parent, logger, system):
         return PrefsPage(parent, system, self._configParser, logger,

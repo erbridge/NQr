@@ -8,10 +8,10 @@ import win32com.client
 from MediaPlayer import MediaPlayer
 
 class iTunesWindows(MediaPlayer):
-    def __init__(self, loggerFactory, noQueue, configParser,
-                 playlistName="\"NQr\""):
+    def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
+                 safePlayers, playlistName="\"NQr\""):
         MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes", noQueue,
-                             configParser)
+                             configParser, defaultPlayer, safePlayers)
         self._playlistName = playlistName
         self.launchBackground()
     

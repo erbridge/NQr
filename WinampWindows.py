@@ -36,10 +36,10 @@ IPC_GETWND = 260
 IPC_GETWND_PE = 1
 
 class WinampWindows(MediaPlayer):
-## playlistname not used in winamp
-    def __init__(self, loggerFactory, noQueue, configParser, playlistname=None):
+    def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
+                 safePlayers):
         MediaPlayer.__init__(self, loggerFactory, "NQr.Winamp", noQueue,
-                             configParser)
+                             configParser, defaultPlayer, safePlayers)
         self._winamp = winampImport.Winamp()
         self.launchBackground()
 

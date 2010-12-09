@@ -1,15 +1,16 @@
 ## Mac OS, iTunes interface
 ##
 ## TODO: talk applescript directly
-## TODO: allow user to choose playlistname
+## TODO: allow user to choose _playlistName
 
 import subprocess
 
 from MediaPlayer import MediaPlayer
 
 class iTunesMacOS(MediaPlayer):
-    def __init__(self, playlistname="\"NQr\""):
-        self.playlistname = playlistname
+    def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
+                 safePlayers, playlistName="\"NQr\""):
+        self._playlistName = playlistName
 
     def runCommand(self, command):
         PIPE = subprocess.PIPE
@@ -32,7 +33,7 @@ class iTunesMacOS(MediaPlayer):
     def addTrack(self, filepath):
         filepath = '"'+filepath+'"'
         command = "tell application \"iTunes\"\n add "+filepath\
-                  +" to user playlist "+self.playlistname+"\n end tell"
+                  +" to user playlist "+self._playlistName+"\n end tell"
         self.runCommand(command)
 
     def playTrack(self, filepath):
@@ -42,7 +43,7 @@ class iTunesMacOS(MediaPlayer):
 
     def deleteTrack(self, position):
         command = "tell application \"iTunes\"\n delete track "+str(position+1)\
-                  +" of "+self.playlistname+"\n end tell"
+                  +" of "+self._playlistName+"\n end tell"
         self.runCommand(command)
 
     def nextTrack(self):
@@ -81,7 +82,7 @@ class iTunesMacOS(MediaPlayer):
 ##        trackname = '"'+trackname+'"'
 ##        command = """tell application "iTunes"
 ##                    duplicate track """+trackname+""" to user playlist """\
-##                    +self.playlistname+"""
+##                    +self._playlistName+"""
 ##                    end tell"""
 ##        self.runCommand(command)
 

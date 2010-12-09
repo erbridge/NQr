@@ -21,12 +21,12 @@ def formatLength(rawLength):
     return length
 
 def convertToUnicode(string, logger, logging=True):
-    unicodeString = u""
     try:
         unicodeString = unicode(string)
     except UnicodeDecodeError:
         if logging == True:
             logger.warning("Found bad characters. Attempting to resolve.")
+        unicodeString = u""
         for char in string:
             try:
                 unicodeString += unicode(char)

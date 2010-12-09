@@ -542,8 +542,7 @@ class ExceptionEvent(wx.PyEvent):
 
 class Database(DatabaseEventHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,
-                 debugMode=False, databasePath="database",
-                 defaultDefaultScore=10):
+                 debugMode, databasePath, defaultDefaultScore):
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         DatabaseEventHandler.__init__(self, DatabaseThread(self, databasePath,
                                                            self._logger), 2)

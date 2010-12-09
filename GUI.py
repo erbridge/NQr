@@ -185,13 +185,12 @@ class SocketMonitor(threading.Thread):
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
-                 loggerFactory, prefsFactory, configParser, socket, title="NQr",
-                 restorePlaylist=False, enqueueOnStartup=True,
-                 defaultRescanOnStartup=False, defaultPlaylistLength=11,
-                 defaultPlayDelay=4000, defaultInactivityTime=30000,
-                 wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|"+\
-                 "All files|*.*", defaultDirectory="", defaultIgnore=False,
-                 defaultHaveLogPanel=True):
+                 loggerFactory, prefsFactory, configParser, socket, title,
+                 defaultRestorePlaylist, defaultEnqueueOnStartup,
+                 defaultRescanOnStartup, defaultPlaylistLength,
+                 defaultPlayDelay, defaultIgnore, defaultInactivityTime=30000,
+                 wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|"\
+                    +"*.*", defaultDirectory="", defaultHaveLogPanel=True):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -228,8 +227,8 @@ class MainWindow(wx.Frame):
         self._logger = loggerFactory.getLogger("NQr.GUI", "debug")
         self._prefsFactory = prefsFactory
         self._configParser = configParser
-        self._restorePlaylist = restorePlaylist
-        self._enqueueOnStartup = enqueueOnStartup
+        self._restorePlaylist = defaultRestorePlaylist
+        self._enqueueOnStartup = defaultEnqueueOnStartup
         self._defaultRescanOnStartup = defaultRescanOnStartup
         self._defaultPlaylistLength = defaultPlaylistLength
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))

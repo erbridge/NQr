@@ -19,7 +19,7 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class TrackFactory:
-    def __init__(self, loggerFactory, configParser, debugMode=False):
+    def __init__(self, loggerFactory, configParser, debugMode):
         self._logger = loggerFactory.getLogger("NQr.Track", "debug")
         self._configParser = configParser
         self.loadSettings()
