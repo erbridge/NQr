@@ -10,9 +10,6 @@
 ## TODO: display unplayed tracks with option to remove and rearrange playlist
 ## TODO: when NQr queueing off, change trackList behaviour to only show played
 ##       tracks, not to represent unplayed tracks, or show only 3 future tracks?
-## TODO: set up rescan on startup?
-## TODO: make add/rescan directory/files a background operation: poss create a
-##       thread to check the directory and queue the database to add the file.
 ## TODO: implement ignoring of tracks played not in database
 ##       (option already created)
 ## TODO: make keyboard shortcuts make sense for Macs
@@ -22,11 +19,10 @@
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
 ## TODO: gives scores a drop down menu in the track list.
-## TODO: use less processing - only refresh tracks that need it, and maybe
-##       check tracks less often.
 ## TODO: add "select current track" keyboard shortcut and menu item
 ##
 ## FIXME: track refreshes should only refresh things that will change
+## FIXME: reduce processing - e.g. check tracks less often?
 
 from collections import deque
 import ConfigParser
@@ -1144,7 +1140,12 @@ class MainWindow(wx.Frame):
             self.selectTrack(0)
             
     def _onRefreshTimerDing(self, e):
-        for index in range(self._trackList.GetItemCount()-1, -1, -1):
+        top = self._trackList.GetTopItem()
+        visibleCount = self._trackList.GetCountPerPage() + 1
+        total = self._trackList.GetItemCount()
+        if visibleCount > total:
+            visibleCount = total
+        for index in range(top, top + visibleCount):
             trackID = self._trackList.GetItemData(index)
             self._trackFactory.getTrackFromID(
                 self._db, trackID,
