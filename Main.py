@@ -38,20 +38,10 @@ class Main(wx.App):
 
         self._configParser = ConfigParser.SafeConfigParser()
         self._configParser.read(self._prefsFile)
-
-        self._defaultNoQueue = False
-        self._defaultDebugMode = False
-        self._system = platform.system()
-        if self._system == "Windows":
-            self._safePlayers = ["Winamp", "iTunes"]
-            self._defaultPlayer = "Winamp"
-        elif self._system == "FreeBSD":
-            self._safePlayers = ["XMMS"]
-            self._defaultPlayer = "XMMS"
-        elif self._system == "Mac OS X":
-            self._safePlayers = ["iTunes"]
-            self._defaultPlayer = "iTunes"
         
+        self._system = platform.system()
+        
+        self._setDefaults()
         self.loadSettings()
         
         self._loggerFactory = Logger.LoggerFactory(debugMode=self._debugMode)
@@ -66,7 +56,7 @@ class Main(wx.App):
             else:
                 self._usage()
                 sys.exit()
-
+        
     def _usage(self):
         print sys.argv[0], "[-h|--help] [-n|--no-queue]"
         print
@@ -164,6 +154,19 @@ class Main(wx.App):
         
     def criticalLog(self, message):
         self._logger.critical(message)
+        
+    def _setDefaults(self):
+        self._defaultNoQueue = False
+        self._defaultDebugMode = False
+        if self._system == "Windows":
+            self._safePlayers = ["Winamp", "iTunes"]
+            self._defaultPlayer = "Winamp"
+        elif self._system == "FreeBSD":
+            self._safePlayers = ["XMMS"]
+            self._defaultPlayer = "XMMS"
+        elif self._system == "Mac OS X":
+            self._safePlayers = ["iTunes"]
+            self._defaultPlayer = "iTunes"
         
     def getPrefsPage(self, parent, logger, system):
         return PrefsPage(parent, system, self._configParser, logger,
