@@ -13,7 +13,6 @@
 ## TODO: implement ignoring of tracks played not in database
 ##       (option already created)
 ## TODO: make keyboard shortcuts make sense for Macs
-## TODO: leftmost column of track list no longer needed?
 ## TODO: pressing next track should select it
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
@@ -568,9 +567,7 @@ class MainWindow(wx.Frame):
         self._logger.debug("Creating track playlist.")
         self._trackList = wx.ListCtrl(self._panel, self._ID_TRACKLIST,
                                       style=wx.LC_REPORT|wx.LC_VRULES|
-                                      wx.LC_SINGLE_SEL, size=(676,-1))
-        self._trackList.InsertColumn(self._ID_NOWPLAYING, "",
-                                     format=wx.LIST_FORMAT_CENTER, width=20)
+                                      wx.LC_SINGLE_SEL, size=(656,-1))
         self._trackList.InsertColumn(self._ID_ARTIST, "Artist",
                                      format=wx.LIST_FORMAT_CENTER, width=100)
         self._trackList.InsertColumn(self._ID_TRACK, "Title",
@@ -1170,25 +1167,22 @@ class MainWindow(wx.Frame):
         self._logger.debug("Adding track to track playlist.")
         if isScored == False:
             score = "("+str(scoreValue)+")"
-            isScored = "+"
         else:
             score = str(score)
-            isScored = ""
         ## should be time from last play?
         if lastPlayed == None:
             lastPlayed = "-"
-        self._trackList.InsertStringItem(index, isScored)
-        self._trackList.SetStringItem(index, 1, track.getArtist())
-        self._trackList.SetStringItem(index, 2, track.getTitle())
-        self._trackList.SetStringItem(index, 3, score)
-        self._trackList.SetStringItem(index, 4, lastPlayed)
+        self._trackList.InsertStringItem(index, track.getArtist())
+        self._trackList.SetStringItem(index, 1, track.getTitle())
+        self._trackList.SetStringItem(index, 2, score)
+        self._trackList.SetStringItem(index, 3, lastPlayed)
         previous = track.getPreviousPlay()
         if previous != None:
-            self._trackList.SetStringItem(index, 5,
+            self._trackList.SetStringItem(index, 4,
                                           roughAge(time.time() - previous))
         weight = track.getWeight()
         if weight != None:
-            self._trackList.SetStringItem(index, 6, str(weight))
+            self._trackList.SetStringItem(index, 5, str(weight))
         self._trackList.SetItemData(index, trackID)
         if select == True:
             self.selectTrack(index)
@@ -1326,22 +1320,19 @@ class MainWindow(wx.Frame):
         self.refreshPreviousPlay(index, track)
 
     def refreshArtist(self, index, track):
-        self._trackList.SetStringItem(index, 1, track.getArtist())
+        self._trackList.SetStringItem(index, 0, track.getArtist())
         self._trackList.RefreshItem(index)
 
     def refreshTitle(self, index, track):
-        self._trackList.SetStringItem(index, 2, track.getTitle())
+        self._trackList.SetStringItem(index, 1, track.getTitle())
         self._trackList.RefreshItem(index)
         
     def _refreshScoreCompletion(self, index, isScored, scoreValue, score):
         if isScored == False:
             score = "("+str(scoreValue)+")"
-            isScored = "+"
         else:
             score = str(score)
-            isScored = ""
-        self._trackList.SetStringItem(index, 0, isScored)
-        self._trackList.SetStringItem(index, 3, score)
+        self._trackList.SetStringItem(index, 2, score)
         self._trackList.RefreshItem(index)
 
     def refreshScore(self, index, track):
@@ -1359,7 +1350,7 @@ class MainWindow(wx.Frame):
     def _refreshLastPlayedCompletion(self, index, lastPlayed):
         if lastPlayed == None:
             lastPlayed = "-"
-        self._trackList.SetStringItem(index, 4, lastPlayed)
+        self._trackList.SetStringItem(index, 3, lastPlayed)
         self._trackList.RefreshItem(index)
 
     def refreshLastPlayed(self, index, track):
@@ -1371,7 +1362,7 @@ class MainWindow(wx.Frame):
     def refreshPreviousPlay(self, index, track):
         previous = track.getPreviousPlay()
         if previous != None:
-            self._trackList.SetStringItem(index, 5,
+            self._trackList.SetStringItem(index, 4,
                                           roughAge(time.time() - previous))
         self._trackList.RefreshItem(index)
 
