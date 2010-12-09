@@ -206,6 +206,7 @@ class MainWindow(wx.Frame):
         self._player = player
         self._trackFactory = trackFactory
         self._system = system
+        self._loggerFactory = loggerFactory
         self._logger = loggerFactory.getLogger("NQr.GUI", "debug")
         self._prefsFactory = prefsFactory
         self._configParser = configParser
@@ -990,8 +991,6 @@ class MainWindow(wx.Frame):
         self.Close(True)
 
     def _onClose(self, e):
-        sys.stdout = self._stdout
-        sys.stderr = self._stderr
         self._optionsMenu.Check(self._ID_TOGGLENQR, False)
         if self._trackMonitor:
             self._trackMonitor.abort()
@@ -999,6 +998,10 @@ class MainWindow(wx.Frame):
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
         self._db.abort()
+        if self._haveLogPanel == True:
+            sys.stdout = self._stdout
+            sys.stderr = self._stderr
+            self._loggerFactory.refreshStreamHandler()
         
         self.Destroy()
 
