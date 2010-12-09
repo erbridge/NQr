@@ -19,8 +19,16 @@ class iTunesWindows(MediaPlayer):
         try:
             self._iTunes = win32com.client.gencache.EnsureDispatch(
                 "iTunes.Application")
-            self._playlist = self._iTunes.LibrarySource.Playlists.ItemByName(
-                self._playlistName)
+            try:
+                self._playlist =\
+                    self._iTunes.LibrarySource.Playlists.ItemByName(
+                        self._playlistName)
+            except AttributeError as err:
+                print err # to find specific error
+                self._playlist = self._iTunes.CreatePlaylist(self._playlistName)
+#                self._playlist = win32com.client.CastTo(self._playlist,
+#                                                        "IITUserPlaylist")
+            self._tracks = self._playlist.Tracks
             return True
         except win32com.universal.com_error as err:
             if str(err) != "(-2147221005, 'Invalid class string', None, None)":
@@ -69,7 +77,7 @@ class iTunesWindows(MediaPlayer):
     def _addTrack(self, filepath):
         self.launchBackground()
         self._logger.info("Adding \'"+filepath+"\' to playlist.")
-        self._playlist.Enqueue(filepath) # FIXME: prob doesn't work
+        self._playlist.AddTrack(filepath) # FIXME: poss needs track object
         
     def _insertTrack(self, filepath, position):
         self.launchBackground()
@@ -139,7 +147,7 @@ class iTunesWindows(MediaPlayer):
     def getPlaylistLength(self):
         self.launchBackground()
         self._logger.debug("Retrieving playlist length.")
-        return self._playlist.GetPlaylistLength() # FIXME: prob doesn't work
+        return self._tracks.Count
 
     def getCurrentTrackPos(self):
         self.launchBackground()
@@ -147,8 +155,14 @@ class iTunesWindows(MediaPlayer):
         # or:
         # currentTrack = win32com.client.CastTo(self._iTunes.CurrentTrack, 
         #                                       "IITFileOrCDTrack")
-        return currentTrack.GetPos() # FIXME: prob doesn't work
-
+        for pos in range(self.getPlaylistLength()):
+            if currentTrack == self._getTrackAtPos(pos):
+                return pos
+        return None # track is not in "NQr" playlist
+    
+    def _getTrackAtPos(self, trackPosition):
+        return self._tracks.Item(trackPosition + 1)
+    
     ## poss insecure: should always be checked for trackness
     ## gets track at a playlist position
     ## Has logging option so track monitor can call it without spamming the
@@ -158,7 +172,7 @@ class iTunesWindows(MediaPlayer):
             self._logger.debug("Retrieving path of track at position "\
                                +str(trackPosition)+".")
         # FIXME: prob doesn't work
-        rawPath = self._iTunes.GetPathFromPos(trackPosition)
+        rawPath = self._getTrackAtPos(trackPosition).FilePath
         if logging == True:
             self._logger.debug("Converting path into unicode.")
         return convertToUnicode(rawPath, self._logger, logging)
