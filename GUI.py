@@ -190,7 +190,8 @@ class MainWindow(wx.Frame):
                  defaultRescanOnStartup, defaultPlaylistLength,
                  defaultPlayDelay, defaultIgnore, defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|"\
-                    +"*.*", defaultDirectory="", defaultHaveLogPanel=True):
+                    +"*.*", defaultDefaultDirectory="",
+                defaultHaveLogPanel=True):
         self._ID_ARTIST = wx.NewId()
         self._ID_TRACK = wx.NewId()
         self._ID_SCORE = wx.NewId()
@@ -235,7 +236,7 @@ class MainWindow(wx.Frame):
         self._defaultPlayDelay = defaultPlayDelay
         self._defaultInactivityTime = defaultInactivityTime
         self._wildcards = wildcards
-        self._defaultDirectory = defaultDirectory
+        self._defaultDefaultDirectory = defaultDefaultDirectory
         self._defaultIgnore = defaultIgnore
         self._defaultHaveLogPanel = defaultHaveLogPanel
         self.loadSettings()
@@ -1495,7 +1496,8 @@ class MainWindow(wx.Frame):
         return PrefsPage(
             parent, system, self._configParser, logger, self._defaultPlayDelay,
             self._defaultInactivityTime, self._defaultIgnore,
-            self._defaultHaveLogPanel, self._defaultRescanOnStartup), "GUI"
+            self._defaultHaveLogPanel, self._defaultRescanOnStartup,
+            self._defaultDefaultDirectory), "GUI"
 
     def loadSettings(self):
         try:
@@ -1526,11 +1528,16 @@ class MainWindow(wx.Frame):
                 "GUI", "haveLogPanel")
         except ConfigParser.NoOptionError:
             self._haveLogPanel = self._defaultHaveLogPanel
+        try:
+            self._defaultDirectory = os.path.realpath(
+                self._configParser.get("GUI", "defaultDirectory"))
+        except ConfigParser.NoOptionError:
+            self._defaultDirectory = self._defaultDefaultDirectory
 
 class PrefsPage(wx.Panel):
     def __init__(self, parent, system, configParser, logger, defaultPlayDelay,
                  defaultInactivityTime, defaultIgnore, defaultHaveLogPanel,
-                 defaultRescanOnStartup):
+                 defaultRescanOnStartup, defaultDefaultDirectory):
         wx.Panel.__init__(self, parent)
         self._system = system
         self._logger = logger
@@ -1539,6 +1546,7 @@ class PrefsPage(wx.Panel):
         self._defaultIgnore = defaultIgnore
         self._defaultHaveLogPanel = defaultHaveLogPanel
         self._defaultRescanOnStartup = defaultRescanOnStartup
+        self._defaultDefaultDirectory = defaultDefaultDirectory
         self._settings = {}
         self._configParser = configParser
         try:
@@ -1546,6 +1554,7 @@ class PrefsPage(wx.Panel):
         except ConfigParser.DuplicateSectionError:
             pass
         self._loadSettings()
+        self._initCreateDirectorySizer()
         self._initCreatePlayDelaySizer()
         self._initCreateInactivityTimeSizer()
         self._initCreateIgnoreCheckBox()
@@ -1553,6 +1562,7 @@ class PrefsPage(wx.Panel):
         self._initCreateLogCheckBox()
 
         mainSizer = wx.BoxSizer(wx.VERTICAL)
+        mainSizer.Add(self._directorySizer, 0)
         mainSizer.Add(self._playDelaySizer, 0)
         mainSizer.Add(self._inactivityTimeSizer, 0)
         mainSizer.Add(self._ignoreCheckBox, 0)
@@ -1560,6 +1570,18 @@ class PrefsPage(wx.Panel):
         mainSizer.Add(self._logCheckBox, 0)
 
         self.SetSizer(mainSizer)
+        
+    def _initCreateDirectorySizer(self): # FIXME: make a "choose" dialog
+        self._directorySizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        directoryLabel = wx.StaticText(self, -1, "Default Dialog Directory: ")
+        self._directorySizer.Add(directoryLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+
+        self._directoryControl = wx.TextCtrl(
+            self, -1, str(self._settings["defaultDirectory"]))
+        self._directorySizer.Add(self._directoryControl, 0)
+
+        self.Bind(wx.EVT_TEXT, self._onDirectoryChange, self._directoryControl)
 
     def _initCreatePlayDelaySizer(self):
         self._playDelaySizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -1624,6 +1646,10 @@ class PrefsPage(wx.Panel):
             self._logCheckBox.SetValue(False)
 
         self.Bind(wx.EVT_CHECKBOX, self._onLogChange, self._logCheckBox)
+        
+    def _onDirectoryChange(self, e):
+        directory = self._directoryControl.GetLineText(0)
+        self._settings["defaultDirectory"] = os.path.realpath(directory)
 
     def _onPlayDelayChange(self, e):
         playDelay = self._playDelayControl.GetLineText(0)
@@ -1687,3 +1713,9 @@ class PrefsPage(wx.Panel):
             self._settings["haveLogPanel"] = log
         except ConfigParser.NoOptionError:
             self._settings["haveLogPanel"] = self._defaultHaveLogPanel
+        try:
+            directory = os.path.realpath(
+                self._configParser.get("GUI", "defaultDirectory"))
+            self._settings["defaultDirectory"] = directory
+        except ConfigParser.NoOptionError:
+            self._settings["defaultDirectory"] = self._defaultDefaultDirectory

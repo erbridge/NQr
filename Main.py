@@ -2,14 +2,12 @@
 ##
 ## TODO: sort out ' and unicode in filenames (done?)
 ## TODO: allow use of bpm for music queueing (from ID3)
-## TODO: on startup rescan directories for new files or make an option
 ## TODO: allow import of directories with a score
 ## TODO: ORGANIZE CODE
 ## TODO: add track with tag retrieval?
 ## TODO: populate prefs window including customizable score range (with
 ##	     database converter)?
-## TODO: read settings from settings file
-## TODO: make refocussing on window reselect current track
+## TODO: make refocussing on window reselect current track?
 ##
 ## FIXME: queues wrong track if track changes at time of start up
 
