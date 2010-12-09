@@ -1,4 +1,6 @@
 ## Logger
+##
+## FIXME: make a limit on the number of logger files saved - perhaps time limit?
 
 import logging
 import datetime
@@ -20,7 +22,10 @@ class LoggerFactory:
             "%Y-%m-%d %H:%M:%S")
 
         self._commandLineHandler = logging.StreamHandler()
-        self._commandLineHandler.setLevel(logging.DEBUG)
+        if self._debugMode == True:
+            self._commandLineHandler.setLevel(logging.DEBUG)
+        else:
+            self._commandLineHandler.setLevel(logging.INFO)
         self._commandLineHandler.setFormatter(self._formatter)
         logging.getLogger("NQr").addHandler(self._commandLineHandler)
 
@@ -47,13 +52,8 @@ class LoggerFactory:
         if level == "debug":
             if self._debugMode == True:
                 logger.setLevel(logging.DEBUG)
-            elif self._debugMode == False:
-                logger.setLevel(logging.INFO)
             else:
-                self._logger.error(str(self.debugMode)\
-                                   +" is an invalid debug mode.")
-                raise ValueError(str(self.debugMode)\
-                                 +" is an invalid debug mode.")
+                logger.setLevel(logging.INFO)
         elif level == "error":
             logger.setLevel(logging.ERROR)
         else:
@@ -65,6 +65,9 @@ class LoggerFactory:
         logging.getLogger("NQr").removeHandler(self._commandLineHandler)
         
         self._commandLineHandler = logging.StreamHandler()
-        self._commandLineHandler.setLevel(logging.DEBUG)
+        if self._debugMode == True:
+            self._commandLineHandler.setLevel(logging.DEBUG)
+        else:
+            self._commandLineHandler.setLevel(logging.INFO)
         self._commandLineHandler.setFormatter(self._formatter)
         logging.getLogger("NQr").addHandler(self._commandLineHandler)
