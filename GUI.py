@@ -40,20 +40,6 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 ##import wx.lib.agw.multidirdialog as wxMDD
 
-ID_EVT_TEST = wx.NewId()
-
-def EVT_TEST(window, func):
-    window.Connect(-1, -1, ID_EVT_TEST, func)
-
-class TestEvent(wx.PyEvent):
-    def __init__(self, result):
-        wx.PyEvent.__init__(self)
-        self.SetEventType(ID_EVT_TEST)
-        self._result = result
-
-    def getResult(self):
-        return self._result
-
 ID_EVT_TRACK_CHANGE = wx.NewId()
 
 def EVT_TRACK_CHANGE(window, func):
@@ -214,7 +200,6 @@ class MainWindow(wx.Frame):
         self._ID_SELECTCURRENT = wx.NewId()
         self._ID_RATEUP = wx.NewId()
         self._ID_RATEDOWN = wx.NewId()
-        self._ID_TEST = wx.NewId()
 
         self._db = db
         self._randomizer = randomizer
@@ -278,8 +263,6 @@ class MainWindow(wx.Frame):
         EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
         EVT_BRING_TO_FRONT(self, self._onBringToFront)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
-
-        EVT_TEST(self, self._onTestEvent)
 
         if self._restorePlaylist == True:
             self._oldPlaylist = None
@@ -479,12 +462,9 @@ class MainWindow(wx.Frame):
         
         self._addHotKey("ctrl", "E", self._ID_TOGGLENQR)
 
-        menuTest = self._optionsMenu.Append(self._ID_TEST, "&Test", " Test")
-
         self.Bind(wx.EVT_MENU, self._onPrefs, menuPrefs)
         self.Bind(wx.EVT_MENU, self._onRescan, menuRescan)
         self.Bind(wx.EVT_MENU, self._onToggleNQr, self.menuToggleNQr)
-        self.Bind(wx.EVT_MENU, self._onTest, menuTest)
 
     def _initCreateRightClickRateMenu(self):
         self._logger.debug("Creating rate menu.")
@@ -746,18 +726,6 @@ class MainWindow(wx.Frame):
         self._logger.debug("Opening preferences window.")
         self._prefsWindow = self._prefsFactory.getPrefsWindow(self)
         self._prefsWindow.Show()
-
-    def _onTest(self, e):
-        self._logger.info("Test!")
-        #completion = lambda result: self._onTestCompletion(result)
-        #self._db.async("SELECT COUNT(*) FROM tracks", (), completion)
-        self.enqueueRandomTracks(1)
-
-    def _onTestCompletion(self, result):
-        self._logger.info("Test completion: " + str(result))
-
-    def _onTestEvent(self, e):
-        self._logger.info("Test result: " + str(e.getResult()))
 
 ## TODO: change buttons to say "import" rather than "open"/"choose"
     def _onAddFile(self, e):
