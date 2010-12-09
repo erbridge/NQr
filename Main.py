@@ -43,10 +43,13 @@ class Main(wx.App):
         self._defaultDebugMode = False
         self._system = platform.system()
         if self._system == "Windows":
+            self._safePlayers = ["Winamp", "iTunes"]
             self._defaultPlayer = "Winamp"
         elif self._system == "FreeBSD":
+            self._safePlayers = ["XMMS"]
             self._defaultPlayer = "XMMS"
         elif self._system == "Mac OS X":
+            self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
         
         self.loadSettings()
@@ -99,23 +102,31 @@ class Main(wx.App):
             import WinampWindows
             player = WinampWindows.WinampWindows(self._loggerFactory,
                                                  self._noQueue,
-                                                 self._configParser)
+                                                 self._configParser,
+                                                 self._defaultPlayer,
+                                                 self._safePlayers)
         elif self._player == "XMMS":
             self._logger.debug("Loading XMMS module.")
             import XMMS
             player = XMMS.XMMS(self._loggerFactory, self._noQueue,
-                               self._configParser)
+                               self._configParser, self._defaultPlayer,
+                               self._safePlayers)
         elif self._player == "iTunes" and self._system == "Mac OS X":
             self._logger.debug("Loading iTunes module.")
             import iTunesMacOS
-            player = iTunesMacOS.iTunesMacOS(self._noQueue)
+            player = iTunesMacOS.iTunesMacOS(self._loggerFactory, self._noQueue,
+                                             self._configParser,
+                                             self._defaultPlayer,
+                                             self._safePlayers)
         
         elif self._player == "iTunes" and self._system == "Windows":
             self._logger.debug("Loading iTunes module.")
             import iTunesWindows
             player = iTunesWindows.iTunesWindows(self._loggerFactory,
                                                  self._noQueue,
-                                                 self._configParser)
+                                                 self._configParser,
+                                                 self._defaultPlayer,
+                                                 self._safePlayers)
 
         self._logger.debug("Initializing track factory.")
         trackFactory = Track.TrackFactory(self._loggerFactory,
@@ -175,8 +186,11 @@ class Main(wx.App):
             self._configParser.add_section("Player")
         except ConfigParser.DuplicateSectionError:
             pass
-        try: # FIXME: bad values should not be loaded
+        try:
             self._player = self._configParser.get("Player", "player")
+            if self._player not in self._safePlayers:
+                self._logger.warning("Chosen player is not supported.")
+                self._player = self._defaultPlayer
         except ConfigParser.NoOptionError:
             self._player = self._defaultPlayer
         

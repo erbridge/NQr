@@ -9,9 +9,12 @@ wxversion.select([x for x in wxversion.getInstalled()
 import wx
 
 class MediaPlayer:
-    def __init__(self, loggerFactory, name, noQueue, configParser):
+    def __init__(self, loggerFactory, name, noQueue, configParser,
+                 defaultPlayer, safePlayers):
         self._logger = loggerFactory.getLogger(name, "debug")
         self._configParser = configParser
+        self._defaultPlayer = defaultPlayer
+        self._safePlayers = safePlayers
         self.loadSettings()
         self._noQueue = noQueue
 
@@ -91,22 +94,19 @@ class MediaPlayer:
         self._insertTrack(filepath, position)
 
     def getPrefsPage(self, parent, logger, system):
-        return PrefsPage(parent, system, self._configParser, logger), "Player"
+        return PrefsPage(parent, system, self._configParser, logger,
+                         self._defaultPlayer, self._safePlayers), "Player"
 
     def loadSettings(self):
         pass
 
 class PrefsPage(wx.Panel):
-    def __init__(self, parent, system, configParser, logger):
+    def __init__(self, parent, system, configParser, logger,
+                 defaultPlayer, safePlayers):
         wx.Panel.__init__(self, parent)
         self._system = system
-        if self._system == "Windows":
-            self._defaultPlayer = "Winamp"
-        elif self._system == "FreeBSD":
-            self._defaultPlayer = "XMMS"
-        elif self._system == "Mac OS X":
-            self._defaultPlayer = "iTunes"
-            
+        self._safePlayers = safePlayers
+        self._defaultPlayer = defaultPlayer
         self._logger = logger
         self._settings = {}
         self._configParser = configParser
@@ -175,6 +175,7 @@ class PrefsPage(wx.Panel):
         elif self._system == "Mac OS X":
             if self._iTunesButton.GetValue():
                 self._settings["player"] = "iTunes"
+                
 
     def savePrefs(self):
         self._logger.debug("Saving player preferences.")
@@ -187,6 +188,9 @@ class PrefsPage(wx.Panel):
     def _loadSettings(self):
         try:
             player = self._configParser.get("Player", "player")
+            if player not in self._safePlayers:
+                self._logger.warning("Chosen player is not supported.")
+                player = self._defaultPlayer
             self._settings["player"] = player
         except ConfigParser.NoOptionError:
             self._settings["player"] = self._defaultPlayer
