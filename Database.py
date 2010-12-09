@@ -1125,7 +1125,7 @@ class Database(DatabaseEventHandler):
 #               from enqueues where trackid = ? order by enqueueid desc""",
 #            (trackID, ))
 
-    def _addPlayCompletion(self, track, trackID, msDelay=0):
+    def _addPlayCompletion(self, track, trackID, msDelay=0, completion=None):
         self._logger.debug("Adding play.")
         now = datetime.datetime.now()
         delay = datetime.timedelta(0, 0, 0, msDelay)
@@ -1133,16 +1133,21 @@ class Database(DatabaseEventHandler):
         self.getLastPlayedInSeconds(
             track, lambda previousPlay, track=track: track.setPreviousPlay(
                 previousPlay))
+        if completion == None:
+            mycompletion = lambda result: doNothing()
+        else:
+            mycompletion = lambda result: completion()
         self._executeMany(["""insert into plays (trackid, datetime) values
                               (?, datetime(?))""",
                            """update tracks set lastplayed = datetime(?) where
                               trackid = ?"""], [(trackID, playTime),
                                                 (playTime, trackID)],
-                            lambda result: doNothing())
+                            mycompletion)
         
-    def addPlay(self, track, msDelay=0):
-        mycompletion = lambda trackID, track=track, msDelay=msDelay:\
-            self._addPlayCompletion(track, trackID, msDelay)
+    def addPlay(self, track, msDelay=0, completion=None):
+        mycompletion = lambda trackID, track=track, msDelay=msDelay,\
+            completion=completion: self._addPlayCompletion(track, trackID,
+                                                           msDelay, completion)
         track.getID(mycompletion)
         
     def _getLastPlayedTrackIDCompletion(self, trackID, completion,

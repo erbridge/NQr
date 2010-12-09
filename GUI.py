@@ -1120,10 +1120,8 @@ class MainWindow(wx.Frame):
         
     def _onBringToFront(self, e):
         self.Raise() # FIXME: doesn't raise above other apps
-
-    def _onPlayTimerDing(self, e):
-        track = self._playingTrack
-        track.addPlay(self._playDelay)
+        
+    def _onPlayTimerDingCompletion(self, track):
         if track == self._playingTrack:
             self.refreshLastPlayed(0, track)
             if track == self._playingTrack:
@@ -1133,6 +1131,12 @@ class MainWindow(wx.Frame):
         else:
             self.refreshLastPlayed(1, track)
             self.refreshPreviousPlay(1, track)
+
+    def _onPlayTimerDing(self, e):
+        track = self._playingTrack
+        track.addPlay(self._playDelay,
+                      lambda track=track: self._onPlayTimerDingCompletion(
+                            track))
 
     def _onInactivityTimerDing(self, e):
         if self._index != 0:

@@ -165,8 +165,8 @@ class Track:
     def _addPlayCompletion(self, playCount):
         self._playCount = playCount
 
-    def addPlay(self, delay=0):
-        self._db.addPlay(self, delay)
+    def addPlay(self, delay=0, completion=None):
+        self._db.addPlay(self, delay, completion)
         if self._playCount == None:
             self.getPlayCount(
                 lambda playCount: self._addPlayCompletion(playCount))
