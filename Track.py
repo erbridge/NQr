@@ -89,7 +89,7 @@ class TrackFactory:
                 trackID,
                 lambda path, db=db, completion=completion,\
                     errcompletion=errcompletion: self._getTrackFromIDCompletion(
-                        db, path, completion, errcompletion)),
+                        db, path, completion, errcompletion),
                 priority=priority)
         else:
             completion(track)
