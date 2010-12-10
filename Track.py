@@ -70,13 +70,26 @@ class TrackFactory:
             raise TypeError(str(trackID)+" is not a valid track ID")
         return self._trackCache.get(trackID, None)
     
-    def getTrackFromID(self, db, trackID, completion, priority=None):
+    def _getTrackFromIDCompletion(self, db, path, completion,
+                                  errcompletion=None):
+        try:
+            track = self.getTrackFromPath(db, path)
+            completion(track)
+        except NoTrackError as err:
+            if errcompletion == None:
+                raise err
+            errcompletion(err)
+    
+    def getTrackFromID(self, db, trackID, completion, priority=None,
+                       errcompletion=None):
         track = self._getTrackFromCache(trackID)
         if track == None:
             self._logger.debug("Track not in cache.")
             db.getPathFromID(
-                trackID, lambda path, db=db: completion(self.getTrackFromPath(
-                    db, path)),
+                trackID,
+                lambda path, db=db, completion=completion,\
+                    errcompletion=errcompletion: self._getTrackFromIDCompletion(
+                        db, path, completion, errcompletion)),
                 priority=priority)
         else:
             completion(track)

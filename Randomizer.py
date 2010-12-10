@@ -7,7 +7,7 @@ import ConfigParser
 from Errors import *
 import random
 from Time import roughAge
-from Util import plural, MultiCompletion
+from Util import plural, MultiCompletion, ErrorCompletion
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -88,15 +88,16 @@ class Randomizer:
     def _chooseTracksCompletion(self, trackIDs, completion):
         self._tracks = [] # FIXME: possibly clears list before posting it
         for [trackID, weight] in trackIDs:
-            try:
-                self._trackFactory.getTrackFromID(
-                    self._db, trackID,
-                    lambda track, weight=weight: self._addTrackToListCallback(
-                        track, weight))
-            except NoTrackError: # FIXME: probably doesn't work
-                self._db.setHistorical(True, trackID)
+            errcompletion = ErrorCompletion(NoTrackError,
+                                            lambda trackID=trackID:\
+                                                self._db.setHistorical(True,
+                                                                       trackID))
+            self._trackFactory.getTrackFromID(
+                self._db, trackID,
+                lambda track, weight=weight: self._addTrackToListCallback(
+                    track, weight), errcompletion=errcompletion)
         self._db.complete(lambda result, completion=completion:\
-                            completion(self._tracks))
+                          completion(self._tracks))
 
     def chooseTracks(self, number, exclude, completion, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
