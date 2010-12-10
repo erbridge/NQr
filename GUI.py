@@ -1120,6 +1120,8 @@ class MainWindow(wx.Frame):
         total = self._trackList.GetItemCount()
         if visibleCount > total:
             visibleCount = total
+        elif total - visibleCount < top:
+            visibleCount -= 1
         for index in range(top, top + visibleCount):
             trackID = self._trackList.GetItemData(index)
             self._trackFactory.getTrackFromID(
