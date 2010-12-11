@@ -287,7 +287,6 @@ class PrefsPage(wx.Panel):
         
 if __name__ == '__main__':
     NQr = Main()
-    # I'm not sure what this really does (Felix)
     sock = socket.socket()
     host = socket.gethostname()
     port = 35636 # FIXME: make sure this port is not used on this system
@@ -298,10 +297,17 @@ if __name__ == '__main__':
         if errno != 10048:
             raise
         NQr.criticalLog("NQr is already running.")
-        # TODO: make running NQr focus
-#        # FIXME: has windows permission issues...
-#        sock.connect((host, port))
-#        sock.send("raise")
+        # TODO: make running NQr focus - poss see winamp.focus for clues
+        # FIXME: has windows permission issues...
+        sock.connect((host, port))
+        message = "RAISE\n"
+        totalSent = 0
+        while totalSent < len(message):
+            sent = sock.send(message[totalSent:])
+            if sent == 0:
+                break
+            totalSent += sent
+        sock.close()
         dialog = wx.MessageDialog(None, "NQr is already running", "NQr", wx.OK)
         dialog.ShowModal()
         dialog.Destroy()

@@ -132,7 +132,6 @@ class BringToFrontEvent(wx.PyEvent):
         wx.PyEvent.__init__(self)
         self.SetEventType(ID_EVT_BRING_TO_FRONT)
 
-# FIXME: currently turned off since it does nothing
 class SocketMonitor(threading.Thread):
     def __init__(self, window, socket, loggerFactory):
         threading.Thread.__init__(self, name="Socket Monitor")
@@ -140,31 +139,64 @@ class SocketMonitor(threading.Thread):
         self._window = window
         self._socket = socket
         self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
-        self._abortFlag = False
-#        self.start()
+        self._connections = []
+        self.start()
 
     def run(self):
-        self._socket.listen(1)
-        # FIXME: has windows permission issues...
-        (conn, address) = self._socket.accept()
-        # FIXME: doesn't continue until connection made
+        self._socket.listen(5) # FIXME: how many can it listen to?
         while True:
-            time.sleep(3)
-            if self._abortFlag == True:
-                self._logger.debug("Stopping socket monitor.")
-                conn.close()
-                return
-            if conn.recv(2048) == "raise":
+            # FIXME: has windows permission issues...
+            (conn, address) = self._socket.accept()
+            self._logger.debug("Starting connection ("+address[0]+":"\
+                               +str(address[1])+") monitor.")
+            self._connections.append(ConnectionMonitor(self._window, conn,
+                                                       address, self._logger))
+                
+    def abort(self):
+        self._logger.debug("Stopping socket monitor.")
+        for connection in self._connections: # FIXME: is this necessary?
+            connection.abort()
+        self._socket.close()
+        
+class ConnectionMonitor(threading.Thread):
+    def __init__(self, window, connection, address, logger):
+        self._address = address[0]+":"+str(address[1])
+        threading.Thread.__init__(self, name=self._address+" Monitor")
+        self.setDaemon(True)
+        self._window = window
+        self._conn = connection
+        self._logger = logger
+        self.start()
+    
+    def run(self):
+        while True:
+            try:
+                message = self._recieve()
+            except RuntimeError as err:
+                if str(err) != "socket connection broken":
+                    raise err
+                self._logger.debug("Stopping connection ("+self._address\
+                                   +") monitor.")
+                self._conn.close()
+                break
+            if message == "RAISE\n":
                 self._logger.debug("Received bring to front call.")
                 wx.PostEvent(self._window, BringToFrontEvent())
-            if self._abortFlag == True:
-                self._logger.debug("Stopping socket monitor.")
-                conn.close()
-                return
-
-    def abort(self):
-        self._abortFlag = True
-
+                
+    def _recieve(self):
+        byte = ""
+        message = ""
+        while byte != "\n":
+            byte = self._conn.recv(1)
+            if byte == "":
+                raise RuntimeError("socket connection broken")
+            message += byte
+        return message
+        
+    def abort(self): # FIXME: does this work?
+        self._logger.debug("Stopping connection ("+self._address+") monitor.")
+        self._conn.close()
+        
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
                  loggerFactory, prefsFactory, configParser, socket, title,
@@ -992,7 +1024,6 @@ class MainWindow(wx.Frame):
         self._optionsMenu.Check(self._ID_TOGGLENQR, False)
         if self._trackMonitor:
             self._trackMonitor.abort()
-        self._socketMonitor.abort()
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
         self._db.abort()
@@ -1000,6 +1031,7 @@ class MainWindow(wx.Frame):
             sys.stdout = self._stdout
             sys.stderr = self._stderr
             self._loggerFactory.refreshStreamHandler()
+        self._socketMonitor.abort()
         
         self.Destroy()
 
@@ -1090,6 +1122,7 @@ class MainWindow(wx.Frame):
         self.maintainPlaylist()
         
     def _onBringToFront(self, e):
+        self._logger.info("Bringing window to front.")
         self.Raise() # FIXME: doesn't raise above other apps
         
     def _onPlayTimerDingCompletion(self, track):
