@@ -1,9 +1,6 @@
 ## GUI Events
 
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
+from Util import wx
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
 
@@ -110,3 +107,32 @@ class RateDownEvent(wx.PyEvent):
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(ID_EVT_RATE_DOWN)
+        
+ID_EVT_DATABASE = wx.NewId()
+
+def EVT_DATABASE(handler, func):
+    handler.Connect(-1, -1, ID_EVT_DATABASE, func)
+
+class DatabaseEvent(wx.PyEvent):
+    def __init__(self, result, completion):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_DATABASE)
+        self._result = result
+        self._completion = completion
+        
+    def complete(self):
+        self._completion(self._result)
+        
+ID_EVT_EXCEPTION = wx.NewId()
+
+def EVT_EXCEPTION(handler, func):
+    handler.Connect(-1, -1, ID_EVT_EXCEPTION, func)
+
+class ExceptionEvent(wx.PyEvent):
+    def __init__(self, err):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_EXCEPTION)
+        self._err = err
+        
+    def getException(self):
+        return self._err

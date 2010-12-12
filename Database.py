@@ -11,21 +11,17 @@
 ## FIXME: make tracebacks work properly for all completions
 
 import ConfigParser
-#from collections import deque
 import datetime
-from Errors import *
-import os
+from Errors import NoResultError, EmptyQueueError, NoTrackError,\
+    EmptyDatabaseError
+import Events
+import os.path
 import Queue
 import sqlite3
 import threading
 import time
-import traceback
-from Util import *
-
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
+from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
+    extractTraceStack, BasePrefsPage, validateNumeric, wx
 
 class Thread(threading.Thread): # FIXME: add interrupt?
     def __init__(self, db, path, name, logger, errcompletion):
@@ -74,19 +70,19 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         try:
             errcompletion(err)
         except:
-            wx.PostEvent(self._db, ExceptionEvent(err))
+            wx.PostEvent(self._db, Events.ExceptionEvent(err))
             
     def abort(self):
         self._abortFlag = True
-            
+        
 class DatabaseEventHandler(wx.EvtHandler):
     def __init__(self, dbThread, priority):
         wx.EvtHandler.__init__(self)
         self._dbThread = dbThread
         self._priority = priority
         
-        EVT_DATABASE(self, self._onDatabaseEvent)
-        EVT_EXCEPTION(self, self._onExceptionEvent)
+        Events.EVT_DATABASE(self, self._onDatabaseEvent)
+        Events.EVT_EXCEPTION(self, self._onExceptionEvent)
         
     def _onDatabaseEvent(self, e):
         self._logger.debug("Got event.")
@@ -97,7 +93,7 @@ class DatabaseEventHandler(wx.EvtHandler):
     
     def _completionEvent(self, completion):
         return lambda result, completion=completion:\
-            wx.PostEvent(self, DatabaseEvent(result, completion))
+            wx.PostEvent(self, Events.DatabaseEvent(result, completion))
 
     def complete(self, completion, priority=None, trace=[]):
         if priority == None:
@@ -506,35 +502,6 @@ class DatabaseThread(Thread):
                                                         throwException,
                                                         errcompletion),
                    trace, priority)
-
-ID_EVT_DATABASE = wx.NewId()
-
-def EVT_DATABASE(handler, func):
-    handler.Connect(-1, -1, ID_EVT_DATABASE, func)
-
-class DatabaseEvent(wx.PyEvent):
-    def __init__(self, result, completion):
-        wx.PyEvent.__init__(self)
-        self.SetEventType(ID_EVT_DATABASE)
-        self._result = result
-        self._completion = completion
-        
-    def complete(self):
-        self._completion(self._result)
-        
-ID_EVT_EXCEPTION = wx.NewId()
-
-def EVT_EXCEPTION(handler, func):
-    handler.Connect(-1, -1, ID_EVT_EXCEPTION, func)
-
-class ExceptionEvent(wx.PyEvent):
-    def __init__(self, err):
-        wx.PyEvent.__init__(self)
-        self.SetEventType(ID_EVT_EXCEPTION)
-        self._err = err
-        
-    def getException(self):
-        return self._err
 
 class Database(DatabaseEventHandler):
     def __init__(self, trackFactory, loggerFactory, configParser,

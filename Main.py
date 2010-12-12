@@ -25,12 +25,7 @@ import socket
 import sys
 import traceback
 import Track
-from Util import BasePrefsPage
-
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
+from Util import BasePrefsPage, wx
 
 class Main(wx.App):
     def __init__(self):

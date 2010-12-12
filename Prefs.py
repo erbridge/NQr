@@ -3,10 +3,7 @@
 ## TODO: create validation rules for text controls
 ## TODO: add a restore defaults option (which deletes the settings file?)
 
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
+from Util import wx
 
 class PrefsFactory:
     def __init__(self, filename, loggerFactory, modules, configParser, system):

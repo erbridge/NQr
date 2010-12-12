@@ -3,11 +3,11 @@
 ## Tested on Winamp 5+
 
 import ctypes
-from Errors import *
+from Errors import NoTrackError
 from MediaPlayer import MediaPlayer
 import subprocess
 import time
-from Util import *
+from Util import convertToUnicode
 import win32api
 import win32con
 import win32process
@@ -36,6 +36,7 @@ IPC_GETWND = 260
 IPC_GETWND_PE = 1
 
 # FIXME: make class hold on to handle for winamp and recreate it if error
+#        (poss already does this...)
 class WinampWindows(MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers):
@@ -43,7 +44,7 @@ class WinampWindows(MediaPlayer):
                              configParser, defaultPlayer, safePlayers)
         self._winamp = winampImport.Winamp()
         self.launchBackground()
-
+        
     def launch(self):
         self._logger.debug("Launching Winamp.")
         if self._winamp.getRunning() == False:

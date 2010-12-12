@@ -1,11 +1,9 @@
 import ConfigParser
-from Errors import *
+from Errors import MultiCompletionPutError
 import math
-import os
-import Queue
-import sqlite3
-import threading
+import os.path
 import traceback
+
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])

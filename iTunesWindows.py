@@ -2,6 +2,7 @@
 
 import subprocess
 import time
+from Util import convertToUnicode
 import win32com.universal
 import win32com.client
 

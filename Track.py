@@ -7,16 +7,10 @@
 ##       * but how would you get them to find out that their metadata
 ##       has changed without querying the file all the time? (Felix)
 
-import ConfigParser
-from Errors import *
+from Errors import NoTrackError, UnknownTrackType, NoMetadataError
 import mutagen
-import os
-from Util import *
-
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
+import os.path
+from Util import BasePrefsPage, formatLength
 
 class TrackFactory:
     def __init__(self, loggerFactory, configParser, debugMode):

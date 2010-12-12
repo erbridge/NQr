@@ -1,13 +1,9 @@
 ## Base class for media players
 
 import ConfigParser
-from Errors import *
-import os
-from Util import BasePrefsPage
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
+from Errors import NoTrackError
+import os.path
+from Util import BasePrefsPage, wx
 
 class MediaPlayer:
     def __init__(self, loggerFactory, name, noQueue, configParser,
@@ -62,7 +58,7 @@ class MediaPlayer:
         path = self._getTrackPathAtPos(trackPosition, logging)
         return os.path.realpath(path)
     
-    def _getUnplayedTrackIDsCompletion(self, id):
+    def _getUnplayedTrackIDsCompletion(self, id, path):
         # The track may be one we don't know added directly to the player
         if id is not None:
             self._ids.append(id)
@@ -78,7 +74,9 @@ class MediaPlayer:
         for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
             path = self.getTrackPathAtPos(pos)
             db.maybeGetIDFromPath(
-                path, lambda id: self._getUnplayedTrackIDsCompletion(id))
+                path,
+                lambda id, path=path: self._getUnplayedTrackIDsCompletion(id,
+                                                                          path))
         db.complete(
             lambda result: self._getUnplayedTrackIDListCompletion(completion))
 

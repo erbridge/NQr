@@ -24,21 +24,18 @@
 ## FIXME: reduce processing - e.g. check tracks less often (if doing this
 ##        change delay in _onNext() etc.)
 
-from collections import deque
+#from collections import deque
 import ConfigParser
-from Errors import *
-from GUIEvents import *
+from Errors import NoTrackError, EmptyDatabaseError
+import Events
 import os
 import sys
 import threading
 import time
 from Time import roughAge
-from Util import *
+from Util import MultiCompletion, ErrorCompletion, doNothing, RedirectErr,\
+    RedirectOut, plural, BasePrefsPage, validateDirectory, validateNumeric, wx
 
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
 ##import wx.lib.agw.multidirdialog as wxMDD
 
 ## must be aborted when closing!
@@ -78,15 +75,16 @@ class TrackMonitor(threading.Thread):
             if newTrackPath != currentTrackPath:
                 self._logger.debug("Track has changed.")
                 currentTrackPath = newTrackPath
-                wx.PostEvent(self._window, TrackChangeEvent(self._db,
-                                                            self._trackFactory,
-                                                            currentTrackPath))
+                wx.PostEvent(self._window,
+                             Events.TrackChangeEvent(self._db,
+                                                     self._trackFactory,
+                                                     currentTrackPath))
                 logging = True
                 self._enqueueing = True
             if self._enqueueing == False \
                     and self._player.hasNextTrack() == False:
                 self._logger.info("End of playlist reached.")
-                wx.PostEvent(self._window, NoNextTrackEvent())
+                wx.PostEvent(self._window, Events.NoNextTrackEvent())
             if self._abortFlag == True:
                 self._logger.info("Stopping track monitor.")
                 return
@@ -145,21 +143,21 @@ class ConnectionMonitor(threading.Thread):
                 self._conn.close()
                 break
             if message == "ATTEND\n":
-                wx.PostEvent(self._window, RequestAttentionEvent())
+                wx.PostEvent(self._window, Events.RequestAttentionEvent())
             elif message == "PAUSE\n":
-                wx.PostEvent(self._window, PauseEvent())
+                wx.PostEvent(self._window, Events.PauseEvent())
             elif message == "PLAY\n":
-                wx.PostEvent(self._window, PlayEvent())
+                wx.PostEvent(self._window, Events.PlayEvent())
             elif message == "STOP\n":
-                wx.PostEvent(self._window, StopEvent())
+                wx.PostEvent(self._window, Events.StopEvent())
             elif message == "NEXT\n":
-                wx.PostEvent(self._window, NextEvent())
+                wx.PostEvent(self._window, Events.NextEvent())
             elif message == "PREV\n":
-                wx.PostEvent(self._window, PreviousEvent())
+                wx.PostEvent(self._window, Events.PreviousEvent())
             elif message == "RATEUP\n":
-                wx.PostEvent(self._window, RateUpEvent())
+                wx.PostEvent(self._window, Events.RateUpEvent())
             elif message == "RATEDOWN\n":
-                wx.PostEvent(self._window, RateDownEvent())
+                wx.PostEvent(self._window, Events.RateDownEvent())
                                
     def _recieve(self):
         byte = ""
@@ -271,16 +269,16 @@ class MainWindow(wx.Frame):
                      self._onInactivityTimerDing)
         wx.EVT_TIMER(self, self._ID_REFRESHTIMER, self._onRefreshTimerDing)
         
-        EVT_TRACK_CHANGE(self, self._onTrackChange)
-        EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
-        EVT_REQUEST_ATTENTION(self, self._onRequestAttention)
-        EVT_PAUSE(self, self._onPause)
-        EVT_PLAY(self, self._onPlay)
-        EVT_STOP(self, self._onStop)
-        EVT_NEXT(self, self._onNext)
-        EVT_PREV(self, self._onPrevious)
-        EVT_RATE_UP(self, self._onRateUp)
-        EVT_RATE_DOWN(self, self._onRateDown)
+        Events.EVT_TRACK_CHANGE(self, self._onTrackChange)
+        Events.EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
+        Events.EVT_REQUEST_ATTENTION(self, self._onRequestAttention)
+        Events.EVT_PAUSE(self, self._onPause)
+        Events.EVT_PLAY(self, self._onPlay)
+        Events.EVT_STOP(self, self._onStop)
+        Events.EVT_NEXT(self, self._onNext)
+        Events.EVT_PREV(self, self._onPrevious)
+        Events.EVT_RATE_UP(self, self._onRateUp)
+        Events.EVT_RATE_DOWN(self, self._onRateDown)
         
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
@@ -1131,7 +1129,6 @@ class MainWindow(wx.Frame):
 
     def _onInactivityTimerDing(self, e):
         if self._index != 0:
-            ## TODO: should also focus track list on current track.
             self.selectTrack(0)
             
     def _onRefreshTimerDing(self, e):

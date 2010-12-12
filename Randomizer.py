@@ -4,7 +4,7 @@
 ## TODO: use tags to limit track selection
 
 import ConfigParser
-from Errors import *
+from Errors import EmptyDatabaseError, UnsafeInputError, NoTrackError
 import random
 from Time import roughAge
 from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage,\
