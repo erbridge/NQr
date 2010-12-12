@@ -1,6 +1,7 @@
 ## Preference window
 ##
 ## TODO: create validation rules for text controls
+## TODO: add a restore defaults option (which deletes the settings file?)
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()

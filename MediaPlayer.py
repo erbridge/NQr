@@ -3,6 +3,7 @@
 import ConfigParser
 from Errors import *
 import os
+from Util import BasePrefsPage
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
@@ -100,21 +101,12 @@ class MediaPlayer:
     def loadSettings(self):
         pass
 
-class PrefsPage(wx.Panel):
+class PrefsPage(BasePrefsPage):
     def __init__(self, parent, system, configParser, logger,
                  defaultPlayer, safePlayers):
-        wx.Panel.__init__(self, parent)
-        self._system = system
-        self._safePlayers = safePlayers
-        self._defaultPlayer = defaultPlayer
-        self._logger = logger
-        self._settings = {}
-        self._configParser = configParser
-        try:
-            self._configParser.add_section("Player")
-        except ConfigParser.DuplicateSectionError:
-            pass
-        self._loadSettings()
+        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+                               "Player", defaultPlayer, safePlayers)
+        
         self._initCreatePlayerSizer()
         
         mainSizer = wx.BoxSizer(wx.VERTICAL)
@@ -175,15 +167,10 @@ class PrefsPage(wx.Panel):
         elif self._system == "Mac OS X":
             if self._iTunesButton.GetValue():
                 self._settings["player"] = "iTunes"
-                
-
-    def savePrefs(self):
-        self._logger.debug("Saving player preferences.")
-        for (name, value) in self._settings.items():
-            self.setSetting(name, value)
-
-    def setSetting(self, name, value):
-        self._configParser.set("Player", name, str(value))
+        
+    def _setDefaults(self, safePlayers, defaultPlayer):
+        self._safePlayers = safePlayers
+        self._defaultPlayer = defaultPlayer
 
     def _loadSettings(self):
         try:

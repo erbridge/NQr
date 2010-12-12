@@ -330,29 +330,10 @@ class AudioTrack(Track):
         self._lengthString = formatLength(self._length)
         return self._lengthString
 
-class PrefsPage(wx.Panel):
+class PrefsPage(BasePrefsPage):
     def __init__(self, parent, system, configParser, logger):
-        wx.Panel.__init__(self, parent)
-        self._system = system
-        self._logger = logger
-        self._settings = {}
-        self._configParser = configParser
-        try:
-            self._configParser.add_section("Track")
-        except ConfigParser.DuplicateSectionError:
-            pass
-        self._loadSettings()
-
-    def savePrefs(self):
-        self._logger.debug("Saving track preferences.")
-        for (name, value) in self._settings.items():
-            self.setSetting(name, value)
-
-    def setSetting(self, name, value):
-        self._configParser.set("Track", name, str(value))
-
-    def _loadSettings(self):
-        pass
+        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+                               "Track")
 
 if __name__ == '__main__':
     from mutagen.easyid3 import EasyID3

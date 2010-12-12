@@ -1,7 +1,7 @@
 ## Database Control
 ##
 ## TODO: use a hash as a track identifier instead of path to allow for path
-##       changes.
+##       changes - maybe use path as backup reference?
 ## TODO: add a function to remove the last play record (to undo the play)?
 ## TODO: add functions to populate ignore list
 ## TODO: check if track table already exists first to confirm whether or not
@@ -1739,20 +1739,12 @@ class Database(DatabaseEventHandler):
         except ConfigParser.NoOptionError:
             self._defaultScore = self._defaultDefaultScore
 
-class PrefsPage(wx.Panel):
+class PrefsPage(BasePrefsPage):
     def __init__(self, parent, system, configParser, logger,
                  defaultDefaultScore):
-        wx.Panel.__init__(self, parent)
-        self._system = system
-        self._logger = logger
-        self._defaultDefaultScore = defaultDefaultScore
-        self._settings = {}
-        self._configParser = configParser
-        try:
-            self._configParser.add_section("Database")
-        except ConfigParser.DuplicateSectionError:
-            pass
-        self._loadSettings()
+        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+                               "Database", defaultDefaultScore)
+        
         self._initCreateDefaultScoreSizer()
 
         self.SetSizer(self._defaultScoreSizer)
@@ -1776,13 +1768,8 @@ class PrefsPage(wx.Panel):
         if defaultScore != "":
             self._settings["defaultScore"] = int(defaultScore)
 
-    def savePrefs(self):
-        self._logger.debug("Saving database preferences.")
-        for (name, value) in self._settings.items():
-            self.setSetting(name, value)
-
-    def setSetting(self, name, value):
-        self._configParser.set("Database", name, str(value))
+    def _setDefaults(self, defaultDefaultScore):
+        self._defaultDefaultScore = defaultDefaultScore
 
     def _loadSettings(self):
         try:

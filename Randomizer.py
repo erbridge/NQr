@@ -7,7 +7,7 @@ import ConfigParser
 from Errors import *
 import random
 from Time import roughAge
-from Util import plural, MultiCompletion, ErrorCompletion
+from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -191,21 +191,13 @@ class Randomizer:
 ##        weight = score * time
         return self._weightAlgorithm(score, time)
 
-class PrefsPage(wx.Panel):
-    def __init__(self, parent, system, configParser, logger, defaultScoreThreshold,
-                 defaultWeight):
-        wx.Panel.__init__(self, parent)
-        self._system = system
-        self._logger = logger
-        self._defaultScoreThreshold = defaultScoreThreshold
-        self._defaultWeight = defaultWeight
-        self._settings = {}
-        self._configParser = configParser
-        try:
-            self._configParser.add_section("Randomizer")
-        except ConfigParser.DuplicateSectionError:
-            pass
-        self._loadSettings()
+class PrefsPage(BasePrefsPage):
+    def __init__(self, parent, system, configParser, logger,
+                 defaultScoreThreshold, defaultWeight):
+        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+                               "Randomizer", defaultScoreThreshold,
+                               defaultWeight)
+        
         self._initCreateWeightSizer()
         self._initCreateThresholdSizer()
 
@@ -287,13 +279,9 @@ class PrefsPage(wx.Panel):
         if threshold != "":
             self._settings["scoreThreshold"] = int(threshold)
 
-    def savePrefs(self):
-        self._logger.debug("Saving randomizer preferences.")
-        for (name, value) in self._settings.items():
-            self.setSetting(name, value)
-
-    def setSetting(self, name, value):
-        self._configParser.set("Randomizer", name, str(value))
+    def _setDefaults(self, defaultScoreThreshold, defaultWeight):
+        self._defaultScoreThreshold = defaultScoreThreshold
+        self._defaultWeight = defaultWeight
 
     def _loadSettings(self):
         try:

@@ -1,3 +1,4 @@
+import ConfigParser
 from Errors import *
 import math
 import os
@@ -136,3 +137,33 @@ class ErrorCompletion:
                 self._completion(*args, **kwargs)
                 return
         raise err
+    
+class BasePrefsPage(wx.Panel):
+    def __init__(self, parent, system, configParser, logger, sectionName, *args,
+                 **kwargs):
+        wx.Panel.__init__(self, parent)
+        self._system = system
+        self._configParser = configParser
+        self._logger = logger
+        self._sectionName = sectionName
+        self._setDefaults(*args, **kwargs)
+        self._settings = {}
+        try:
+            self._configParser.add_section(self._sectionName)
+        except ConfigParser.DuplicateSectionError:
+            pass
+        self._loadSettings()
+        
+    def savePrefs(self):
+        self._logger.debug("Saving \'"+self._sectionName+"\' preferences.")
+        for (name, value) in self._settings.items():
+            self.setSetting(name, value)
+
+    def setSetting(self, name, value):
+        self._configParser.set(self._sectionName, name, str(value))
+        
+    def _setDefaults(self, *args, **kwargs): # override me
+        pass
+        
+    def _loadSettings(self): # override me
+        pass

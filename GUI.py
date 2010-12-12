@@ -1528,26 +1528,15 @@ class MainWindow(wx.Frame):
         except ConfigParser.NoOptionError:
             self._defaultDirectory = self._defaultDefaultDirectory
 
-class PrefsPage(wx.Panel):
+class PrefsPage(BasePrefsPage):
     def __init__(self, parent, system, configParser, logger, defaultPlayDelay,
                  defaultInactivityTime, defaultIgnore, defaultHaveLogPanel,
                  defaultRescanOnStartup, defaultDefaultDirectory):
-        wx.Panel.__init__(self, parent)
-        self._system = system
-        self._logger = logger
-        self._defaultPlayDelay = defaultPlayDelay
-        self._defaultInactivityTime = defaultInactivityTime
-        self._defaultIgnore = defaultIgnore
-        self._defaultHaveLogPanel = defaultHaveLogPanel
-        self._defaultRescanOnStartup = defaultRescanOnStartup
-        self._defaultDefaultDirectory = defaultDefaultDirectory
-        self._settings = {}
-        self._configParser = configParser
-        try:
-            self._configParser.add_section("GUI")
-        except ConfigParser.DuplicateSectionError:
-            pass
-        self._loadSettings()
+        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+                               "GUI", defaultPlayDelay, defaultInactivityTime,
+                               defaultIgnore, defaultHaveLogPanel,
+                               defaultRescanOnStartup, defaultDefaultDirectory)
+        
         self._initCreateDirectorySizer()
         self._initCreatePlayDelaySizer()
         self._initCreateInactivityTimeSizer()
@@ -1679,14 +1668,16 @@ class PrefsPage(wx.Panel):
             self._settings["haveLogPanel"] = True
         else:
             self._settings["haveLogPanel"] = False
-
-    def savePrefs(self):
-        self._logger.debug("Saving GUI preferences.")
-        for (name, value) in self._settings.items():
-            self.setSetting(name, value)
-
-    def setSetting(self, name, value):
-        self._configParser.set("GUI", name, str(value))
+        
+    def _setDefaults(self, defaultPlayDelay, defaultInactivityTime,
+                     defaultIgnore, defaultHaveLogPanel, defaultRescanOnStartup,
+                     defaultDefaultDirectory):
+        self._defaultPlayDelay = defaultPlayDelay
+        self._defaultInactivityTime = defaultInactivityTime
+        self._defaultIgnore = defaultIgnore
+        self._defaultHaveLogPanel = defaultHaveLogPanel
+        self._defaultRescanOnStartup = defaultRescanOnStartup
+        self._defaultDefaultDirectory = defaultDefaultDirectory
 
     def _loadSettings(self):
         try:

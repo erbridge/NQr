@@ -8,8 +8,10 @@
 ## TODO: populate prefs window including customizable score range (with
 ##	     database converter)?
 ## TODO: make refocussing on window reselect current track?
+## TODO: build HTTP server for remote control
 ##
 ## FIXME: queues wrong track if track changes at time of start up
+## FIXME: sockets should shutdown before closing 
 
 import ConfigParser
 import Database
@@ -23,6 +25,7 @@ import socket
 import sys
 import traceback
 import Track
+from Util import BasePrefsPage
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -206,26 +209,18 @@ class Main(wx.App):
         try:
             self._player = self._configParser.get("Player", "player")
             if self._player not in self._safePlayers:
-                self._logger.warning("Chosen player is not supported.")
+                self._logger.warning("Chosen player is not supported. Picking "\
+                                     +"the default.")
                 self._player = self._defaultPlayer
         except ConfigParser.NoOptionError:
             self._player = self._defaultPlayer
         
-class PrefsPage(wx.Panel):
+class PrefsPage(BasePrefsPage):
     def __init__(self, parent, system, configParser, logger, defaultDebugMode,
                  defaultNoQueue):
-        wx.Panel.__init__(self, parent)
-        self._system = system
-        self._logger = logger
-        self._defaultDebugMode = defaultDebugMode
-        self._defaultNoQueue = defaultNoQueue
-        self._settings = {}
-        self._configParser = configParser
-        try:
-            self._configParser.add_section("Main")
-        except ConfigParser.DuplicateSectionError:
-            pass
-        self._loadSettings()
+        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+                               "Main", defaultDebugMode, defaultNoQueue)
+        
         self._initCreateDebugCheckBox()
         self._initCreateQueueCheckBox()
         
@@ -265,13 +260,9 @@ class PrefsPage(wx.Panel):
         else:
             self._settings["noQueue"] = False
 
-    def savePrefs(self):
-        self._logger.debug("Saving player preferences.")
-        for (name, value) in self._settings.items():
-            self.setSetting(name, value)
-
-    def setSetting(self, name, value):
-        self._configParser.set("Main", name, str(value))
+    def _setDefaults(self, defaultDebugMode, defaultNoQueue):
+        self._defaultDebugMode = defaultDebugMode
+        self._defaultNoQueue = defaultNoQueue
 
     def _loadSettings(self):
         try:
