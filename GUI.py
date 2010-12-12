@@ -1575,14 +1575,14 @@ class PrefsPage(wx.Panel):
             self, -1, str(self._settings["defaultDirectory"]))
         self._directorySizer.Add(self._directoryControl, 0)
 
-        self.Bind(wx.EVT_TEXT, self._onDirectoryChange, self._directoryControl)
+        self._directoryControl.Bind(wx.EVT_KILL_FOCUS, self._onDirectoryChange)
 
     def _initCreatePlayDelaySizer(self):
         self._playDelaySizer = wx.BoxSizer(wx.HORIZONTAL)
 
         playDelayLabel = wx.StaticText(self, -1, "Play Record Delay: ")
         self._playDelaySizer.Add(playDelayLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-
+        
         self._playDelayControl = wx.TextCtrl(
             self, -1, str(self._settings["playDelay"]), size=(40,-1))
         self._playDelaySizer.Add(self._playDelayControl, 0)
@@ -1642,18 +1642,25 @@ class PrefsPage(wx.Panel):
         self.Bind(wx.EVT_CHECKBOX, self._onLogChange, self._logCheckBox)
         
     def _onDirectoryChange(self, e):
-        directory = self._directoryControl.GetLineText(0)
-        self._settings["defaultDirectory"] = os.path.realpath(directory)
+        rawDirectory = self._directoryControl.GetLineText(0)
+        directory = os.path.realpath(rawDirectory)
+        if validateDirectory(self._directoryControl):
+            self._settings["defaultDirectory"] = os.path.realpath(directory)
+        else:
+            self._directoryControl.ChangeValue(
+                self._settings["defaultDirectory"])
 
     def _onPlayDelayChange(self, e):
-        playDelay = self._playDelayControl.GetLineText(0)
-        if playDelay != "":
-            self._settings["playDelay"] = int(playDelay)
+        if validateNumeric(self._playDelayControl):
+            playDelay = self._playDelayControl.GetLineText(0)
+            if playDelay != "":
+                self._settings["playDelay"] = int(playDelay)
 
     def _onInactivityTimeChange(self, e):
-        inactivityTime = self._inactivityTimeControl.GetLineText(0)
-        if inactivityTime != "":
-            self._settings["inactivityTime"] = int(inactivityTime)
+        if validateNumeric(self._inactivityTimeControl):
+            inactivityTime = self._inactivityTimeControl.GetLineText(0)
+            if inactivityTime != "":
+                self._settings["inactivityTime"] = int(inactivityTime)
 
     def _onIgnoreChange(self, e):
         if self._ignoreCheckBox.IsChecked():

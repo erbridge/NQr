@@ -5,6 +5,10 @@ import Queue
 import sqlite3
 import threading
 import traceback
+import wxversion
+wxversion.select([x for x in wxversion.getInstalled()
+                  if x.find('unicode') != -1])
+import wx
 
 def plural(count):
     if count == 1:
@@ -55,6 +59,33 @@ def extractTraceStack(trace):
         if trace[index] != newTrace[index]:
             return trace + newTrace[index:]
     return trace
+
+def validateNumeric(textCtrl):
+    text = textCtrl.GetValue()
+    for char in text:
+        if char.isdigit() == False:
+            wx.MessageBox("Must be numeric only!", "Error")
+            textCtrl.SetBackgroundColour("pink")
+            textCtrl.SetFocus()
+            textCtrl.Refresh()
+            return False
+    textCtrl.SetBackgroundColour(
+        wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
+    textCtrl.Refresh()
+    return True
+
+def validateDirectory(textCtrl):
+    text = textCtrl.GetValue()
+    if os.path.isdir(text) == False:
+        wx.MessageBox("Must be existing directory path!", "Error")
+        textCtrl.SetBackgroundColour("pink")
+        textCtrl.SetFocus()
+        textCtrl.Refresh()
+        return False
+    textCtrl.SetBackgroundColour(
+        wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
+    textCtrl.Refresh()
+    return True
     
 class RedirectErr:
     def __init__(self, textCtrl, stderr):
