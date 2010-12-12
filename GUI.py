@@ -1217,7 +1217,7 @@ class MainWindow(wx.Frame):
         self._trackList.SetItemData(index, trackID)
         if select == True:
             self.selectTrack(index)
-        if self._index >= index:
+        elif self._index >= index:
             self._index += 1
         
     # TODO: give higher priority?
