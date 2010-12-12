@@ -31,3 +31,6 @@ class UnsafeInputError(Error):
 
 class MultiCompletionPutError(Error):
     pass
+
+class AbortThreadError(Error):
+    pass

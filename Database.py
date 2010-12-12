@@ -13,7 +13,7 @@
 import ConfigParser
 import datetime
 from Errors import NoResultError, EmptyQueueError, NoTrackError,\
-    EmptyDatabaseError
+    EmptyDatabaseError, AbortThreadError
 import Events
 import os.path
 import Queue
@@ -24,47 +24,62 @@ from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
     extractTraceStack, BasePrefsPage, validateNumeric, wx
 
 class Thread(threading.Thread): # FIXME: add interrupt?
-    def __init__(self, db, path, name, logger, errcompletion):
+    def __init__(self, db, path, name, logger, errcallback):
         threading.Thread.__init__(self, name=name)
+#        self.setDaemon(True)
         self._name = name
         self._logger = logger
-        self._errcompletion = errcompletion
+        self._errcallback = errcallback
         self._db = db
         self._databasePath = os.path.realpath(path)
         self._queue = Queue.PriorityQueue()
         self._eventCount = 0
-        self._abortFlag = False
+        self._abortCount = 0
+        self._emptyCount = 0
+        self._raisedEmpty = True
         
     def queue(self, thing, trace, priority=2):
         self._eventCount += 1
         self._queue.put((priority, self._eventCount, thing, trace))
+        if self._raisedEmpty == True:
+            self._raisedEmpty = False
+            self._queueEmptyQueueCallback()
 
     def run(self):
         self._logger.info("Starting \'"+self._name+"\' thread.")
-        conn = sqlite3.connect(self._databasePath)
-        cursor = conn.cursor()
+        self._conn = sqlite3.connect(self._databasePath)
+        cursor = self._conn.cursor()
         while True:
             try:
-                got = self._queue.get(timeout=3)
-            except Queue.Empty:
-                if self._abortFlag == True:
-                    self._commit(conn)
+                got = self._queue.get()
+                got[2](self, cursor, got[3])
+                self._abortCount = 0
+                self._emptyCount = 0
+                self._commit()
+            except AbortThreadError:
+                if self._abortCount > 20:
+                    self._commit()
                     self._logger.info("Stopping \'"+self._name+"\' thread.")
-                    return
-                self._raise(EmptyQueueError(trace=extractTraceStack([])),
-                            self._errcompletion)
-                continue
-            got[2](self, cursor, got[3])
-            self._commit(conn)
+                    break
+                self.abort(got[3])
+                self._abortCount += 1
+            except EmptyQueueError as err:
+                if self._emptyCount > 20:
+                    self._raise(err, self._errcallback)
+                    self._raisedEmpty = True
+                elif self._raisedEmpty == False:
+                    self._emptyCount += 1
+                    self._queueEmptyQueueCallback()
             
-    def _commit(self, conn):
+    def _commit(self):
             try:
-                conn.commit()
+                self._conn.commit()
             except sqlite3.OperationalError as err:
                 if str(err) != "disk I/O error":
                     raise err
+                self._logger.error("Got a disk I/O error. Retrying commit.")
                 time.sleep(.01)
-                self._commit(conn)
+                self._commit()
         
     def _raise(self, err, errcompletion=None):
         try:
@@ -72,8 +87,19 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         except:
             wx.PostEvent(self._db, Events.ExceptionEvent(err))
             
-    def abort(self):
-        self._abortFlag = True
+    def _emptyQueueCallback(self, trace):
+        raise EmptyQueueError(trace=trace)
+        
+    def _queueEmptyQueueCallback(self):
+        self.queue(lambda thread, cursor, traceBack: thread._emptyQueueCallback(
+                       traceBack), extractTraceStack([]), 999)
+        
+    def _abortCallback(self, trace):
+        raise AbortThreadError(trace=trace)
+            
+    def abort(self, trace=[]):
+        self.queue(lambda thread, cursor, traceBack: thread._abortCallback(
+                       traceBack), extractTraceStack(trace), 1000)
         
 class DatabaseEventHandler(wx.EvtHandler):
     def __init__(self, dbThread, priority):
@@ -224,10 +250,10 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def __init__(self, db, path, logger, trackFactory, dbThread):
         self._working = False
         self._errorCount = 0
-        errcompletion = ErrorCompletion(EmptyQueueError,
-                                        lambda: self._onEmptyQueueError())
+        errcallback = ErrorCompletion(EmptyQueueError,
+                                      lambda: self._onEmptyQueueError())
         Thread.__init__(self, db, path, "Directory Walk", logger,
-                        lambda err: errcompletion(err))
+                        lambda err: errcallback(err))
         DatabaseEventHandler.__init__(self, dbThread, 3)
         self._logger = logger
         self._trackFactory = trackFactory
@@ -374,9 +400,9 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
 
 class DatabaseThread(Thread):
     def __init__(self, db, path, logger):
-        errcompletion = ErrorCompletion(EmptyQueueError, lambda: doNothing())
+        errcallback = ErrorCompletion(EmptyQueueError, lambda: doNothing())
         Thread.__init__(self, db, path, "Database", logger,
-                        lambda err: errcompletion(err))
+                        lambda err: errcallback(err))
         
     def doComplete(self, completion, trace):
         completion(None)
