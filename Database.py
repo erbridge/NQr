@@ -1764,9 +1764,10 @@ class PrefsPage(BasePrefsPage):
                   self._defaultScoreControl)
 
     def _onDefaultScoreChange(self, e):
-        defaultScore = self._defaultScoreControl.GetLineText(0)
-        if defaultScore != "":
-            self._settings["defaultScore"] = int(defaultScore)
+        if validateNumeric(self._defaultScoreControl):
+            defaultScore = self._defaultScoreControl.GetLineText(0)
+            if defaultScore != "":
+                self._settings["defaultScore"] = int(defaultScore)
 
     def _setDefaults(self, defaultDefaultScore):
         self._defaultDefaultScore = defaultDefaultScore

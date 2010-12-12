@@ -7,7 +7,8 @@ import ConfigParser
 from Errors import *
 import random
 from Time import roughAge
-from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage
+from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage,\
+    validateNumeric
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
@@ -275,9 +276,10 @@ class PrefsPage(BasePrefsPage):
             self._settings["weightAlgorithm"] = weight
 
     def _onThresholdChange(self, e):
-        threshold = self._thresholdControl.GetLineText(0)
-        if threshold != "":
-            self._settings["scoreThreshold"] = int(threshold)
+        if validateNumeric(self._thresholdControl):
+            threshold = self._thresholdControl.GetLineText(0)
+            if threshold != "":
+                self._settings["scoreThreshold"] = int(threshold)
 
     def _setDefaults(self, defaultScoreThreshold, defaultWeight):
         self._defaultScoreThreshold = defaultScoreThreshold
