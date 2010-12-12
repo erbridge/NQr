@@ -42,7 +42,7 @@ from Util import MultiCompletion, ErrorCompletion, doNothing, RedirectErr,\
 class TrackMonitor(threading.Thread):
     def __init__(self, window, db, player, trackFactory, loggerFactory):
         threading.Thread.__init__(self, name="Track Monitor")
-        self.setDaemon(True)
+#        self.setDaemon(True)
         self._window = window
         self._db = db
         self._player = player
@@ -81,7 +81,7 @@ class TrackMonitor(threading.Thread):
                                                      currentTrackPath))
                 logging = True
                 self._enqueueing = True
-            if self._enqueueing == False \
+            if self._enqueueing == False\
                     and self._player.hasNextTrack() == False:
                 self._logger.info("End of playlist reached.")
                 wx.PostEvent(self._window, Events.NoNextTrackEvent())
@@ -95,10 +95,10 @@ class TrackMonitor(threading.Thread):
     def setEnqueueing(self, status):
         self._enqueueing = status
 
-class SocketMonitor(threading.Thread):
+class SocketMonitor(threading.Thread): # FIXME: poss doesn't exit
     def __init__(self, window, socket, loggerFactory):
         threading.Thread.__init__(self, name="Socket Monitor")
-        self.setDaemon(True)
+#        self.setDaemon(True)
         self._window = window
         self._socket = socket
         self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
@@ -121,11 +121,11 @@ class SocketMonitor(threading.Thread):
             connection.abort()
         self._socket.close()
         
-class ConnectionMonitor(threading.Thread):
+class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
     def __init__(self, window, connection, address, logger):
         self._address = address[0]+":"+str(address[1])
         threading.Thread.__init__(self, name=self._address+" Monitor")
-        self.setDaemon(True)
+#        self.setDaemon(True)
         self._window = window
         self._conn = connection
         self._logger = logger
@@ -716,10 +716,21 @@ class MainWindow(wx.Frame):
         self._logger.debug("Opening about dialog.")
         text = "For all your NQing needs\n\n"
         text += str(number)+" tracks in library:\n"
-        text += str(numberUnplayed)+" unplayed\n\n"
         
+        scoreTableTitle = "score\t|       number\n\t|\n"
+        scoreTable = ""
+        numberScored = 0
         for total in totals:
-            text += str(total[0])+" | "+str(total[1])+"\n"
+            numberScored += total[1]
+            score = str(total[0])
+            if score[0] != "-":
+                score = " "+score
+            scoreTable = "  "+score+"\t|            "+str(total[1])+"\n"\
+                +scoreTable
+            
+        text += "- "+str(number - numberScored)+" unscored\n"
+        text += "- "+str(numberUnplayed)+" unplayed\n\n"
+        text += scoreTableTitle+scoreTable
 
         dialog = wx.MessageDialog(self, text, "NQr", wx.OK)
         dialog.ShowModal()
