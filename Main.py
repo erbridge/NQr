@@ -297,10 +297,10 @@ if __name__ == '__main__':
         if errno != 10048:
             raise
         NQr.criticalLog("NQr is already running.")
-        # TODO: make running NQr focus - poss see winamp.focus for clues
+        # TODO: maybe make running NQr focus - poss see winamp.focus for clues
         # FIXME: has windows permission issues...
         sock.connect((host, port))
-        message = "RAISE\n"
+        message = "ATTEND\n"
         totalSent = 0
         while totalSent < len(message):
             sent = sock.send(message[totalSent:])

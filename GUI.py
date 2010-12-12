@@ -122,15 +122,15 @@ class TrackMonitor(threading.Thread):
     def setEnqueueing(self, status):
         self._enqueueing = status
         
-ID_EVT_BRING_TO_FRONT = wx.NewId()
+ID_EVT_REQUEST_ATTENTION = wx.NewId()
 
-def EVT_BRING_TO_FRONT(window, func):
-    window.Connect(-1, -1, ID_EVT_BRING_TO_FRONT, func)
+def EVT_REQUEST_ATTENTION(window, func):
+    window.Connect(-1, -1, ID_EVT_REQUEST_ATTENTION, func)
 
-class BringToFrontEvent(wx.PyEvent):
+class RequestAttentionEvent(wx.PyEvent):
     def __init__(self):
         wx.PyEvent.__init__(self)
-        self.SetEventType(ID_EVT_BRING_TO_FRONT)
+        self.SetEventType(ID_EVT_REQUEST_ATTENTION)
 
 class SocketMonitor(threading.Thread):
     def __init__(self, window, socket, loggerFactory):
@@ -179,9 +179,8 @@ class ConnectionMonitor(threading.Thread):
                                    +") monitor.")
                 self._conn.close()
                 break
-            if message == "RAISE\n":
-                self._logger.debug("Received bring to front call.")
-                wx.PostEvent(self._window, BringToFrontEvent())
+            if message == "ATTEND\n":
+                wx.PostEvent(self._window, RequestAttentionEvent())
                 
     def _recieve(self):
         byte = ""
@@ -294,7 +293,7 @@ class MainWindow(wx.Frame):
         wx.EVT_TIMER(self, self._ID_REFRESHTIMER, self._onRefreshTimerDing)
         EVT_TRACK_CHANGE(self, self._onTrackChange)
         EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
-        EVT_BRING_TO_FRONT(self, self._onBringToFront)
+        EVT_REQUEST_ATTENTION(self, self._onRequestAttention)
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
         if self._restorePlaylist == True:
@@ -1121,9 +1120,9 @@ class MainWindow(wx.Frame):
     def _onNoNextTrack(self, e):
         self.maintainPlaylist()
         
-    def _onBringToFront(self, e):
-        self._logger.info("Bringing window to front.")
-        self.Raise() # FIXME: doesn't raise above other apps
+    def _onRequestAttention(self, e):
+        self._logger.debug("Requesting user attention.")
+        self.RequestUserAttention() # poss use wx.USER_ATTENTION_ERROR as arg?
         
     def _onPlayTimerDingCompletion(self, track):
         if track == self._playingTrack:
