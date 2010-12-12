@@ -76,7 +76,7 @@ class Main(wx.App):
                                                             traceBack)]))
         sys.exit(1)## poss remove for non-dev versions?
 
-    def run(self, socket):
+    def run(self, socket, address):
         # Do platform-dependent imports, and choose a player type. For
         # now, we just choose it based on the platform...
         self._logger.debug("Running on "+self._system+".")
@@ -139,7 +139,7 @@ class Main(wx.App):
             self._defaultEnqueueOnStartup = False
         gui = GUI.MainWindow(None, db, randomizer, player, trackFactory,
                              self._system, self._loggerFactory, prefsFactory,
-                             self._configParser, socket, self._title,
+                             self._configParser, socket, address, self._title,
                              self._defaultRestorePlaylist,
                              self._defaultEnqueueOnStartup,
                              self._defaultRescanOnStartup,
@@ -154,6 +154,7 @@ class Main(wx.App):
         ##       if we are not in dev mode
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
+        self._logger.info("Stopping main loop.")
         
     def criticalLog(self, message):
         self._logger.critical(message)
@@ -280,7 +281,7 @@ if __name__ == '__main__':
     port = 35636 # FIXME: make sure this port is not used on this system
     try:
         sock.bind((host, port))
-        NQr.run(sock)
+        NQr.run(sock, (host, port))
     except socket.error as (errno, msg):
         if errno != 10048:
             raise
@@ -295,6 +296,7 @@ if __name__ == '__main__':
             if sent == 0:
                 break
             totalSent += sent
+        sock.shutdown(2)
         sock.close()
         dialog = wx.MessageDialog(None, "NQr is already running", "NQr", wx.OK)
         dialog.ShowModal()

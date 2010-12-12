@@ -34,3 +34,6 @@ class MultiCompletionPutError(Error):
 
 class AbortThreadError(Error):
     pass
+
+class BadMessageError(Error):
+    pass

@@ -24,9 +24,10 @@
 
 #from collections import deque
 import ConfigParser
-from Errors import NoTrackError, EmptyDatabaseError
+from Errors import NoTrackError, EmptyDatabaseError, BadMessageError
 import Events
 import os
+import socket
 import sys
 import threading
 import time
@@ -62,11 +63,10 @@ class TrackMonitor(threading.Thread):
             currentTrackPath = self._player.getCurrentTrackPath(logging=logging)
         except NoTrackError:
             currentTrackPath = None
-        while True:
+        while not self._abortFlag:
             time.sleep(self._trackCheckDelay)
             if self._abortFlag == True:
-                self._logger.info("Stopping track monitor.")
-                return
+                break
             try:
                 newTrackPath = self._player.getCurrentTrackPath(logging=logging)
                 logging = False
@@ -85,9 +85,7 @@ class TrackMonitor(threading.Thread):
                     and self._player.hasNextTrack() == False:
                 self._logger.info("End of playlist reached.")
                 wx.PostEvent(self._window, Events.NoNextTrackEvent())
-            if self._abortFlag == True:
-                self._logger.info("Stopping track monitor.")
-                return
+        self._logger.info("Stopping track monitor.")
 
     def abort(self):
         self._abortFlag = True
@@ -96,30 +94,35 @@ class TrackMonitor(threading.Thread):
         self._enqueueing = status
 
 class SocketMonitor(threading.Thread): # FIXME: poss doesn't exit
-    def __init__(self, window, socket, loggerFactory):
+    def __init__(self, window, socket, address, loggerFactory):
         threading.Thread.__init__(self, name="Socket Monitor")
 #        self.setDaemon(True)
         self._window = window
         self._socket = socket
+        self._address = address
         self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
         self._connections = []
+        self._abortFlag = False
         self.start()
 
     def run(self):
         self._socket.listen(5) # FIXME: how many can it listen to?
-        while True:
+        while not self._abortFlag:
             # FIXME: has windows permission issues...
             (conn, address) = self._socket.accept()
             self._logger.debug("Starting connection ("+address[0]+":"\
                                +str(address[1])+") monitor.")
             self._connections.append(ConnectionMonitor(self._window, conn,
                                                        address, self._logger))
+        self._logger.debug("Stopping socket monitor.")
+        self._socket.close()
                 
     def abort(self):
-        self._logger.debug("Stopping socket monitor.")
-        for connection in self._connections: # FIXME: is this necessary?
-            connection.abort()
-        self._socket.close()
+        self._abortFlag = True
+        sock = socket.socket()
+        sock.connect(self._address)
+        sock.shutdown(2)
+        sock.close()
         
 class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
     def __init__(self, window, connection, address, logger):
@@ -140,6 +143,7 @@ class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
                     raise err
                 self._logger.debug("Stopping connection ("+self._address\
                                    +") monitor.")
+                self._conn.shutdown(2)
                 self._conn.close()
                 break
             if message == "ATTEND\n":
@@ -158,6 +162,8 @@ class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
                 wx.PostEvent(self._window, Events.RateUpEvent())
             elif message == "RATEDOWN\n":
                 wx.PostEvent(self._window, Events.RateDownEvent())
+            else:
+                raise BadMessageError
                                
     def _recieve(self):
         byte = ""
@@ -175,8 +181,8 @@ class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
         
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
-                 loggerFactory, prefsFactory, configParser, socket, title,
-                 defaultRestorePlaylist, defaultEnqueueOnStartup,
+                 loggerFactory, prefsFactory, configParser, socket, address,
+                 title, defaultRestorePlaylist, defaultEnqueueOnStartup,
                  defaultRescanOnStartup, defaultPlaylistLength,
                  defaultPlayDelay, defaultIgnore, defaultTrackCheckDelay,
                  defaultInactivityTime=30000,
@@ -265,7 +271,8 @@ class MainWindow(wx.Frame):
                                           self._trackCheckDelay)
         
         self._logger.debug("Starting socket monitor.")
-        self._socketMonitor = SocketMonitor(self, socket, loggerFactory)
+        self._socketMonitor = SocketMonitor(self, socket, address,
+                                            loggerFactory)
 
         wx.EVT_TIMER(self, self._ID_PLAYTIMER, self._onPlayTimerDing)
         wx.EVT_TIMER(self, self._ID_INACTIVITYTIMER,
