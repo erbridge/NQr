@@ -23,10 +23,9 @@ import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
     extractTraceStack, BasePrefsPage, validateNumeric, wx
 
-class Thread(threading.Thread): # FIXME: add interrupt?
+class Thread(threading.Thread):
     def __init__(self, db, path, name, logger, errcallback):
         threading.Thread.__init__(self, name=name)
-#        self.setDaemon(True)
         self._name = name
         self._logger = logger
         self._errcallback = errcallback
@@ -37,6 +36,7 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         self._abortCount = 0
         self._emptyCount = 0
         self._raisedEmpty = True
+        self._interrupt = False
         
     def queue(self, thing, trace, priority=2):
         self._eventCount += 1
@@ -94,12 +94,19 @@ class Thread(threading.Thread): # FIXME: add interrupt?
         self.queue(lambda thread, cursor, traceBack: thread._emptyQueueCallback(
                        traceBack), extractTraceStack([]), 999)
         
+    def setAbortInterrupt(self, interrupt):
+        self._interrupt = interrupt
+        
     def _abortCallback(self, trace):
         raise AbortThreadError(trace=trace)
             
     def abort(self, trace=[]):
+        if self._interrupt == True:
+            priority = 0
+        else:
+            priority = 1000
         self.queue(lambda thread, cursor, traceBack: thread._abortCallback(
-                       traceBack), extractTraceStack(trace), 1000)
+                       traceBack), extractTraceStack(trace), priority)
         
 class DatabaseEventHandler(wx.EvtHandler):
     def __init__(self, dbThread, priority):
@@ -562,7 +569,8 @@ class Database(DatabaseEventHandler):
             self._dbThread)
         self._directoryWalkThread.start()
         
-    def abort(self):
+    def abort(self, interruptWalk=False):
+        self._directoryWalkThread.setAbortInterrupt(interruptWalk)
         self._directoryWalkThread.abort()
         self._dbThread.abort()
 
