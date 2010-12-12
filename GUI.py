@@ -38,7 +38,8 @@ from Util import MultiCompletion, ErrorCompletion, doNothing, RedirectErr,\
 
 ## must be aborted when closing!
 class TrackMonitor(threading.Thread):
-    def __init__(self, window, db, player, trackFactory, loggerFactory):
+    def __init__(self, window, db, player, trackFactory, loggerFactory,
+                 trackCheckDelay):
         threading.Thread.__init__(self, name="Track Monitor")
 #        self.setDaemon(True)
         self._window = window
@@ -46,6 +47,7 @@ class TrackMonitor(threading.Thread):
         self._player = player
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.TrackMonitor", "debug")
+        self._trackCheckDelay = trackCheckDelay
         self._abortFlag = False
         self._enqueueing = False
         self.start()
@@ -61,7 +63,7 @@ class TrackMonitor(threading.Thread):
         except NoTrackError:
             currentTrackPath = None
         while True:
-            time.sleep(.5)
+            time.sleep(self._trackCheckDelay)
             if self._abortFlag == True:
                 self._logger.info("Stopping track monitor.")
                 return
@@ -176,7 +178,8 @@ class MainWindow(wx.Frame):
                  loggerFactory, prefsFactory, configParser, socket, title,
                  defaultRestorePlaylist, defaultEnqueueOnStartup,
                  defaultRescanOnStartup, defaultPlaylistLength,
-                 defaultPlayDelay, defaultIgnore, defaultInactivityTime=30000,
+                 defaultPlayDelay, defaultIgnore, defaultTrackCheckDelay,
+                 defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|"\
                     +"*.*", defaultDefaultDirectory="",
                 defaultHaveLogPanel=True):
@@ -222,6 +225,7 @@ class MainWindow(wx.Frame):
         self._defaultPlaylistLength = defaultPlaylistLength
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
         self._defaultPlayDelay = defaultPlayDelay
+        self._defaultTrackCheckDelay = defaultTrackCheckDelay
         self._defaultInactivityTime = defaultInactivityTime
         self._wildcards = wildcards
         self._defaultDefaultDirectory = defaultDefaultDirectory
@@ -257,7 +261,8 @@ class MainWindow(wx.Frame):
         
         self._logger.info("Starting track monitor.")
         self._trackMonitor = TrackMonitor(self, self._db, self._player,
-                                          self._trackFactory, loggerFactory)
+                                          self._trackFactory, loggerFactory,
+                                          self._trackCheckDelay)
         
         self._logger.debug("Starting socket monitor.")
         self._socketMonitor = SocketMonitor(self, socket, loggerFactory)
@@ -1523,7 +1528,7 @@ class MainWindow(wx.Frame):
             parent, system, self._configParser, logger, self._defaultPlayDelay,
             self._defaultInactivityTime, self._defaultIgnore,
             self._defaultHaveLogPanel, self._defaultRescanOnStartup,
-            self._defaultDefaultDirectory), "GUI"
+            self._defaultDefaultDirectory, self._defaultTrackCheckDelay), "GUI"
 
     def loadSettings(self):
         try:
@@ -1559,19 +1564,27 @@ class MainWindow(wx.Frame):
                 self._configParser.get("GUI", "defaultDirectory"))
         except ConfigParser.NoOptionError:
             self._defaultDirectory = self._defaultDefaultDirectory
+        try:
+            self._trackCheckDelay = self._configParser.getfloat(
+                "GUI", "trackCheckDelay")
+        except ConfigParser.NoOptionError:
+            self._trackCheckDelay = self._defaultTrackCheckDelay
 
 class PrefsPage(BasePrefsPage):
     def __init__(self, parent, system, configParser, logger, defaultPlayDelay,
                  defaultInactivityTime, defaultIgnore, defaultHaveLogPanel,
-                 defaultRescanOnStartup, defaultDefaultDirectory):
+                 defaultRescanOnStartup, defaultDefaultDirectory,
+                 defaultTrackCheckDelay):
         BasePrefsPage.__init__(self, parent, system, configParser, logger,
                                "GUI", defaultPlayDelay, defaultInactivityTime,
                                defaultIgnore, defaultHaveLogPanel,
-                               defaultRescanOnStartup, defaultDefaultDirectory)
+                               defaultRescanOnStartup, defaultDefaultDirectory,
+                               defaultTrackCheckDelay)
         
         self._initCreateDirectorySizer()
         self._initCreatePlayDelaySizer()
         self._initCreateInactivityTimeSizer()
+        self._initCreateTrackCheckDelaySizer()
         self._initCreateIgnoreCheckBox()
         self._initCreateRescanCheckBox()
         self._initCreateLogCheckBox()
@@ -1580,6 +1593,7 @@ class PrefsPage(BasePrefsPage):
         mainSizer.Add(self._directorySizer, 0)
         mainSizer.Add(self._playDelaySizer, 0)
         mainSizer.Add(self._inactivityTimeSizer, 0)
+        mainSizer.Add(self._trackCheckSizer, 0)
         mainSizer.Add(self._ignoreCheckBox, 0)
         mainSizer.Add(self._rescanCheckBox, 0)
         mainSizer.Add(self._logCheckBox, 0)
@@ -1632,6 +1646,26 @@ class PrefsPage(BasePrefsPage):
 
         self.Bind(wx.EVT_TEXT, self._onInactivityTimeChange,
                   self._inactivityTimeControl)
+        
+    def _initCreateTrackCheckDelaySizer(self):
+        self._trackCheckSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        trackCheckLabel = wx.StaticText(self, -1,
+                                        "Check player for track change every ")
+        self._trackCheckSizer.Add(trackCheckLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM,
+                                  3)
+
+        self._trackCheckControl = wx.TextCtrl(
+            self, -1, str(int(self._settings["trackCheckDelay"]*1000)),
+            size=(40,-1))
+        self._trackCheckSizer.Add(self._trackCheckControl, 0)
+
+        trackCheckUnits = wx.StaticText(self, -1, " milliseconds")
+        self._trackCheckSizer.Add(trackCheckUnits, 0, wx.RIGHT|wx.TOP|wx.BOTTOM,
+                                  3)
+
+        self.Bind(wx.EVT_TEXT, self._onTrackCheckChange,
+                  self._trackCheckControl)
 
     def _initCreateIgnoreCheckBox(self):
         self._ignoreCheckBox = wx.CheckBox(self, -1,
@@ -1682,6 +1716,12 @@ class PrefsPage(BasePrefsPage):
             inactivityTime = self._inactivityTimeControl.GetLineText(0)
             if inactivityTime != "":
                 self._settings["inactivityTime"] = int(inactivityTime)
+                
+    def _onTrackCheckChange(self, e):
+        if validateNumeric(self._trackCheckControl):
+            trackCheckDelay = self._trackCheckControl.GetLineText(0)
+            if trackCheckDelay != "":
+                self._settings["trackCheckDelay"] = float(trackCheckDelay/1000)
 
     def _onIgnoreChange(self, e):
         if self._ignoreCheckBox.IsChecked():
@@ -1703,13 +1743,14 @@ class PrefsPage(BasePrefsPage):
         
     def _setDefaults(self, defaultPlayDelay, defaultInactivityTime,
                      defaultIgnore, defaultHaveLogPanel, defaultRescanOnStartup,
-                     defaultDefaultDirectory):
+                     defaultDefaultDirectory, defaultTrackCheckDelay):
         self._defaultPlayDelay = defaultPlayDelay
         self._defaultInactivityTime = defaultInactivityTime
         self._defaultIgnore = defaultIgnore
         self._defaultHaveLogPanel = defaultHaveLogPanel
         self._defaultRescanOnStartup = defaultRescanOnStartup
         self._defaultDefaultDirectory = defaultDefaultDirectory
+        self._defaultTrackCheckDelay = defaultTrackCheckDelay
 
     def _loadSettings(self):
         try:
@@ -1743,3 +1784,9 @@ class PrefsPage(BasePrefsPage):
             self._settings["defaultDirectory"] = directory
         except ConfigParser.NoOptionError:
             self._settings["defaultDirectory"] = self._defaultDefaultDirectory
+        try:
+            trackCheckDelay = self._configParser.getfloat("GUI",
+                                                          "trackCheckDelay")
+            self._settings["trackCheckDelay"] = trackCheckDelay
+        except ConfigParser.NoOptionError:
+            self._settings["trackCheckDelay"] = self._defaultTrackCheckDelay

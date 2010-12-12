@@ -145,7 +145,8 @@ class Main(wx.App):
                              self._defaultRescanOnStartup,
                              self._defaultPlaylistLength,
                              self._defaultPlayDelay,
-                             self._defaultIgnoreNewTracks)
+                             self._defaultIgnoreNewTracks,
+                             self._defaultTrackCheckDelay)
         gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
@@ -179,6 +180,7 @@ class Main(wx.App):
         self._defaultPlaylistLength = 11
         self._defaultPlayDelay = 4000
         self._defaultIgnoreNewTracks = False
+        self._defaultTrackCheckDelay = 0.5
         
     def getPrefsPage(self, parent, logger, system):
         return PrefsPage(parent, system, self._configParser, logger,
