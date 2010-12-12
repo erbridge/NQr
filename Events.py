@@ -136,3 +136,13 @@ class ExceptionEvent(wx.PyEvent):
         
     def getException(self):
         return self._err
+    
+ID_EVT_ABORT = wx.NewId()
+    
+def EVT_ABORT(handler, func):
+    handler.Connect(-1, -1, ID_EVT_ABORT, func)
+
+class AbortEvent(wx.PyEvent):
+    def __init__(self):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_ABORT)

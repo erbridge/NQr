@@ -59,6 +59,7 @@ class Thread(threading.Thread):
             except AbortThreadError:
                 if self._abortCount > 20:
                     self._commit()
+                    wx.PostEvent(self._db, Events.AbortEvent())
                     self._logger.info("Stopping \'"+self._name+"\' thread.")
                     break
                 self.abort(got[3])
@@ -116,6 +117,7 @@ class DatabaseEventHandler(wx.EvtHandler):
         
         Events.EVT_DATABASE(self, self._onDatabaseEvent)
         Events.EVT_EXCEPTION(self, self._onExceptionEvent)
+        Events.EVT_ABORT(self, self._onAbortEvent)
         
     def _onDatabaseEvent(self, e):
         self._logger.debug("Got event.")
@@ -123,6 +125,9 @@ class DatabaseEventHandler(wx.EvtHandler):
         
     def _onExceptionEvent(self, e):
         raise e.getException()
+    
+    def _onAbortEvent(self, e):
+        self._dbThread.abort()
     
     def _completionEvent(self, completion):
         return lambda result, completion=completion:\
@@ -269,6 +274,9 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         if self._working == True:
             self._working = False
             self._logger.info("Probably finished directory walk.")
+        
+    def getWorking(self):
+        return self._working
         
     def _getTrackIDCompletion(self, track, trackID, completion):
         path = track.getPath()
@@ -572,7 +580,9 @@ class Database(DatabaseEventHandler):
     def abort(self, interruptWalk=False):
         self._directoryWalkThread.setAbortInterrupt(interruptWalk)
         self._directoryWalkThread.abort()
-        self._dbThread.abort()
+        
+    def getDirectoryWalking(self):
+        return self._directoryWalkThread.getWorking()
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")

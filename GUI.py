@@ -1015,12 +1015,38 @@ class MainWindow(wx.Frame):
         self.Close(True)
 
     def _onClose(self, e):
+        interrupt = None
+        if self._db.getDirectoryWalking():
+            options = wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION
+            if e.CanVeto():
+                options = options|wx.CANCEL
+            dialog = wx.MessageDialog(
+                self,
+                "NQr may be performing non-essential database operations such"\
+                    +" as adding files or rescanning the database. Do you want"\
+                    +" to stop these operations from completing?\n\n"\
+                    +"(Pressing \'No\' will close NQr, but allow the database"\
+                    +" operations to complete in the background)",
+                "NQr", options)
+            userChoice = dialog.ShowModal()
+            if userChoice == wx.ID_NO:
+                interrupt = False
+            elif userChoice == wx.ID_YES:
+                interrupt = True
+            elif userChoice == wx.ID_CANCEL:
+                dialog.Destroy()
+                e.Veto()
+                return
+            dialog.Destroy()
         self._optionsMenu.Check(self._ID_TOGGLENQR, False)
         if self._trackMonitor:
             self._trackMonitor.abort()
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
-        self._db.abort()
+        if interrupt == None:
+            self._db.abort()
+        else:
+            self._db.abort(interrupt)
         if self._haveLogPanel == True:
             sys.stdout = self._stdout
             sys.stderr = self._stderr
