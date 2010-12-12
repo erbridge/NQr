@@ -24,11 +24,12 @@ from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
     extractTraceStack, BasePrefsPage, validateNumeric, wx
 
 class Thread(threading.Thread):
-    def __init__(self, db, path, name, logger, errcallback):
+    def __init__(self, db, path, name, logger, errcallback, mainThread=None):
         threading.Thread.__init__(self, name=name)
         self._name = name
         self._logger = logger
         self._errcallback = errcallback
+        self._mainThread = mainThread
         self._db = db
         self._databasePath = os.path.realpath(path)
         self._queue = Queue.PriorityQueue()
@@ -59,8 +60,9 @@ class Thread(threading.Thread):
             except AbortThreadError:
                 if self._abortCount > 20:
                     self._commit()
-                    wx.PostEvent(self._db, Events.AbortEvent())
                     self._logger.info("Stopping \'"+self._name+"\' thread.")
+                    if self._mainThread and self._abortMainThread:
+                        self._mainThread.abort()
                     break
                 self.abort(got[3])
                 self._abortCount += 1
@@ -101,7 +103,8 @@ class Thread(threading.Thread):
     def _abortCallback(self, trace):
         raise AbortThreadError(trace=trace)
             
-    def abort(self, trace=[]):
+    def abort(self, trace=[], abortMainThread=True):
+        self._abortMainThread = abortMainThread
         if self._interrupt == True:
             priority = 0
         else:
@@ -117,7 +120,6 @@ class DatabaseEventHandler(wx.EvtHandler):
         
         Events.EVT_DATABASE(self, self._onDatabaseEvent)
         Events.EVT_EXCEPTION(self, self._onExceptionEvent)
-        Events.EVT_ABORT(self, self._onAbortEvent)
         
     def _onDatabaseEvent(self, e):
         self._logger.debug("Got event.")
@@ -125,9 +127,6 @@ class DatabaseEventHandler(wx.EvtHandler):
         
     def _onExceptionEvent(self, e):
         raise e.getException()
-    
-    def _onAbortEvent(self, e):
-        self._dbThread.abort()
     
     def _completionEvent(self, completion):
         return lambda result, completion=completion:\
@@ -265,7 +264,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         errcallback = ErrorCompletion(EmptyQueueError,
                                       lambda: self._onEmptyQueueError())
         Thread.__init__(self, db, path, "Directory Walk", logger,
-                        lambda err: errcallback(err))
+                        lambda err: errcallback(err), dbThread)
         DatabaseEventHandler.__init__(self, dbThread, 3)
         self._logger = logger
         self._trackFactory = trackFactory
