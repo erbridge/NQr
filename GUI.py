@@ -27,6 +27,7 @@
 from collections import deque
 import ConfigParser
 from Errors import *
+from GUIEvents import *
 import os
 import sys
 import threading
@@ -39,32 +40,6 @@ wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
 import wx
 ##import wx.lib.agw.multidirdialog as wxMDD
-
-ID_EVT_TRACK_CHANGE = wx.NewId()
-
-def EVT_TRACK_CHANGE(window, func):
-    window.Connect(-1, -1, ID_EVT_TRACK_CHANGE, func)
-
-class TrackChangeEvent(wx.PyEvent):
-    def __init__(self, db, trackFactory, path):
-        wx.PyEvent.__init__(self)
-        self.SetEventType(ID_EVT_TRACK_CHANGE)
-        self._db = db
-        self._trackFactory = trackFactory
-        self._path = path
-
-    def getTrack(self):
-        return self._trackFactory.getTrackFromPath(self._db, self._path)
-    
-ID_EVT_NO_NEXT_TRACK = wx.NewId()
-
-def EVT_NO_NEXT_TRACK(window, func):
-    window.Connect(-1, -1, ID_EVT_NO_NEXT_TRACK, func)
-
-class NoNextTrackEvent(wx.PyEvent):
-    def __init__(self):
-        wx.PyEvent.__init__(self)
-        self.SetEventType(ID_EVT_NO_NEXT_TRACK)
 
 ## must be aborted when closing!
 class TrackMonitor(threading.Thread):
@@ -121,16 +96,6 @@ class TrackMonitor(threading.Thread):
     
     def setEnqueueing(self, status):
         self._enqueueing = status
-        
-ID_EVT_REQUEST_ATTENTION = wx.NewId()
-
-def EVT_REQUEST_ATTENTION(window, func):
-    window.Connect(-1, -1, ID_EVT_REQUEST_ATTENTION, func)
-
-class RequestAttentionEvent(wx.PyEvent):
-    def __init__(self):
-        wx.PyEvent.__init__(self)
-        self.SetEventType(ID_EVT_REQUEST_ATTENTION)
 
 class SocketMonitor(threading.Thread):
     def __init__(self, window, socket, loggerFactory):
@@ -181,7 +146,21 @@ class ConnectionMonitor(threading.Thread):
                 break
             if message == "ATTEND\n":
                 wx.PostEvent(self._window, RequestAttentionEvent())
-                
+            elif message == "PAUSE\n":
+                wx.PostEvent(self._window, PauseEvent())
+            elif message == "PLAY\n":
+                wx.PostEvent(self._window, PlayEvent())
+            elif message == "STOP\n":
+                wx.PostEvent(self._window, StopEvent())
+            elif message == "NEXT\n":
+                wx.PostEvent(self._window, NextEvent())
+            elif message == "PREV\n":
+                wx.PostEvent(self._window, PreviousEvent())
+            elif message == "RATEUP\n":
+                wx.PostEvent(self._window, RateUpEvent())
+            elif message == "RATEDOWN\n":
+                wx.PostEvent(self._window, RateDownEvent())
+                               
     def _recieve(self):
         byte = ""
         message = ""
@@ -291,9 +270,18 @@ class MainWindow(wx.Frame):
         wx.EVT_TIMER(self, self._ID_INACTIVITYTIMER,
                      self._onInactivityTimerDing)
         wx.EVT_TIMER(self, self._ID_REFRESHTIMER, self._onRefreshTimerDing)
+        
         EVT_TRACK_CHANGE(self, self._onTrackChange)
         EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
         EVT_REQUEST_ATTENTION(self, self._onRequestAttention)
+        EVT_PAUSE(self, self._onPause)
+        EVT_PLAY(self, self._onPlay)
+        EVT_STOP(self, self._onStop)
+        EVT_NEXT(self, self._onNext)
+        EVT_PREV(self, self._onPrevious)
+        EVT_RATE_UP(self, self._onRateUp)
+        EVT_RATE_DOWN(self, self._onRateDown)
+        
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
         if self._restorePlaylist == True:
