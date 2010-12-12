@@ -1,6 +1,7 @@
+## Utility function and classes
+
 import ConfigParser
 from Errors import MultiCompletionPutError
-import math
 import os.path
 import traceback
 
@@ -15,8 +16,8 @@ def plural(count):
     return 's'
 
 def formatLength(rawLength):
-    minutes = math.floor(rawLength / 60)
-    seconds = math.floor(rawLength - math.floor(rawLength / 60) * 60)
+    minutes = rawLength // 60
+    seconds = int(rawLength - minutes * 60)
     if seconds not in range(10):
         length = str(int(minutes))+":"+str(int(seconds))
     else:
@@ -85,6 +86,32 @@ def validateDirectory(textCtrl):
         wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
     textCtrl.Refresh()
     return True
+
+def _doRough(time, bigDivider, bigName, littleDivider, littleName):
+    big = int((time + littleDivider / 2) / littleDivider / bigDivider)
+    little = int(((time + littleDivider / 2) / littleDivider) % bigDivider)
+    timeString = ""
+    if big != 0:
+        timeString = str(big)+" "+bigName+plural(big)
+    if little != 0:
+        if timeString != "":
+            timeString += " "+str(little)+" "+littleName+plural(little)
+        else:
+            timeString = str(little)+" "+littleName+plural(little)
+    return timeString
+
+# Return a string roughly describing the time difference handed in.
+def roughAge(time):
+    if time < 60*60:
+        return _doRough(time, 60, "minute", 1, "second")
+    if time < 24*60*60:
+        return _doRough(time, 60, "hour", 60, "minute")
+    if time < 7*24*60*60:
+        return _doRough(time, 24, "day", 60*60, "hour")
+    if time < 365*24*60*60:
+        return _doRough(time, 7, "week", 24*60*60, "day")
+    # yes, this measure of a year is fairly crap :-)
+    return _doRough(time, 52, "year", 7*24*60*60, "week")
     
 class RedirectErr:
     def __init__(self, textCtrl, stderr):

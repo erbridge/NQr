@@ -3,10 +3,8 @@
 ## TODO: add library viewer with scoring, queueing and search funcionality using
 ##       splitter window: top left - artist, top right - album, centre - tracks,
 ##       bottom - details
-## TODO: debug message window with levels of messages (basic score up/down
-##       etc for users and more complex for devs) using "logging" module?
 ## TODO: add delete file/directory menus, with confirmation?
-## TODO: add support for mulitple track selections
+## TODO: add support for mulitple track selections?
 ## TODO: display unplayed tracks with option to remove and rearrange playlist
 ## TODO: when NQr queueing off, change trackList behaviour to only show played
 ##       tracks, not to represent unplayed tracks, or show only 3 future tracks?
@@ -32,9 +30,9 @@ import os
 import sys
 import threading
 import time
-from Time import roughAge
 from Util import MultiCompletion, ErrorCompletion, doNothing, RedirectErr,\
-    RedirectOut, plural, BasePrefsPage, validateDirectory, validateNumeric, wx
+    RedirectOut, plural, BasePrefsPage, validateDirectory, validateNumeric,\
+    roughAge, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 

@@ -6,9 +6,8 @@
 import ConfigParser
 from Errors import EmptyDatabaseError, UnsafeInputError, NoTrackError
 import random
-from Time import roughAge
 from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage,\
-    validateNumeric
+    validateNumeric, roughAge
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
