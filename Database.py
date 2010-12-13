@@ -744,11 +744,13 @@ class Database(DatabaseEventHandler):
             self._logger.debug("Tags table found.")
         c.close()
         
-    def _setTrackIDCompletion(self, track, trackID, completion, wasAdded=False):
+    def _maybeAddTrackCallback(self, track, trackID, completion,
+                                 wasAdded=False):
         path = track.getPath()
         if trackID == None:
             mycompletion = lambda id, track=track, completion=completion:\
-                self._setTrackIDCompletion(track, id, completion, wasAdded=True)
+                self._maybeAddTrackCallback(track, id, completion,
+                                            wasAdded=True)
             self._executeAndFetchLastRowID(
                 """insert into tracks (path, artist, album, title, tracknumber,
                    unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
@@ -762,50 +764,32 @@ class Database(DatabaseEventHandler):
         else:
             self._logger.debug("\'"+path+"\' is already in the library.")
         track.setID(self._trackFactory, trackID)
-        if completion == None:
-            return
-        completion(trackID)
+        if completion != None:
+            completion(trackID)
         
-    def _addTrackCompletion(self, path=None, hasTrackID=True, track=None,
-                            completion=None):
+    def _addTrackCompletion(self, path=None, track=None, completion=None):
         if path == None:
             if track == None:
                 self._logger.error("No track has been identified.")
                 raise NoTrackError
             path = track.getPath()
-        path = os.path.realpath(path)
+        else:
+            path = os.path.realpath(path)
         self._logger.debug("Adding \'"+path+"\' to the library.")
         if track == None:
             try:
                 track = self._trackFactory.getTrackFromPathNoID(self, path)
             except NoTrackError:
-                track = None
-        if track == None:
-            self._logger.debug("\'"+path+"\' is an invalid file.")
-            return None
-        if hasTrackID == True:
-            mycompletion = lambda trackID, track=track, completion=completion:\
-                self._setTrackIDCompletion(track, trackID, completion)
-            self._getTrackID(track, mycompletion)
-        elif hasTrackID == False:
-            mycompletion = lambda trackID, track=track, completion=completion:\
-                self._setTrackIDCompletion(track, trackID, completion,
-                                           wasAdded=True)
-            self._executeAndFetchLastRowID(
-                """insert into tracks (path, artist, album, title, tracknumber,
-                   unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
-                   ?, ?, 0)""", (path, track.getArtist(), track.getAlbum(),
-                                 track.getTitle(), track.getTrackNumber(),
-                                 track.getLength(), track.getBPM()),
-                mycompletion)
+                self._logger.debug("\'"+path+"\' is an invalid file.")
+                completion(None)
+        mycompletion = lambda trackID, track=track, completion=completion:\
+            self._maybeAddTrackCallback(track, trackID, completion)
+        self._getTrackID(track, mycompletion)
 
-    # FIXME: make clearer?
-    def addTrack(self, path=None, hasTrackID=True, track=None,
-                      completion=None):
-        mycompletion = lambda path=path, hasTrackID=hasTrackID, track=track,\
-            completion=completion: self._addTrackCompletion(path, hasTrackID,
-                                                            track, completion)
-        self.complete(mycompletion)
+    def addTrack(self, path=None, track=None, completion=None):
+        self.complete(
+            lambda path=path, track=track, completion=completion:\
+                self._addTrackCompletion(path, track, completion))
 
     ## returns a list of tuples of the form (trackID, )
     ## FIXME: make faster by doing something like: select
@@ -843,8 +827,7 @@ class Database(DatabaseEventHandler):
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
         if trackID == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
-            self.addTrack(path=path, hasTrackID=False, track=track,
-                          completion=completion)
+            self.addTrack(path=path, track=track, completion=completion)
             return
         completion(trackID)
         
