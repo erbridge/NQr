@@ -226,10 +226,10 @@ class DatabaseEventHandler(wx.EvtHandler):
         self._logger.debug("Updating \'"+path+"\' in the library.")
         if trackID != None:
             if infoLogging == True:
-                mycompletion = lambda result, path=path: self._logger.info(
+                mycompletion = lambda path=path: self._logger.info(
                     "\'"+path+"\' has been updated in the library.")
             else:
-                mycompletion = lambda result, path=path: self._logger.debug(
+                mycompletion = lambda path=path: self._logger.debug(
                     "\'"+path+"\' has been updated in the library.")
             self._execute(
                 """update tracks set path = ?, artist = ?, album = ?, title = ?,
@@ -247,12 +247,11 @@ class DatabaseEventHandler(wx.EvtHandler):
             
     def setHistorical(self, historical, trackID):
         if historical == True:
-            mycompletion = lambda result:\
-                self._logger.debug("Making track non-current.")
+            mycompletion = lambda: self._logger.debug(
+                "Making track non-current.")
             historical = 1
         elif historical == False:
-            mycompletion = lambda result:\
-                self._logger.debug("Making track current.")
+            mycompletion = lambda: self._logger.debug("Making track current.")
             historical = 0
         self._execute("update tracks set historical = ? where trackID = ?",
                       (historical, trackID), mycompletion)
@@ -289,8 +288,8 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         self._logger.debug("Adding \'"+path+"\' to the library.")
 #        if hasTrackID == False or trackID == None:
         if trackID == None:
-            mycompletion = lambda result, path=path:\
-                self._logger.info("\'"+path+"\' has been added to the library.")
+            mycompletion = lambda path=path: self._logger.info(
+                "\'"+path+"\' has been added to the library.")
             self._execute("""insert into tracks (path, artist, album,
                                   title, tracknumber, unscored, length, bpm,
                                   historical) values
@@ -363,9 +362,8 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def maybeAddToWatch(self, directory, directoryID):
         self._working = True
         if directoryID == None:
-            mycompletion = lambda result, directory=directory:\
-                self._logger.info("\'"+directory\
-                                  +"\' has been added to the watch list.")
+            mycompletion = lambda directory=directory: self._logger.info(
+                "\'"+directory+"\' has been added to the watch list.")
             self._execute("insert into directories (path) values (?)",
                           (directory, ), mycompletion)
         else:
@@ -419,7 +417,7 @@ class DatabaseThread(Thread):
                         lambda err: errcallback(err))
         
     def doComplete(self, completion, trace):
-        completion(None)
+        completion()
         
     def complete(self, completion, priority=2, trace=[]):
         trace = extractTraceStack(trace)
@@ -429,7 +427,7 @@ class DatabaseThread(Thread):
             
     def doExecute(self, cursor, stmt, args, completion, trace):
         cursor.execute(stmt, args)
-        completion(None)
+        completion()
 
     def execute(self, stmt, args, completion, priority=2, trace=[]):
         trace = extractTraceStack(trace)
@@ -443,7 +441,7 @@ class DatabaseThread(Thread):
     def doExecuteMany(self, cursor, stmts, args, completion, trace):
         for index in range(len(stmts)):
             cursor.execute(stmts[index], args[index])
-        completion(None)
+        completion()
 
     def executeMany(self, stmts, args, completion, priority=2, trace=[]):
         trace = extractTraceStack(trace)
@@ -749,9 +747,8 @@ class Database(DatabaseEventHandler):
     def _setTrackIDCompletion(self, track, trackID, completion, wasAdded=False):
         path = track.getPath()
         if trackID == None:
-            mycompletion = lambda result, track=track, completion=completion: \
-                self._setTrackIDCompletion(track, result, completion,
-                                           wasAdded=True)
+            mycompletion = lambda id, track=track, completion=completion:\
+                self._setTrackIDCompletion(track, id, completion, wasAdded=True)
             self._executeAndFetchLastRowID(
                 """insert into tracks (path, artist, album, title, tracknumber,
                    unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
@@ -787,12 +784,12 @@ class Database(DatabaseEventHandler):
             self._logger.debug("\'"+path+"\' is an invalid file.")
             return None
         if hasTrackID == True:
-            mycompletion = lambda result, track=track, completion=completion:\
-                self._setTrackIDCompletion(track, result, completion)
+            mycompletion = lambda trackID, track=track, completion=completion:\
+                self._setTrackIDCompletion(track, trackID, completion)
             self._getTrackID(track, mycompletion)
         elif hasTrackID == False:
-            mycompletion = lambda result, track=track, completion=completion:\
-                self._setTrackIDCompletion(track, result, completion,
+            mycompletion = lambda trackID, track=track, completion=completion:\
+                self._setTrackIDCompletion(track, trackID, completion,
                                            wasAdded=True)
             self._executeAndFetchLastRowID(
                 """insert into tracks (path, artist, album, title, tracknumber,
@@ -805,9 +802,9 @@ class Database(DatabaseEventHandler):
     # FIXME: make clearer?
     def addTrack(self, path=None, hasTrackID=True, track=None,
                       completion=None):
-        mycompletion = lambda result, path=path, hasTrackID=hasTrackID,\
-            track=track, completion=completion:\
-                self._addTrackCompletion(path, hasTrackID, track, completion)
+        mycompletion = lambda path=path, hasTrackID=hasTrackID, track=track,\
+            completion=completion: self._addTrackCompletion(path, hasTrackID,
+                                                            track, completion)
         self.complete(mycompletion)
 
     ## returns a list of tuples of the form (trackID, )
@@ -864,11 +861,10 @@ class Database(DatabaseEventHandler):
         directory = os.path.realpath(directory)
         self._logger.debug("Removing \'"+directory+"\' from the watch list.")
         if directoryID != None:
-            mycompletion = lambda result, directory=directory:\
-                self._logger.info("\'"+directory\
-                                  +"\' has been removed from the watch list.")
+            mycompletion = lambda directory=directory: self._logger.info(
+                "\'"+directory+"\' has been removed from the watch list.")
             self._execute("delete from directories where path = ?",
-                               (directory, ), mycompletion)
+                          (directory, ), mycompletion)
             
         else:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
@@ -898,7 +894,7 @@ class Database(DatabaseEventHandler):
     def _addLinkCompletion(self, firstTrackID, firstTrackPath, secondTrackID, 
                            secondTrackPath, linkID):
         if linkID == None:
-            mycompletion = lambda result, firstTrackPath=firstTrackPath,\
+            mycompletion = lambda firstTrackPath=firstTrackPath,\
                 secondTrackPath=secondTrackPath: self._logger.info(
                     "\'"+firstTrackPath+"\' has been linked to \'"\
                     +secondTrackPath+"\'.")
@@ -1087,7 +1083,7 @@ class Database(DatabaseEventHandler):
         firstTrackPath = firstTrack.getPath()
         secondTrackPath = secondTrack.getPath()
         if linkID != None:
-            mycompletion = lambda result, firstTrackPath=firstTrackPath,\
+            mycompletion = lambda firstTrackPath=firstTrackPath,\
                 secondTrackPath=secondTrackPath: self._logger.info(
                     "\'"+firstTrackPath+"\' is no longer linked to \'"\
                     +secondTrackPath+"\'.")
@@ -1139,9 +1135,9 @@ class Database(DatabaseEventHandler):
             track, lambda previousPlay, track=track: track.setPreviousPlay(
                 previousPlay))
         if completion == None:
-            mycompletion = lambda result: doNothing()
+            mycompletion = lambda: doNothing()
         else:
-            mycompletion = lambda result: completion()
+            mycompletion = lambda: completion()
         self._executeMany(["""insert into plays (trackid, datetime) values
                               (?, datetime(?))""",
                            """update tracks set lastplayed = datetime(?) where
@@ -1264,9 +1260,9 @@ class Database(DatabaseEventHandler):
         self._executeAndFetchAll("""select trackid, strftime('%s', 'now') - 
                                     strftime('%s', lastplayed), score, unscored
                                     from tracks""", (),
-                                 lambda result, completion=completion:\
+                                 lambda rawList, completion=completion:\
                 self._getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(
-                    result, completion))
+                    rawList, completion))
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     # played again, this will get stuck. We need to keep track of
@@ -1448,9 +1444,9 @@ class Database(DatabaseEventHandler):
         self._getTrackDetails(mycompletion, track=track)    
             
     def _setBPMCompletion(self, bpm, trackID):
-        mycompletion = lambda result: self._logger.debug("Adding bpm to track.")
+        mycompletion = lambda: self._logger.debug("Adding bpm to track.")
         self._execute("update tracks set bpm = ? where trackID = ?",
-                           (bpm, trackID), mycompletion)
+                      (bpm, trackID), mycompletion)
     
     def setBPM(self, bpm, track):
         mycompletion = lambda trackID, bpm=bpm: self._setBPMCompletion(bpm,
@@ -1488,10 +1484,9 @@ class Database(DatabaseEventHandler):
         self.getLength(track, mycompletion)
         
     def _setLengthCompletion(self, length, trackID):
-        mycompletion = lambda result:\
-            self._logger.debug("Adding length to track.")
+        mycompletion = lambda: self._logger.debug("Adding length to track.")
         self._execute("update tracks set length = ? where trackID = ?",
-                           (length, trackID), mycompletion)
+                      (length, trackID), mycompletion)
         
     def setLength(self, length, track):
         mycompletion = lambda trackID, length=length:\
@@ -1499,9 +1494,9 @@ class Database(DatabaseEventHandler):
         track.getID(mycompletion)
         
     def addTagName(self, tagName):
-        mycompletion = lambda result: self._logger.debug("Adding tag name.")
-        self._execute("insert into tagnames (name) values (?)",
-                           (tagName, ), mycompletion)
+        mycompletion = lambda: self._logger.debug("Adding tag name.")
+        self._execute("insert into tagnames (name) values (?)", (tagName, ),
+                      mycompletion)
         
     def _getAllTagNamesCompletion(self, names, completion):
         self._logger.debug("Retrieving all tag names.")
@@ -1526,10 +1521,10 @@ class Database(DatabaseEventHandler):
             
     def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames):
         if tagName not in tagNames:
-            mycompletion = lambda result, tagName=tagName:\
-                self._logger.info("Tagging track with '"+tagName+"'.")
-            self._execute("""insert into tags (trackid, tagnameid) values
-                                  (?, ?)""", (trackID, tagNameID), mycompletion)
+            mycompletion = lambda tagName=tagName: self._logger.info(
+                "Tagging track with '"+tagName+"'.")
+            self._execute("insert into tags (trackid, tagnameid) values (?, ?)",
+                          (trackID, tagNameID), mycompletion)
             
     def setTag(self, track, tagName):
         multicompletion =\
@@ -1546,9 +1541,8 @@ class Database(DatabaseEventHandler):
                                 multicompletion.put(2, tagNameID))
         
     def _unsetTagCompletion(self, trackID, tagNameID):
-        self._execute("""delete from tags where tagnameid = ? and
-                              trackid = ?""", (tagNameID, trackID),
-                           lambda result: doNothing())
+        self._execute("delete from tags where tagnameid = ? and trackid = ?",
+                      (tagNameID, trackID), lambda: doNothing())
         
     def unsetTag(self, track, tagName):
         multicompletion =\
@@ -1575,8 +1569,7 @@ class Database(DatabaseEventHandler):
         for (tagNameID, ) in tagNameIDs:
             mycompletion = lambda tagName: self._tagNames.append(tagName)
             self.getTagNameFromID(tagNameID, mycompletion, priority=priority)
-        self.complete(lambda result: completion(self._tagNames),
-                      priority=priority)
+        self.complete(lambda: completion(self._tagNames), priority=priority)
     
     def getTagsFromTrackID(self, trackID, completion, priority=None):
         mycompletion = lambda tagNameIDs, completion=completion,\
@@ -1630,8 +1623,7 @@ class Database(DatabaseEventHandler):
         track.getID(
             lambda trackID: self._execute(
                 "update tracks set unscored = 1 where trackid = ?", (trackID, ),
-                lambda result: self._logger.debug(
-                    "Setting track as unscored.")))
+                lambda: self._logger.debug("Setting track as unscored.")))
         
     def _setScoreCompletion(self, trackID, score):
         self._executeMany(
@@ -1639,7 +1631,7 @@ class Database(DatabaseEventHandler):
              """insert into scores (trackid, score, datetime) values
                 (?, ?, datetime('now'))"""],
             [(score, trackID), (trackID, score)],
-            lambda result: self._logger.debug("Setting track's score."))
+            lambda: self._logger.debug("Setting track's score."))
         
     ## poss add track if track not in library
     def setScore(self, track, score):

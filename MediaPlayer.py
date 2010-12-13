@@ -77,8 +77,7 @@ class MediaPlayer:
                 path,
                 lambda id, path=path: self._getUnplayedTrackIDsCompletion(id,
                                                                           path))
-        db.complete(
-            lambda result: self._getUnplayedTrackIDListCompletion(completion))
+        db.complete(lambda: self._getUnplayedTrackIDListCompletion(completion))
 
     def addTrack(self, filepath):
         if self._noQueue:

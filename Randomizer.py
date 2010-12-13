@@ -96,8 +96,8 @@ class Randomizer:
                 self._db, trackID,
                 lambda track, weight=weight: self._addTrackToListCallback(
                     track, weight), errcompletion=errcompletion)
-        self._db.complete(lambda result, completion=completion:\
-                          completion(self._tracks))
+        self._db.complete(
+            lambda completion=completion: completion(self._tracks))
 
     def chooseTracks(self, number, exclude, completion, tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
