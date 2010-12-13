@@ -51,7 +51,6 @@ class TrackMonitor(threading.Thread):
         self._trackCheckDelay = trackCheckDelay
         self._abortFlag = False
         self._enqueueing = False
-        self.start()
 
 ## poss should use position rather than filename?
 ## FIXME: sometimes gets the wrong track if skipped too fast: should return the
@@ -93,7 +92,7 @@ class TrackMonitor(threading.Thread):
     def setEnqueueing(self, status):
         self._enqueueing = status
 
-class SocketMonitor(threading.Thread): # FIXME: poss doesn't exit
+class SocketMonitor(threading.Thread):
     def __init__(self, window, socket, address, loggerFactory):
         threading.Thread.__init__(self, name="Socket Monitor")
 #        self.setDaemon(True)
@@ -103,7 +102,6 @@ class SocketMonitor(threading.Thread): # FIXME: poss doesn't exit
         self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
         self._connections = []
         self._abortFlag = False
-        self.start()
 
     def run(self):
         self._socket.listen(5) # FIXME: how many can it listen to?
@@ -112,8 +110,10 @@ class SocketMonitor(threading.Thread): # FIXME: poss doesn't exit
             (conn, address) = self._socket.accept()
             self._logger.debug("Starting connection ("+address[0]+":"\
                                +str(address[1])+") monitor.")
-            self._connections.append(ConnectionMonitor(self._window, conn,
-                                                       address, self._logger))
+            connMonitor = ConnectionMonitor(self._window, conn, address,
+                                            self._logger)
+            connMonitor.start()
+            self._connections.append(connMonitor)
         self._logger.debug("Stopping socket monitor.")
         self._socket.close()
                 
@@ -124,7 +124,7 @@ class SocketMonitor(threading.Thread): # FIXME: poss doesn't exit
         sock.shutdown(2)
         sock.close()
         
-class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
+class ConnectionMonitor(threading.Thread):
     def __init__(self, window, connection, address, logger):
         self._address = address[0]+":"+str(address[1])
         threading.Thread.__init__(self, name=self._address+" Monitor")
@@ -132,7 +132,6 @@ class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
         self._window = window
         self._conn = connection
         self._logger = logger
-        self.start()
     
     def run(self):
         while True:
@@ -164,6 +163,7 @@ class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
                 wx.PostEvent(self._window, Events.RateDownEvent())
             else:
                 raise BadMessageError
+        self._logger.debug("Connection ("+self._address+") monitor stopped.")
                                
     def _recieve(self):
         byte = ""
@@ -176,7 +176,6 @@ class ConnectionMonitor(threading.Thread): # FIXME: poss doesn't exit
         return message
         
     def abort(self): # FIXME: does this work?
-        self._logger.debug("Stopping connection ("+self._address+") monitor.")
         self._conn.close()
         
 class MainWindow(wx.Frame):
@@ -292,21 +291,27 @@ class MainWindow(wx.Frame):
         
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
-        if self._restorePlaylist == True:
+        if self._restorePlaylist:
             self._oldPlaylist = None
 
-        if self._enqueueOnStartup == True:
+        if self._enqueueOnStartup:
             self._optionsMenu.Check(self._ID_TOGGLENQR, True)
-            self._onToggleNQr()
+            self._onToggleNQr(startup=True)
 
         self._initCreateHotKeyTable()
         self._logger.debug("Drawing main window.")
-        self.Show(True) ## FIXME: make window draw fully before queueing?
+        self.Show(True)
+        
+        wx.CallAfter(self._onStart)
+            
+    def _onStart(self):
+        self._trackMonitor.start()
+        self._socketMonitor.start()
+        
+        if self._rescanOnStartup:
+            self._onRescan()
         
         self.maintainPlaylist()
-
-        if self._rescanOnStartup == True:
-            self._onRescan()
 
     def _initCreateMenuBar(self):
         self._logger.debug("Creating menu bar.")
@@ -1124,7 +1129,7 @@ class MainWindow(wx.Frame):
             self._logger.error("No track selected.")
             return
 
-    def _onToggleNQr(self, e=None):
+    def _onToggleNQr(self, e=None, startup=False):
         self._logger.debug("Toggling NQr.")
         if self.menuToggleNQr.IsChecked() == False:
             self._toggleNQr = False
@@ -1142,7 +1147,8 @@ class MainWindow(wx.Frame):
             if self._restorePlaylist == True:
                 self._oldPlaylist = self._player.savePlaylist()
             self._logger.info("Enqueueing turned on.")
-            self.maintainPlaylist()
+            if startup == False:
+                self.maintainPlaylist()
 
     def _onTrackChange(self, e):
         self._playingTrack = e.getTrack()
@@ -1488,7 +1494,7 @@ class MainWindow(wx.Frame):
         
 ## the first populateDetails seems to produce a larger font than subsequent
 ## calls in Mac OS
-    def populateDetails(self, track): # FIXME: make higher priority?
+    def populateDetails(self, track):
         multicompletion = MultiCompletion(
             5, lambda score, playCount, lastPlayed, tags, nothing, track=track:\
                 self._populateDetailsCompletion(track, score, playCount,
