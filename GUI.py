@@ -21,6 +21,7 @@
 ##        longer necessary?
 ## FIXME: reduce processing - e.g. check tracks less often (if doing this
 ##        change delay in _onNext() etc.)
+## FIXME: old track score should update if track is in track list twice
 
 #from collections import deque
 import ConfigParser
@@ -428,6 +429,13 @@ class MainWindow(wx.Frame):
         
         self._playerMenu.AppendMenu(-1, "&Rate", self._rateMenu)
         self._playerMenu.AppendSeparator()
+        menuSelectCurrent = self._playerMenu.Append(
+            self._ID_SELECTCURRENT, "&Select Current Track\tCtrl+\\",
+            " Selects the currently playing track")
+        
+        self._addHotKey("ctrl", "\\", self._ID_SELECTCURRENT)
+        
+        self._playerMenu.AppendSeparator()
         menuRequeue = self._playerMenu.Append(
             -1, "Re&queue Track", " Add the selected track to the playlist")
         menuRequeueAndPlay = self._playerMenu.Append(
@@ -448,6 +456,7 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self._onNext, menuNext)
         self.Bind(wx.EVT_MENU, self._onRateUp, menuRateUp)
         self.Bind(wx.EVT_MENU, self._onRateDown, menuRateDown)
+        self.Bind(wx.EVT_MENU, self._onSelectCurrent, menuSelectCurrent)
         self.Bind(wx.EVT_MENU, self._onRequeue, menuRequeue)
         self.Bind(wx.EVT_MENU, self._onRequeueAndPlay, menuRequeueAndPlay)
         self.Bind(wx.EVT_MENU, self._onResetScore, menuResetScore)
@@ -1103,6 +1112,9 @@ class MainWindow(wx.Frame):
     def _onStop(self, e):
         self._player.stop()
         self.resetInactivityTimer(1)
+        
+    def _onSelectCurrent(self, e):
+        self.selectTrack(0)
 
     def _onRequeue(self, e):
         self.resetInactivityTimer()
