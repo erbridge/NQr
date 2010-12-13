@@ -1095,7 +1095,7 @@ class MainWindow(wx.Frame):
 
     def _onNext(self, e):
         self._player.nextTrack()
-        self.resetInactivityTimer(1000)
+        self.resetInactivityTimer(2000*self._trackCheckDelay)
 
     def _onPause(self, e):
         self._player.pause()
@@ -1107,7 +1107,7 @@ class MainWindow(wx.Frame):
 
     def _onPrevious(self, e):
         self._player.previousTrack()
-        self.resetInactivityTimer(1000)
+        self.resetInactivityTimer(2000*self._trackCheckDelay)
 
     def _onStop(self, e):
         self._player.stop()
@@ -1134,7 +1134,7 @@ class MainWindow(wx.Frame):
             position = self._player.getCurrentTrackPos() + 1
             self._player.insertTrack(self._track.getPath(), position)
             self._player.playAtPosition(position)
-            self.resetInactivityTimer(1000)
+            self.resetInactivityTimer(2000*self._trackCheckDelay)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
