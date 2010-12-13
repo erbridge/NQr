@@ -114,14 +114,18 @@ def EVT_DATABASE(handler, func):
     handler.Connect(-1, -1, ID_EVT_DATABASE, func)
 
 class DatabaseEvent(wx.PyEvent):
-    def __init__(self, result, completion):
+    def __init__(self, completion, result=None, returnData=True):
         wx.PyEvent.__init__(self)
         self.SetEventType(ID_EVT_DATABASE)
         self._result = result
         self._completion = completion
+        self._returnData = returnData
         
     def complete(self):
-        self._completion(self._result)
+        if self._returnData == True:
+            self._completion(self._result)
+        else:
+            self._completion()
         
 ID_EVT_EXCEPTION = wx.NewId()
 

@@ -128,31 +128,38 @@ class DatabaseEventHandler(wx.EvtHandler):
     def _onExceptionEvent(self, e):
         raise e.getException()
     
-    def _completionEvent(self, completion):
+    def _completionEvent(self, completion, returnData=True):
+        if returnData == False:
+            return lambda completion=completion:\
+                wx.PostEvent(self, Events.DatabaseEvent(completion,
+                                                        returnData=False))
         return lambda result, completion=completion:\
-            wx.PostEvent(self, Events.DatabaseEvent(result, completion))
+            wx.PostEvent(self, Events.DatabaseEvent(completion, result=result))
 
     def complete(self, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        self._dbThread.complete(self._completionEvent(completion), priority,
-                                trace=trace)
+        self._dbThread.complete(self._completionEvent(completion,
+                                                      returnData=False),
+                                priority, trace=trace)
         
     def _execute(self, stmt, args, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
-        self._dbThread.execute(stmt, args, self._completionEvent(completion),
-                               priority, trace=trace)
+        self._dbThread.execute(stmt, args, self._completionEvent(
+                                    completion, returnData=False), priority,
+                               trace=trace)
     
     def _executeMany(self, stmts, args, completion, priority=None, trace=[]):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
         self._dbThread.executeMany(stmts, args,
-                                   self._completionEvent(completion), priority,
-                                   trace=trace)
+                                   self._completionEvent(completion,
+                                                         returnData=False),
+                                   priority, trace=trace)
     
     def _executeAndFetchOne(self, stmt, args, completion, priority=None,
                             returnTuple=False, trace=[], errcompletion=None):
@@ -799,8 +806,7 @@ class Database(DatabaseEventHandler):
     ## group by trackid; thrown in.
     def getAllTrackIDs(self, completion):
         self._logger.debug("Retrieving all track IDs.")
-        self._executeAndFetchAll("select trackid from tracks", (),
-                                      completion)
+        self._executeAndFetchAll("select trackid from tracks", (), completion)
     
     ## FIXME: not working yet, poss works for one tag
     def getAllTrackIDsWithTags(self, completion, tags):
@@ -1178,7 +1184,7 @@ class Database(DatabaseEventHandler):
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError # FIXME: probably broken
+                raise NoTrackError # FIXME: cannot be handled
             mycompletion = lambda newTrackID, completion=completion,\
                 priority=priority: self._getLastPlayedCompletion(
                     newTrackID, completion, priority=priority)
@@ -1248,10 +1254,10 @@ class Database(DatabaseEventHandler):
                     rawList, completion))
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
-    # played again, this will get stuck. We need to keep track of
-    # whether entries are current or historical. Partially fixed: 
-    # currently bad tracks rely on being chosen by randomizer to update 
-    # historical status.
+    #        played again, this will get stuck. We need to keep track of
+    #        whether entries are current or historical. Partially fixed: 
+    #        currently bad tracks rely on being chosen by randomizer to update 
+    #        historical status.
     def getOldestLastPlayed(self, completion, priority=None):
         errcompletion = ErrorCompletion(
             NoResultError, lambda completion=completion: completion(0))
