@@ -117,7 +117,7 @@ class Randomizer:
                 selector -= weight
                 if selector < 0:
                     norm = float(weight) * len(trackWeightList) / totalWeight
-                    self._logger.info("Selected "+str(trackID)+" with weight: "\
+                    self._logger.debug("Selected "+str(trackID)+" with weight: "\
                                       +str(weight)+" of a total: "\
                                       +str(totalWeight)+" (norm "+str(norm)\
                                       +").")
@@ -139,7 +139,7 @@ class Randomizer:
         if rawTrackIDList == []:
             self._logger.error("No tracks in database.")
             raise EmptyDatabaseError
-        self._logger.info("Oldest track was played "+str(oldest)\
+        self._logger.debug("Oldest track was played "+str(oldest)\
                           +" seconds ago ("+roughAge(oldest)+" ago).")
         trackWeightList = []
         totalWeight = 0

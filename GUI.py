@@ -83,9 +83,9 @@ class TrackMonitor(threading.Thread):
                 self._enqueueing = True
             if self._enqueueing == False\
                     and self._player.hasNextTrack() == False:
-                self._logger.info("End of playlist reached.")
+                self._logger.debug("End of playlist reached.")
                 wx.PostEvent(self._window, Events.NoNextTrackEvent())
-        self._logger.info("Stopping track monitor.")
+        self._logger.debug("Track monitor stopped.")
 
     def abort(self):
         self._abortFlag = True
@@ -265,7 +265,7 @@ class MainWindow(wx.Frame):
         self._refreshTimer = wx.Timer(self, self._ID_REFRESHTIMER)
         self._refreshTimer.Start(1000, oneShot=False)
         
-        self._logger.info("Starting track monitor.")
+        self._logger.debug("Starting track monitor.")
         self._trackMonitor = TrackMonitor(self, self._db, self._player,
                                           self._trackFactory, loggerFactory,
                                           self._trackCheckDelay)
@@ -722,12 +722,13 @@ class MainWindow(wx.Frame):
 
         self.PopupMenu(self._trackRightClickMenu, point)
         
-    def _onAboutCompletion(self, number, numberUnplayed, totals):
+    def _onAboutCompletion(self, number, numberUnplayed, totals, oldest):
         self._logger.debug("Opening about dialog.")
-        text = "For all your NQing needs\n\n"
-        text += str(number)+" tracks in library:\n"
+        text = "\t  For all your NQing needs!\n"
+        text += "\thttp://nqr.googlecode.com/\n\n"
+        text += str(number)+" tracks in library:\n\n"
         
-        scoreTableTitle = "score\t|       number\n\t|\n"
+        scoreTableTitle = "\t     score\t|       number\n\t\t|\n"
         scoreTable = ""
         numberScored = 0
         for total in totals:
@@ -735,11 +736,13 @@ class MainWindow(wx.Frame):
             score = str(total[0])
             if score[0] != "-":
                 score = " "+score
-            scoreTable = "  "+score+"\t|            "+str(total[1])+"\n"\
+            scoreTable = "\t       "+score+"\t|            "+str(total[1])+"\n"\
                 +scoreTable
             
         text += "- "+str(number - numberScored)+" unscored\n"
-        text += "- "+str(numberUnplayed)+" unplayed\n\n"
+        text += "- "+str(numberUnplayed)+" unplayed\n"
+        text += "- oldest unplayed track is roughly "+str(roughAge(oldest))\
+            +"\n          ("+str(oldest)+" seconds) old\n\n\n"
         text += scoreTableTitle+scoreTable
 
         dialog = wx.MessageDialog(self, text, "NQr", wx.OK)
@@ -748,8 +751,8 @@ class MainWindow(wx.Frame):
 
     def _onAbout(self, e):
         multicompletion = MultiCompletion(
-            3, lambda number, numberUnplayed, totals:\
-                self._onAboutCompletion(number, numberUnplayed, totals))
+            4, lambda number, numberUnplayed, totals, oldest:\
+                self._onAboutCompletion(number, numberUnplayed, totals, oldest))
         self._db.getNumberOfTracks(
             lambda number, multicompletion=multicompletion: multicompletion.put(
                 0, number), priority=1)
@@ -758,6 +761,9 @@ class MainWindow(wx.Frame):
                 multicompletion.put(1, numberUnplayed), priority=1)
         self._db.getScoreTotals(lambda totals, multicompletion=multicompletion:\
                                     multicompletion.put(2, totals), priority=1)
+        self._db.getOldestLastPlayed(
+            lambda oldest, multicompletion=multicompletion: multicompletion.put(
+                3, oldest), priority=1)
         
     def _onPrefs(self, e):
         self._logger.debug("Opening preferences window.")
@@ -1296,7 +1302,7 @@ class MainWindow(wx.Frame):
 ##       it when enqueuing
     def enqueueRandomTracks(self, number, tags=None):
         if self._enqueueing:
-            self._logger.info("Already enqueuing")
+            self._logger.debug("Already enqueuing")
             return
         self._enqueueing = True
         self._trackMonitor.setEnqueueing(True)
@@ -1507,7 +1513,7 @@ class MainWindow(wx.Frame):
         self._details.Clear()
 
     def setTag(self, track, tagID):
-        self._logger.info("Tagging track.")
+        self._logger.debug("Tagging track.")
         self._tagMenu.Check(tagID, True)
         track.setTag(self._allTags[tagID])
 

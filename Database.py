@@ -47,7 +47,7 @@ class Thread(threading.Thread):
             self._queueEmptyQueueCallback()
 
     def run(self):
-        self._logger.info("Starting \'"+self._name+"\' thread.")
+        self._logger.debug("Starting \'"+self._name+"\' thread.")
         self._conn = sqlite3.connect(self._databasePath)
         cursor = self._conn.cursor()
         while True:
@@ -60,7 +60,6 @@ class Thread(threading.Thread):
             except AbortThreadError:
                 if self._abortCount > 20:
                     self._commit()
-                    self._logger.info("Stopping \'"+self._name+"\' thread.")
                     if self._mainThread and self._abortMainThread:
                         self._mainThread.abort()
                     break
@@ -73,6 +72,7 @@ class Thread(threading.Thread):
                 elif self._raisedEmpty == False:
                     self._emptyCount += 1
                     self._queueEmptyQueueCallback()
+        self._logger.debug("\'"+self._name+"\' thread stopped.")
             
     def _commit(self):
             try:
@@ -594,7 +594,7 @@ class Database(DatabaseEventHandler):
                                               unscored integer, length real, bpm
                                               integer, historical integer, score
                                               integer, lastplayed datetime)""")
-            self._logger.info("Track table created.")
+            self._logger.debug("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":
                 raise err
@@ -642,7 +642,7 @@ class Database(DatabaseEventHandler):
             c.execute("""create table directories (directoryid integer primary
                                                    key autoincrement,
                                                    path text)""")
-            self._logger.info("Directory table created.")
+            self._logger.debug("Directory table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table directories already exists":
                 raise err
@@ -656,7 +656,7 @@ class Database(DatabaseEventHandler):
             c.execute("""create table plays (playid integer primary key
                                              autoincrement, trackid integer,
                                              datetime text)""")
-            self._logger.info("Play table created.")
+            self._logger.debug("Play table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table plays already exists":
                 raise err
@@ -670,7 +670,7 @@ class Database(DatabaseEventHandler):
             c.execute("""create table enqueues (enqueueid integer primary key
                                                 autoincrement, trackid integer,
                                                 datetime text)""")
-            self._logger.info("Enqueue table created.")
+            self._logger.debug("Enqueue table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table enqueues already exists":
                 raise err
@@ -684,7 +684,7 @@ class Database(DatabaseEventHandler):
             c.execute("""create table scores (scoreid integer primary key
                                               autoincrement, trackid integer,
                                               score integer, datetime text)""")
-            self._logger.info("Score table created.")
+            self._logger.debug("Score table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table scores already exists":
                 raise err
@@ -698,7 +698,7 @@ class Database(DatabaseEventHandler):
             c.execute("""create table links (linkid integer primary key
                                              autoincrement, firsttrackid
                                              integer, secondtrackid integer)""")
-            self._logger.info("Track link table created.")
+            self._logger.debug("Track link table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table links already exists":
                 raise err
@@ -712,7 +712,7 @@ class Database(DatabaseEventHandler):
             c.execute("""create table ignore (ignoreid integer primary key
                                               autoincrement, trackid
                                               integer)""")
-            self._logger.info("Ignore table created.")
+            self._logger.debug("Ignore table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table ignore already exists":
                 raise err
@@ -725,7 +725,7 @@ class Database(DatabaseEventHandler):
         try:
             c.execute("""create table tagnames (tagnameid integer primary key,
                                                 name text)""")
-            self._logger.info("Tag names table created.")
+            self._logger.debug("Tag names table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tagnames already exists":
                 raise err
@@ -739,7 +739,7 @@ class Database(DatabaseEventHandler):
             c.execute("""create table tags (tagid integer primary key,
                                             tagnameid integer,
                                             trackid integer)""")
-            self._logger.info("Tags table created.")
+            self._logger.debug("Tags table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tags already exists":
                 raise err
@@ -1273,7 +1273,7 @@ class Database(DatabaseEventHandler):
     # whether entries are current or historical. Partially fixed: 
     # currently bad tracks rely on being chosen by randomizer to update 
     # historical status.
-    def getOldestLastPlayed(self, completion):
+    def getOldestLastPlayed(self, completion, priority=None):
         errcompletion = ErrorCompletion(
             NoResultError, lambda completion=completion: completion(0))
         self._executeAndFetchOne(
@@ -1283,7 +1283,8 @@ class Database(DatabaseEventHandler):
                       historical = 0) as historicaltracks where
                      plays.trackid = historicaltracks.historicalid group by
                      trackid) as maxplays, plays where maxplays.id =
-               plays.playid""", (), completion, errcompletion=errcompletion)
+               plays.playid""", (), completion, errcompletion=errcompletion,
+            priority=priority)
 
     def _getPlayCountCompletion(self, plays, completion):
         if plays == None:

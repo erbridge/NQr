@@ -154,7 +154,7 @@ class Main(wx.App):
         ##       if we are not in dev mode
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
-        self._logger.info("Stopping main loop.")
+        self._logger.info("Main loop stopped.")
         
     def criticalLog(self, message):
         self._logger.critical(message)
