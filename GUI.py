@@ -454,10 +454,10 @@ class MainWindow(wx.Frame):
         for tag in tags:
             tagID = wx.NewId()
             self._allTags[tagID] = tag
-            tagMenu = self._tagMenu.AppendCheckItem(tagID, tag,
-                                                    " Tag track with "+tag)
+            tagMenuItem = self._tagMenu.AppendCheckItem(tagID, tag,
+                                                        " Tag track with "+tag)
 
-            self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
+            self.Bind(wx.EVT_MENU, self._onTag, tagMenuItem)
             
     def _initCreateTagMenu(self):
         self._logger.debug("Creating tag menu.")
@@ -1472,7 +1472,6 @@ class MainWindow(wx.Frame):
         if lastPlayed != None:
             detailString += "    \tPlayed at:  \t"+lastPlayed
             
-        self.resetTagMenu()
         tagString = ""
         for tag in tags:
             tagString += tag + ", "
@@ -1491,7 +1490,7 @@ class MainWindow(wx.Frame):
 ## calls in Mac OS
     def populateDetails(self, track): # FIXME: make higher priority?
         multicompletion = MultiCompletion(
-            4, lambda score, playCount, lastPlayed, tags, track=track:\
+            5, lambda score, playCount, lastPlayed, tags, nothing, track=track:\
                 self._populateDetailsCompletion(track, score, playCount,
                                                 lastPlayed, tags))
         
@@ -1504,6 +1503,8 @@ class MainWindow(wx.Frame):
                 multicompletion.put(2, lastPlayed), priority=1)
         track.getTags(lambda tags, multicompletion=multicompletion:\
                         multicompletion.put(3, tags), priority=1)
+        self.resetTagMenu(lambda nothing, multicompletion=multicompletion:\
+                            multicompletion.put(4, nothing))
 
     def addToDetails(self, detail):
         self._details.AppendText(detail)
@@ -1522,14 +1523,16 @@ class MainWindow(wx.Frame):
         self._tagMenu.Check(tagID, False)
         track.unsetTag(self._allTags[tagID])
         
-    def _resetTagMenuCompletion(self, tags):
+    def _resetTagMenuCompletion(self, tags, completion):
         for tag in tags:
             tagID = self._getTagID(tag)
             self._tagMenu.Check(tagID, False)
+        completion(None)
 
-    def resetTagMenu(self):
+    def resetTagMenu(self, completion):
         self._db.getAllTagNames(
-            lambda tags: self._resetTagMenuCompletion(tags), priority=1)
+            lambda tags, completion=completion: self._resetTagMenuCompletion(
+                tags, completion), priority=1)
 
     def _getTagID(self, tag):
         for (tagID, tagName) in self._allTags.iteritems():

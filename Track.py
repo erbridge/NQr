@@ -163,7 +163,8 @@ class Track:
         self._db.setTag(self, tag)
         if self._tags == None:
             self._tags = []
-        self._tags.append(tag)
+        if tag not in self._tags:
+            self._tags.append(tag)
 
     def unsetTag(self, tag):
         self._db.unsetTag(self, tag)
