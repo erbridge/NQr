@@ -57,7 +57,7 @@ class MediaPlayer:
         path = self._getTrackPathAtPos(trackPosition, logging)
         return os.path.realpath(path)
     
-    def _getUnplayedTrackIDsCompletion(self, id):
+    def _getUnplayedTrackIDsCompletion(self, id, path):
         # The track may be one we don't know added directly to the player
         if id is not None:
             self._ids.append(id)
@@ -73,7 +73,8 @@ class MediaPlayer:
         for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
             path = self.getTrackPathAtPos(pos)
             db.maybeGetIDFromPath(
-                path, lambda id: self._getUnplayedTrackIDsCompletion(id))
+                path, lambda id, path=path:
+                      self._getUnplayedTrackIDsCompletion(id, path))
         db.complete(
             lambda result: self._getUnplayedTrackIDListCompletion(completion))
 
