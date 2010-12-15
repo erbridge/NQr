@@ -9,6 +9,7 @@
 ## TODO: finish asyncing track links
 ##
 ## FIXME: make tracebacks work properly for all completions
+## FIXME: make tracks that were historical which are added again non-historical
 
 import ConfigParser
 import datetime
@@ -572,6 +573,7 @@ class Database(DatabaseEventHandler):
         self._initMaybeCreateIgnoreTable()
         self._initMaybeCreateTagNamesTable()
         self._initMaybeCreateTagsTable()
+        self._initMaybeCreateTableIndices()
         self._conn.commit()
         
         self._dbThread.start()
@@ -709,7 +711,8 @@ class Database(DatabaseEventHandler):
                 raise err
             self._logger.debug("Track link table found.")
         c.close()
-
+    
+    # FIXME: poss unnecessary with historical
     def _initMaybeCreateIgnoreTable(self):
         self._logger.debug("Looking for ignore table.")
         c = self._conn.cursor()
@@ -751,8 +754,23 @@ class Database(DatabaseEventHandler):
             self._logger.debug("Tags table found.")
         c.close()
         
+    def _initMaybeCreateTableIndices(self):
+        # primary keys are already indexed
+        self._logger.debug("Creating table indices")
+        c = self._conn.cursor()
+        c.execute("create unique index if not exists t0 on tracks(path)")
+        c.execute("create unique index if not exists d0 on directories(path)")
+        c.execute("create index if not exists p0 on plays(trackid)")
+        c.execute("create index if not exists s0 on scores(trackid)")
+        c.execute("""create unique index if not exists s1 on scores(scoreid,
+                                                                    trackid)""")
+        c.execute("create unique index if not exists tn0 on tagnames(name)")
+        c.execute("""create unique index if not exists tg0 on tags(tagnameid,
+                                                                   trackid)""")
+        c.close()
+        
     def _maybeAddTrackCallback(self, track, trackID, completion,
-                                 wasAdded=False):
+                               wasAdded=False):
         path = track.getPath()
         if trackID == None:
             mycompletion = lambda id, track=track, completion=completion:\
