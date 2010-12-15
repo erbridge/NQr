@@ -189,32 +189,10 @@ class MainWindow(wx.Frame):
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|"\
                     +"*.*", defaultDefaultDirectory="",
                 defaultHaveLogPanel=True):
-        self._ID_ARTIST = wx.NewId()
-        self._ID_TRACK = wx.NewId()
-        self._ID_SCORE = wx.NewId()
-        self._ID_LASTPLAYED = wx.NewId()
-        self._ID_PREVIOUSPLAY = wx.NewId()
-        self._ID_WEIGHT = wx.NewId()
-        self._ID_SCORESLIDER = wx.NewId()
-        self._ID_TRACKLIST = wx.NewId()
-        self._ID_DETAILS = wx.NewId()
-        self._ID_TAGS = wx.NewId()
-        self._ID_NOWPLAYING = wx.NewId()
-        self._ID_ADDDIRECTORY = wx.NewId()
-        self._ID_ADDFILE = wx.NewId()
-        self._ID_PREFS = wx.NewId()
         self._ID_TOGGLENQR = wx.NewId()
-        self._ID_PLAYTIMER = wx.NewId()
-        self._ID_INACTIVITYTIMER = wx.NewId()
-        self._ID_REFRESHTIMER = wx.NewId()
-        self._ID_PLAY = wx.NewId()
-        self._ID_STOP = wx.NewId()
-        self._ID_PAUSE = wx.NewId()
-        self._ID_PREV = wx.NewId()
-        self._ID_NEXT = wx.NewId()
-        self._ID_SELECTCURRENT = wx.NewId()
-        self._ID_RATEUP = wx.NewId()
-        self._ID_RATEDOWN = wx.NewId()
+        ID_PLAYTIMER = wx.NewId()
+        ID_INACTIVITYTIMER = wx.NewId()
+        ID_REFRESHTIMER = wx.NewId()
 
         self._db = db
         self._randomizer = randomizer
@@ -254,15 +232,14 @@ class MainWindow(wx.Frame):
         self._initCreateMainPanel()
 
         self._logger.debug("Creating play delay timer.")
-        self._playTimer = wx.Timer(self, self._ID_PLAYTIMER)
+        self._playTimer = wx.Timer(self, ID_PLAYTIMER)
 
         self._logger.debug("Creating and starting inactivity timer.")
-        self._inactivityTimer = wx.Timer(self, self._ID_INACTIVITYTIMER)
+        self._inactivityTimer = wx.Timer(self, ID_INACTIVITYTIMER)
         self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
-        self._addHotKey(None, "T", self._ID_INACTIVITYTIMER)
 
         self._logger.debug("Creating and starting track list refresh timer.")
-        self._refreshTimer = wx.Timer(self, self._ID_REFRESHTIMER)
+        self._refreshTimer = wx.Timer(self, ID_REFRESHTIMER)
         self._refreshTimer.Start(1000, oneShot=False)
         
         self._logger.debug("Starting track monitor.")
@@ -273,11 +250,11 @@ class MainWindow(wx.Frame):
         self._logger.debug("Starting socket monitor.")
         self._socketMonitor = SocketMonitor(self, socket, address,
                                             loggerFactory)
-
-        wx.EVT_TIMER(self, self._ID_PLAYTIMER, self._onPlayTimerDing)
-        wx.EVT_TIMER(self, self._ID_INACTIVITYTIMER,
-                     self._onInactivityTimerDing)
-        wx.EVT_TIMER(self, self._ID_REFRESHTIMER, self._onRefreshTimerDing)
+        
+        self.Bind(wx.EVT_TIMER, self._onPlayTimerDing, self._playTimer)
+        self.Bind(wx.EVT_TIMER, self._onInactivityTimerDing,
+                  self._inactivityTimer)
+        self.Bind(wx.EVT_TIMER, self._onRefreshTimerDing, self._refreshTimer)
         
         Events.EVT_TRACK_CHANGE(self, self._onTrackChange)
         Events.EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
@@ -329,55 +306,51 @@ class MainWindow(wx.Frame):
         menuBar.Append(self._optionsMenu, "&Options")
 
         self.SetMenuBar(menuBar)
+        
+    def _addMenuItem(self, menu, label, caption, onClick, id=None, hotkey=None,
+                     checkItem=False):
+        if id == None:
+            id = wx.NewId()
+        if checkItem == True:
+            menuItem = menu.AppendCheckItem(id, label, caption)
+        else:
+            menuItem = menu.Append(id, label, caption)
+        if hotkey != None:
+            (modifier, key) = hotkey
+            self._addHotKey(modifier, key, id)
+        self.Bind(wx.EVT_MENU, onClick, menuItem)
 
     def _initCreateFileMenu(self):
         self._logger.debug("Creating file menu.")
         self._fileMenu = wx.Menu()
-        menuAbout = self._fileMenu.Append(
-            wx.ID_ABOUT, "&About NQr\tF1", " Information about NQr")
-        
-        self._addHotKey(None, wx.WXK_F1, wx.ID_ABOUT)
-        
+        self._addMenuItem(self._fileMenu, "&About NQr\tF1",
+                          " Information about NQr", self._onAbout,
+                          id=wx.ID_ABOUT, hotkey=(None, wx.WXK_F1))
         self._fileMenu.AppendSeparator()
-        menuAddFile = self._fileMenu.Append(
-            self._ID_ADDFILE, "Add &File...\tCtrl+F",
-            " Add a file to the library")
-        
-        self._addHotKey("ctrl", "F", self._ID_ADDFILE)
-        
-        menuAddDirectory = self._fileMenu.Append(
-            self._ID_ADDDIRECTORY, "Add &Directory...\tCtrl+D",
-            " Add a directory to the library and watch list")
-        
-        self._addHotKey("ctrl", "D", self._ID_ADDDIRECTORY)
-        
-        menuAddDirectoryOnce = self._fileMenu.Append(
-            -1, "Add Directory &Once...",
-            " Add a directory to the library but not the watch list")
+        self._addMenuItem(self._fileMenu, "Add &File...\tCtrl+F",
+                          " Add a file to the library", self._onAddFile,
+                          hotkey=("ctrl", "F"))
+        self._addMenuItem(self._fileMenu, "Add &Directory...\tCtrl+D",
+                          " Add a directory to the library and watch list",
+                          self._onAddDirectory, hotkey=("ctrl", "D"))
+        self._addMenuItem(
+            self._fileMenu, "Add Directory &Once...",
+            " Add a directory to the library but not the watch list",
+            self._onAddDirectoryOnce)
         self._fileMenu.AppendSeparator()
-        menuRemoveDirectory = self._fileMenu.Append(
-            -1, "&Remove Directory...",
-            " Remove a directory from the watch list")
+        self._addMenuItem(self._fileMenu, "&Remove Directory...",
+                          " Remove a directory from the watch list",
+                          self._onRemoveDirectory)
         self._fileMenu.AppendSeparator()
-        menuLinkTracks = self._fileMenu.Append(
-            -1, "&Link Tracks...",
-            " Link two tracks so they always play together")
-        menuRemoveLink = self._fileMenu.Append(
-            -1, "Remo&ve Link...", " Remove the link between two tracks")
+        self._addMenuItem(self._fileMenu, "&Link Tracks...",
+                          " Link two tracks so they always play together",
+                          self._onLinkTracks)
+        self._addMenuItem(self._fileMenu, "Remo&ve Link...",
+                          " Remove the link between two tracks",
+                          self._onRemoveLink)
         self._fileMenu.AppendSeparator()
-        menuExit = self._fileMenu.Append(wx.ID_EXIT, "E&xit\tCtrl+Q",
-                                         " Terminate NQr")
-        
-        self._addHotKey("ctrl", "Q", wx.ID_EXIT)
-
-        self.Bind(wx.EVT_MENU, self._onAbout, menuAbout)
-        self.Bind(wx.EVT_MENU, self._onAddFile, menuAddFile)
-        self.Bind(wx.EVT_MENU, self._onAddDirectory, menuAddDirectory)
-        self.Bind(wx.EVT_MENU, self._onAddDirectoryOnce, menuAddDirectoryOnce)
-        self.Bind(wx.EVT_MENU, self._onRemoveDirectory, menuRemoveDirectory)
-        self.Bind(wx.EVT_MENU, self._onLinkTracks, menuLinkTracks)
-        self.Bind(wx.EVT_MENU, self._onRemoveLink, menuRemoveLink)
-        self.Bind(wx.EVT_MENU, self._onExit, menuExit)
+        self._addMenuItem(self._fileMenu, "E&xit\tCtrl+Q", " Terminate NQr",
+                          self._onExit, id=wx.ID_EXIT, hotkey=("ctrl", "Q"))
 
     def _initCreateRateMenu(self):
         self._logger.debug("Creating rate menu.")
@@ -388,125 +361,85 @@ class MainWindow(wx.Frame):
     def _initCreatePlayerMenu(self):
         self._logger.debug("Creating player menu.")
         self._playerMenu = wx.Menu()
-        menuPlay = self._playerMenu.Append(self._ID_PLAY, "&Play\tX",
-                                           " Play or restart the current track")
-        
-        self._addHotKey(None, "X", self._ID_PLAY)
-        
-        menuPause = self._playerMenu.Append(
-            self._ID_PAUSE, "P&ause\tC", " Pause or resume the current track")
-        
-        self._addHotKey(None, "C", self._ID_PAUSE)
-        
-        menuNext = self._playerMenu.Append(self._ID_NEXT, "&Next Track\tB",
-                                           " Play the next track")
-        
-        self._addHotKey(None, "B", self._ID_NEXT)
-        
-        menuPrevious = self._playerMenu.Append(self._ID_PREV,
-                                               "Pre&vious Track\tZ",
-                                               " Play the previous track")
-        
-        self._addHotKey(None, "Z", self._ID_PREV)
-        
-        menuStop = self._playerMenu.Append(self._ID_STOP, "&Stop\tV",
-                                           " Stop the current track")
-        
-        self._addHotKey(None, "V", self._ID_STOP)
-        
+        self._addMenuItem(self._playerMenu, "Pre&vious Track\tZ",
+                          " Play the previous track", self._onPrevious,
+                          hotkey=(None, "Z"))
+        self._addMenuItem(self._playerMenu, "&Play\tX",
+                          " Play or restart the current track", self._onPlay,
+                          hotkey=(None, "X"))
+        self._addMenuItem(self._playerMenu, "P&ause\tC",
+                          " Pause or resume the current track", self._onPause,
+                          hotkey=(None, "C"))
+        self._addMenuItem(self._playerMenu, "&Stop\tV",
+                          " Stop the current track", self._onStop,
+                          hotkey=(None, "V"))
+        self._addMenuItem(self._playerMenu, "&Next Track\tB",
+                          " Play the next track", self._onNext,
+                          hotkey=(None, "B"))
         self._playerMenu.AppendSeparator()
-        menuRateUp = self._playerMenu.Append(
-            self._ID_RATEUP, "Rate &Up\tCtrl+PgUp",
-            " Increase the score of the selected track by one")
-        
-        self._addHotKey("ctrl", wx.WXK_PAGEUP, self._ID_PLAY)
-        
-        menuRateDown = self._playerMenu.Append(
-            self._ID_RATEDOWN, "Rate &Down\tCtrl+PgDn",
-            " Decrease the score of the selected track by one")
-        
-        self._addHotKey("ctrl", wx.WXK_PAGEDOWN, self._ID_PLAY)
-        
+        self._addMenuItem(self._playerMenu, "Rate &Up\tCtrl+PgUp",
+                          " Increase the score of the selected track by one",
+                          self._onRateUp, hotkey=("ctrl", wx.WXK_PAGEUP))
+        self._addMenuItem(self._playerMenu, "Rate &Down\tCtrl+PgDn",
+                          " Decrease the score of the selected track by one",
+                          self._onRateDown, hotkey=("ctrl", wx.WXK_PAGEDOWN))
         self._playerMenu.AppendMenu(-1, "&Rate", self._rateMenu)
         self._playerMenu.AppendSeparator()
-        menuSelectCurrent = self._playerMenu.Append(
-            self._ID_SELECTCURRENT, "&Select Current Track\tCtrl+\\",
-            " Selects the currently playing track")
-        
-        self._addHotKey("ctrl", "\\", self._ID_SELECTCURRENT)
-        
+        self._addMenuItem(self._playerMenu, "&Select Current Track\tCtrl+\\",
+                          " Selects the currently playing track",
+                          self._onSelectCurrent, hotkey=("ctrl", "\\"))
         self._playerMenu.AppendSeparator()
-        menuRequeue = self._playerMenu.Append(
-            -1, "Re&queue Track", " Add the selected track to the playlist")
-        menuRequeueAndPlay = self._playerMenu.Append(
-            -1, "Requeue and &Play Track",
-            " Add the selected track to the playlist and play it")
-        menuResetScore = self._playerMenu.Append(
-            -1, "Reset Sc&ore", " Reset the score of the selected track")
+        self._addMenuItem(self._playerMenu, "Re&queue Track",
+                          " Add the selected track to the playlist",
+                          self._onRequeue)
+        self._addMenuItem(self._playerMenu, "Requeue and &Play Track",
+                          " Add the selected track to the playlist and play it",
+                          self._onRequeueAndPlay)
+        self._addMenuItem(self._playerMenu, "Reset Sc&ore",
+                          " Reset the score of the selected track",
+                          self._onResetScore)
         self._playerMenu.AppendSeparator()
-        menuLaunchPlayer = self._playerMenu.Append(
-            -1, "&Launch Player", " Launch the selected media player")
-        menuExitPlayer = self._playerMenu.Append(
-            -1, "E&xit Player", " Terminate the selected media player")
+        self._addMenuItem(self._playerMenu, "&Launch Player",
+                          " Launch the media player",
+                          self._onLaunchPlayer)
+        self._addMenuItem(self._playerMenu, "E&xit Player",
+                          " Terminate the media player", self._onExitPlayer)
 
-        self.Bind(wx.EVT_MENU, self._onPlay, menuPlay)
-        self.Bind(wx.EVT_MENU, self._onPause, menuPause)
-        self.Bind(wx.EVT_MENU, self._onStop, menuStop)
-        self.Bind(wx.EVT_MENU, self._onPrevious, menuPrevious)
-        self.Bind(wx.EVT_MENU, self._onNext, menuNext)
-        self.Bind(wx.EVT_MENU, self._onRateUp, menuRateUp)
-        self.Bind(wx.EVT_MENU, self._onRateDown, menuRateDown)
-        self.Bind(wx.EVT_MENU, self._onSelectCurrent, menuSelectCurrent)
-        self.Bind(wx.EVT_MENU, self._onRequeue, menuRequeue)
-        self.Bind(wx.EVT_MENU, self._onRequeueAndPlay, menuRequeueAndPlay)
-        self.Bind(wx.EVT_MENU, self._onResetScore, menuResetScore)
-        self.Bind(wx.EVT_MENU, self._onLaunchPlayer, menuLaunchPlayer)
-        self.Bind(wx.EVT_MENU, self._onExitPlayer, menuExitPlayer)
-
-    def _getAllTagsCompletion(self, tags):
+    def _getAllTagsCompletion(self, menu, tags):
         self._allTags = {}
         for tag in tags:
             tagID = wx.NewId()
             self._allTags[tagID] = tag
-            tagMenuItem = self._tagMenu.AppendCheckItem(tagID, tag,
-                                                        " Tag track with "+tag)
-
-            self.Bind(wx.EVT_MENU, self._onTag, tagMenuItem)
+            self._addMenuItem(self._tagMenu, tag, " Tag track with \'"+tag+"\'",
+                              self._onTag, id=tagID, checkItem=True)
             
     def _initCreateTagMenu(self):
         self._logger.debug("Creating tag menu.")
         self._tagMenu = wx.Menu()
-        newTagMenu = self._tagMenu.Append(
-            -1, "&New...", " Create new tag and tag track with it")
+        self._addMenuItem(self._tagMenu, "&New...",
+                          " Create new tag and tag track with it",
+                          self._onNewTag)
         self._tagMenu.AppendSeparator()
         
         self._db.getAllTagNames(
-            lambda tags: self._getAllTagsCompletion(tags), priority=1)
-
-        self.Bind(wx.EVT_MENU, self._onNewTag, newTagMenu)
+            lambda tags, menu=self._tagMenu: self._getAllTagsCompletion(menu,
+                                                                        tags),
+            priority=1)
 
     def _initCreateOptionsMenu(self):
         self._logger.debug("Creating options menu.")
         self._optionsMenu = wx.Menu()
-        menuPrefs = self._optionsMenu.Append(self._ID_PREFS,
-                                             "&Preferences...\tCtrl+P",
-                                             " Change NQr's settings")
-
-        self._addHotKey("ctrl", "P", self._ID_PREFS)
-        
-        menuRescan = self._optionsMenu.Append(
-            -1, "&Rescan Library",
-            " Search previously added directories for new files")
+        self._addMenuItem(self._optionsMenu, "&Preferences...\tCtrl+P",
+                          " Change NQr's settings", self._onPrefs,
+                          hotkey=("ctrl", "P"))
+        self._addMenuItem(self._optionsMenu, "&Rescan Library",
+                          " Search previously added directories for new files",
+                          self._onRescan)
         self._optionsMenu.AppendSeparator()
-        self.menuToggleNQr = self._optionsMenu.AppendCheckItem(
-            self._ID_TOGGLENQR, "En&queue with NQr\tCtrl+E",
-            " Use NQr to enqueue tracks")
-        
-        self._addHotKey("ctrl", "E", self._ID_TOGGLENQR)
-
-        self.Bind(wx.EVT_MENU, self._onPrefs, menuPrefs)
-        self.Bind(wx.EVT_MENU, self._onRescan, menuRescan)
-        self.Bind(wx.EVT_MENU, self._onToggleNQr, self.menuToggleNQr)
+        self._addMenuItem(self._optionsMenu, "En&queue with NQr\tCtrl+E",
+                          " Use NQr to enqueue tracks", self._onToggleNQr,
+                          id=self._ID_TOGGLENQR, hotkey=("ctrl", "E"),
+                          checkItem=True)
 
     def _initCreateRightClickRateMenu(self):
         self._logger.debug("Creating rate menu.")
@@ -516,31 +449,27 @@ class MainWindow(wx.Frame):
     def _initCreateTrackRightClickMenu(self):
         self._logger.debug("Creating track right click menu.")
         self._initCreateRightClickRateMenu()
-
+        
         self._trackRightClickMenu = wx.Menu()
-        menuTrackRightClickRateUp = self._trackRightClickMenu.Append(
-            -1, "Rate &Up", " Increase the score of the current track by one")
-        menuTrackRightClickRateDown = self._trackRightClickMenu.Append(
-            -1, "Rate &Down", " Decrease the score of the current track by one")
+        self._addMenuItem(self._trackRightClickMenu, "Rate &Up",
+                          " Increase the score of the current track by one",
+                          self._onRateUp)
+        self._addMenuItem(self._trackRightClickMenu, "Rate &Down",
+                          " Decrease the score of the current track by one",
+                          self._onRateDown)
         self._trackRightClickMenu.AppendMenu(-1, "&Rate",
                                              self._rightClickRateMenu)
         self._trackRightClickMenu.AppendSeparator()
-        menuTrackRightClickRequeue = self._trackRightClickMenu.Append(
-            -1, "Re&queue Track", " Add the selected track to the playlist")
-        menuTrackRightClickRequeueAndPlay = self._trackRightClickMenu.Append(
-            -1, "Requeue and &Play Track",
-            " Add the selected track to the playlist and play it")
+        self._addMenuItem(self._trackRightClickMenu, "Re&queue Track",
+                          " Add the selected track to the playlist",
+                          self._onRequeue)
+        self._addMenuItem(self._trackRightClickMenu, "Requeue and &Play Track",
+                          " Add the selected track to the playlist and play it",
+                          self._onRequeueAndPlay)
         self._trackRightClickMenu.AppendSeparator()
-        menuTrackRightClickResetScore = self._trackRightClickMenu.Append(
-            -1, "Reset Sc&ore", " Reset the score of the current track")
-
-        self.Bind(wx.EVT_MENU, self._onRateUp, menuTrackRightClickRateUp)
-        self.Bind(wx.EVT_MENU, self._onRateDown, menuTrackRightClickRateDown)
-        self.Bind(wx.EVT_MENU, self._onRequeue, menuTrackRightClickRequeue)
-        self.Bind(wx.EVT_MENU, self._onRequeueAndPlay,
-                  menuTrackRightClickRequeueAndPlay)
-        self.Bind(wx.EVT_MENU, self._onResetScore,
-                  menuTrackRightClickResetScore)
+        self._addMenuItem(self._trackRightClickMenu, "Reset Sc&ore",
+                          " Reset the score of the current track",
+                          self._onResetScore)
 
     def _initCreateMainPanel(self):
         self._panel = wx.Panel(self)
@@ -591,9 +520,9 @@ class MainWindow(wx.Frame):
 
     def _initCreateDetails(self):
         self._logger.debug("Creating details panel.")
-        self._details = wx.TextCtrl(self._panel, self._ID_DETAILS,
-                                    style=wx.TE_READONLY|wx.TE_MULTILINE|
-                                    wx.TE_DONTWRAP, size=(-1,140))
+        self._details = wx.TextCtrl(self._panel, -1, style=wx.TE_READONLY|
+                                    wx.TE_MULTILINE|wx.TE_DONTWRAP,
+                                    size=(-1,140))
 
     def _initCreateTrackSizer(self):
         self._logger.debug("Creating track panel.")
@@ -607,22 +536,22 @@ class MainWindow(wx.Frame):
     ## first column for displaying "Now Playing" or a "+"
     def _initCreateTrackList(self):
         self._logger.debug("Creating track playlist.")
-        self._trackList = wx.ListCtrl(self._panel, self._ID_TRACKLIST,
-                                      style=wx.LC_REPORT|wx.LC_VRULES|
-                                      wx.LC_SINGLE_SEL, size=(656,-1))
-        self._trackList.InsertColumn(self._ID_ARTIST, "Artist",
-                                     format=wx.LIST_FORMAT_CENTER, width=100)
-        self._trackList.InsertColumn(self._ID_TRACK, "Title",
-                                     format=wx.LIST_FORMAT_CENTER, width=170)
-        self._trackList.InsertColumn(self._ID_SCORE, "Score",
-                                     format=wx.LIST_FORMAT_CENTER, width=45)
-        self._trackList.InsertColumn(self._ID_LASTPLAYED, "Played At",
+        self._trackList = wx.ListCtrl(self._panel, -1, style=wx.LC_REPORT|
+                                      wx.LC_VRULES|wx.LC_SINGLE_SEL,
+                                      size=(656,-1))
+        # for some reason setting column 0 forces left justification
+        self._trackList.InsertColumn(1, "Artist", format=wx.LIST_FORMAT_CENTER,
+                                     width=100)
+        self._trackList.InsertColumn(2, "Title", format=wx.LIST_FORMAT_CENTER,
+                                     width=170)
+        self._trackList.InsertColumn(3, "Score", format=wx.LIST_FORMAT_CENTER,
+                                     width=45)
+        self._trackList.InsertColumn(4, "Played At",
                                      format=wx.LIST_FORMAT_CENTER, width=120)
-        self._trackList.InsertColumn(self._ID_PREVIOUSPLAY, "Last Played",
+        self._trackList.InsertColumn(5, "Last Played",
                                      format=wx.LIST_FORMAT_CENTER, width=120)
-        self._trackList.InsertColumn(self._ID_WEIGHT, "Weight",
-                                     format=wx.LIST_FORMAT_CENTER, width=80)
-
+        self._trackList.InsertColumn(6, "Weight", format=wx.LIST_FORMAT_CENTER,
+                                     width=80)
 
         try:
             self._logger.debug("Adding current track to track playlist.")
@@ -670,13 +599,13 @@ class MainWindow(wx.Frame):
     def _initCreateScoreSlider(self):
         self._logger.debug("Creating score slider.")
         if self._system == 'FreeBSD':
-            self._scoreSlider = wx.Slider(self._panel, self._ID_SCORESLIDER, 0,
-                                          -10, 10, style=wx.SL_VERTICAL|
-                                          wx.SL_LABELS|wx.SL_INVERSE)
+            self._scoreSlider = wx.Slider(self._panel, -1, 0, -10, 10,
+                                          style=wx.SL_VERTICAL|wx.SL_LABELS|
+                                          wx.SL_INVERSE)
         else:
-            self._scoreSlider = wx.Slider(self._panel, self._ID_SCORESLIDER, 0,
-                                          -10, 10, style=wx.SL_RIGHT|
-                                          wx.SL_LABELS|wx.SL_INVERSE)
+            self._scoreSlider = wx.Slider(self._panel, -1, 0, -10, 10,
+                                          style=wx.SL_RIGHT|wx.SL_LABELS|
+                                          wx.SL_INVERSE)
 
         self.Bind(wx.EVT_SCROLL_CHANGED, self._onScoreSliderMove,
                   self._scoreSlider)
@@ -1143,14 +1072,14 @@ class MainWindow(wx.Frame):
 
     def _onToggleNQr(self, e=None, startup=False):
         self._logger.debug("Toggling NQr.")
-        if self.menuToggleNQr.IsChecked() == False:
+        if self._optionsMenu.IsChecked(self._ID_TOGGLENQR) == False:
             self._toggleNQr = False
             self._logger.info("Restoring shuffle status.")
             self._player.setShuffle(self._oldShuffleStatus)
             if self._restorePlaylist == True and self._oldPlaylist != None:
                 self._player.loadPlaylist(self._oldPlaylist)
             self._logger.info("Enqueueing turned off.")
-        elif self.menuToggleNQr.IsChecked() == True:
+        elif self._optionsMenu.IsChecked(self._ID_TOGGLENQR) == True:
             self._toggleNQr = True
             self._logger.info("Storing shuffle status.")
             self._oldShuffleStatus = self._player.getShuffle()
@@ -1490,14 +1419,9 @@ class MainWindow(wx.Frame):
         if lastPlayed != None:
             detailString += "    \tPlayed at:  \t"+lastPlayed
             
-        self.resetTagMenu()
-        tagString = ""
-        for tag in tags:
-            tagString += tag + ", "
-            tagID = self._getTagID(tag)
-            self._tagMenu.Check(tagID, True)
+        tagString = self.updateTagMenu(tags)
         if tagString != "":
-            detailString += "\nTags:  \t"+tagString[:-2]
+            detailString += "\nTags:  \t"+tagString
             
         detailString += "\nFilepath:      "+track.getPath()
         
@@ -1543,6 +1467,17 @@ class MainWindow(wx.Frame):
     def resetTagMenu(self):
         for tagID in self._allTags.keys():
             self._tagMenu.Check(tagID, False)
+            
+    def updateTagMenu(self, tags):
+        self.resetTagMenu()
+        tagString = ""
+        for tag in tags:
+            tagString += tag + ", "
+            tagID = self._getTagID(tag)
+            self._tagMenu.Check(tagID, True)
+        if tagString != "":
+            tagString = tagString[:-2]
+        return tagString
 
     def _getTagID(self, tag):
         for (tagID, tagName) in self._allTags.iteritems():
