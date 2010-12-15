@@ -1090,18 +1090,22 @@ class MainWindow(wx.Frame):
             self._logger.info("Enqueueing turned on.")
             if startup == False:
                 self.maintainPlaylist()
+                
+    def _onTrackChangeCompletion(self, track, previousPlay):
+        track.setPreviousPlay(previousPlay)
+        self._playTimer.Stop()
+        if self._playTimer.Start(self._playDelay, oneShot=True) == False:
+            # ensures play is added for track
+            track.addPlay()
+        self.addTrack(track)
+        self.maintainPlaylist()
 
     def _onTrackChange(self, e):
         self._playingTrack = e.getTrack()
         self._db.getLastPlayedInSeconds(
             self._playingTrack,
-            lambda previous, track=self._playingTrack:\
-                track.setPreviousPlay(previous), priority=1)
-        self._playTimer.Stop()
-        if self._playTimer.Start(self._playDelay, oneShot=True) == False:
-            self._playingTrack.addPlay()
-        self.addTrack(self._playingTrack)
-        self.maintainPlaylist()
+            lambda previousPlay, track=self._playingTrack:\
+                self._onTrackChangeCompletion(track, previousPlay), priority=1)
     
     def _onNoNextTrack(self, e):
         self.maintainPlaylist()
