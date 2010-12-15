@@ -1495,7 +1495,7 @@ class Database(DatabaseEventHandler):
         tagNames = []
         for (name, ) in names:
             tagNames.append(name)
-        completion(tagNames)#
+        completion(tagNames)
             
     def getAllTagNames(self, completion, priority=None):
         mycompletion = lambda names, completion=completion:\

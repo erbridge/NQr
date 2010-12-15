@@ -151,7 +151,7 @@ class Main(wx.App):
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
         ## TODO: remove command window at this point and stop logging to stream
-        ##       if we are not in dev mode
+        ##       if we are not in dev mode (poss just rename to .pyw)
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
         self._logger.info("Main loop stopped.")
