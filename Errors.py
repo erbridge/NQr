@@ -37,3 +37,6 @@ class AbortThreadError(Error):
 
 class BadMessageError(Error):
     pass
+
+class DuplicateTagError(Error):
+    pass

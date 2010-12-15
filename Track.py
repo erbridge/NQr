@@ -7,7 +7,8 @@
 ##       * but how would you get them to find out that their metadata
 ##       has changed without querying the file all the time? (Felix)
 
-from Errors import NoTrackError, UnknownTrackType, NoMetadataError
+from Errors import NoTrackError, UnknownTrackType, NoMetadataError,\
+    DuplicateTagError
 import mutagen
 import os.path
 from Util import BasePrefsPage, formatLength
@@ -160,11 +161,12 @@ class Track:
         completion(self._tags)
 
     def setTag(self, tag):
-        self._db.setTag(self, tag)
         if self._tags == None:
             self._tags = []
-        if tag not in self._tags:
-            self._tags.append(tag)
+        if tag in self._tags:
+            raise DuplicateTagError
+        self._db.setTag(self, tag)
+        self._tags.append(tag)
 
     def unsetTag(self, tag):
         self._db.unsetTag(self, tag)
