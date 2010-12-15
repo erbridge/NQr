@@ -172,16 +172,23 @@ class Track:
         self._db.unsetTag(self, tag)
         self._tags.remove(tag)
         
-    def _addPlayCompletion(self, playCount):
+    def _getPlayCountCompletion(self, playCount, completion):
         self._playCount = playCount
-
-    def addPlay(self, delay=0, completion=None):
-        self._db.addPlay(self, delay, completion)
+        completion()
+        
+    def _addPlayCompletion(self, completion):
         if self._playCount == None:
             self.getPlayCount(
-                lambda playCount: self._addPlayCompletion(playCount))
-            return
-        self._playCount += 1
+                lambda playCount, completion=completion:\
+                    self._getPlayCountCompletion(playCount, completion))
+        else:
+            self._playCount += 1
+            completion()
+
+    def addPlay(self, delay=0, completion=None):
+        self._db.addPlay(self, delay,
+                         lambda completion=completion: self._addPlayCompletion(
+                                completion))
         
     def _getPlayCount(self, playCount, completion):
         self._playCount = playCount
