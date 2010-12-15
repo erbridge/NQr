@@ -112,6 +112,11 @@ def roughAge(time):
         return _doRough(time, 7, "week", 24*60*60, "day")
     # yes, this measure of a year is fairly crap :-)
     return _doRough(time, 52, "year", 7*24*60*60, "week")
+
+def postEvent(lock, target, event):
+    if lock.acquire():
+        wx.PostEvent(target, event)
+        lock.release()
     
 class RedirectErr:
     def __init__(self, textCtrl, stderr):

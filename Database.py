@@ -22,14 +22,16 @@ import sqlite3
 import threading
 import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
-    extractTraceStack, BasePrefsPage, validateNumeric, wx
+    extractTraceStack, BasePrefsPage, validateNumeric, postEvent, wx
 
 class Thread(threading.Thread):
-    def __init__(self, db, path, name, logger, errcallback, mainThread=None):
+    def __init__(self, db, path, name, logger, errcallback, lock,
+                 mainThread=None):
         threading.Thread.__init__(self, name=name)
         self._name = name
         self._logger = logger
         self._errcallback = errcallback
+        self._lock = lock
         self._mainThread = mainThread
         self._db = db
         self._databasePath = os.path.realpath(path)
@@ -89,7 +91,7 @@ class Thread(threading.Thread):
         try:
             errcompletion(err)
         except:
-            wx.PostEvent(self._db, Events.ExceptionEvent(err))
+            postEvent(self._lock, self._db, Events.ExceptionEvent(err))
             
     def _emptyQueueCallback(self, trace):
         raise EmptyQueueError(trace=trace)
@@ -114,9 +116,10 @@ class Thread(threading.Thread):
                        traceBack), extractTraceStack(trace), priority)
         
 class DatabaseEventHandler(wx.EvtHandler):
-    def __init__(self, dbThread, priority):
+    def __init__(self, dbThread, threadLock, priority):
         wx.EvtHandler.__init__(self)
         self._dbThread = dbThread
+        self._threadLock = threadLock
         self._priority = priority
         
         Events.EVT_DATABASE(self, self._onDatabaseEvent)
@@ -129,13 +132,21 @@ class DatabaseEventHandler(wx.EvtHandler):
     def _onExceptionEvent(self, e):
         raise e.getException()
     
+    def _completionEventCompletion(self, completion, result=None,
+                                   returnData=True):
+        if returnData == False:
+            postEvent(self._threadLock, self,
+                      Events.DatabaseEvent(completion, returnData=False))
+        else:
+            postEvent(self._threadLock, self,
+                      Events.DatabaseEvent(completion, result=result))
+    
     def _completionEvent(self, completion, returnData=True):
         if returnData == False:
             return lambda completion=completion:\
-                wx.PostEvent(self, Events.DatabaseEvent(completion,
-                                                        returnData=False))
+                self._completionEventCompletion(completion, returnData=False)
         return lambda result, completion=completion:\
-            wx.PostEvent(self, Events.DatabaseEvent(completion, result=result))
+            self._completionEventCompletion(completion, result=result)
 
     def complete(self, completion, priority=None, trace=[]):
         if priority == None:
@@ -265,14 +276,14 @@ class DatabaseEventHandler(wx.EvtHandler):
                       (historical, trackID), mycompletion)
         
 class DirectoryWalkThread(Thread, DatabaseEventHandler):
-    def __init__(self, db, path, logger, trackFactory, dbThread):
+    def __init__(self, db, lock, path, logger, trackFactory, dbThread):
         self._working = False
         self._errorCount = 0
         errcallback = ErrorCompletion(EmptyQueueError,
                                       lambda: self._onEmptyQueueError())
         Thread.__init__(self, db, path, "Directory Walk", logger,
-                        lambda err: errcallback(err), dbThread)
-        DatabaseEventHandler.__init__(self, dbThread, 3)
+                        lambda err: errcallback(err), lock, dbThread)
+        DatabaseEventHandler.__init__(self, dbThread, lock, 3)
         self._logger = logger
         self._trackFactory = trackFactory
         
@@ -419,10 +430,10 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         self._updateTrackDetails(track, infoLogging=False)
 
 class DatabaseThread(Thread):
-    def __init__(self, db, path, logger):
+    def __init__(self, db, lock, path, logger):
         errcallback = ErrorCompletion(EmptyQueueError, lambda: doNothing())
         Thread.__init__(self, db, path, "Database", logger,
-                        lambda err: errcallback(err))
+                        lambda err: errcallback(err), lock)
         
     def doComplete(self, completion, trace):
         completion()
@@ -550,11 +561,13 @@ class DatabaseThread(Thread):
                    trace, priority)
 
 class Database(DatabaseEventHandler):
-    def __init__(self, trackFactory, loggerFactory, configParser,
+    def __init__(self, threadLock, trackFactory, loggerFactory, configParser,
                  debugMode, databasePath, defaultDefaultScore):
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
-        DatabaseEventHandler.__init__(self, DatabaseThread(self, databasePath,
-                                                           self._logger), 2)
+        DatabaseEventHandler.__init__(self, DatabaseThread(self, threadLock,
+                                                           databasePath,
+                                                           self._logger),
+                                      threadLock, 2)
         self._trackFactory = trackFactory
         self._configParser = configParser
         self._defaultDefaultScore = defaultDefaultScore
@@ -579,8 +592,8 @@ class Database(DatabaseEventHandler):
         self._dbThread.start()
         
         self._directoryWalkThread = DirectoryWalkThread(
-            self, self._databasePath, self._logger, self._trackFactory,
-            self._dbThread)
+            self, threadLock, self._databasePath, self._logger,
+            self._trackFactory, self._dbThread)
         self._directoryWalkThread.start()
         
     def abort(self, interruptWalk=False):

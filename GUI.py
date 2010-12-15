@@ -34,17 +34,18 @@ import threading
 import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, RedirectErr,\
     RedirectOut, plural, BasePrefsPage, validateDirectory, validateNumeric,\
-    roughAge, wx
+    roughAge, postEvent, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
 ## must be aborted when closing!
 class TrackMonitor(threading.Thread):
-    def __init__(self, window, db, player, trackFactory, loggerFactory,
+    def __init__(self, window, lock, db, player, trackFactory, loggerFactory,
                  trackCheckDelay):
         threading.Thread.__init__(self, name="Track Monitor")
 #        self.setDaemon(True)
         self._window = window
+        self._lock = lock
         self._db = db
         self._player = player
         self._trackFactory = trackFactory
@@ -75,16 +76,15 @@ class TrackMonitor(threading.Thread):
             if newTrackPath != currentTrackPath:
                 self._logger.debug("Track has changed.")
                 currentTrackPath = newTrackPath
-                wx.PostEvent(self._window,
-                             Events.TrackChangeEvent(self._db,
-                                                     self._trackFactory,
-                                                     currentTrackPath))
+                postEvent(self._lock, self._window,
+                          Events.TrackChangeEvent(self._db, self._trackFactory,
+                                                  currentTrackPath))
                 logging = True
                 self._enqueueing = True
             if self._enqueueing == False\
                     and self._player.hasNextTrack() == False:
                 self._logger.debug("End of playlist reached.")
-                wx.PostEvent(self._window, Events.NoNextTrackEvent())
+                postEvent(self._lock, self._window, Events.NoNextTrackEvent())
         self._logger.debug("Track monitor stopped.")
 
     def abort(self):
@@ -94,10 +94,11 @@ class TrackMonitor(threading.Thread):
         self._enqueueing = status
 
 class SocketMonitor(threading.Thread):
-    def __init__(self, window, socket, address, loggerFactory):
+    def __init__(self, window, lock, socket, address, loggerFactory):
         threading.Thread.__init__(self, name="Socket Monitor")
 #        self.setDaemon(True)
         self._window = window
+        self._lock = lock
         self._socket = socket
         self._address = address
         self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
@@ -111,8 +112,8 @@ class SocketMonitor(threading.Thread):
             (conn, address) = self._socket.accept()
             self._logger.debug("Starting connection ("+address[0]+":"\
                                +str(address[1])+") monitor.")
-            connMonitor = ConnectionMonitor(self._window, conn, address,
-                                            self._logger)
+            connMonitor = ConnectionMonitor(self._window, self._lock, conn,
+                                            address, self._logger)
             connMonitor.start()
             self._connections.append(connMonitor)
         self._logger.debug("Stopping socket monitor.")
@@ -126,11 +127,12 @@ class SocketMonitor(threading.Thread):
         sock.close()
         
 class ConnectionMonitor(threading.Thread):
-    def __init__(self, window, connection, address, logger):
+    def __init__(self, window, lock, connection, address, logger):
         self._address = address[0]+":"+str(address[1])
         threading.Thread.__init__(self, name=self._address+" Monitor")
 #        self.setDaemon(True)
         self._window = window
+        self._lock = lock
         self._conn = connection
         self._logger = logger
     
@@ -147,21 +149,22 @@ class ConnectionMonitor(threading.Thread):
                 self._conn.close()
                 break
             if message == "ATTEND\n":
-                wx.PostEvent(self._window, Events.RequestAttentionEvent())
+                postEvent(self._lock, self._window,
+                          Events.RequestAttentionEvent())
             elif message == "PAUSE\n":
-                wx.PostEvent(self._window, Events.PauseEvent())
+                postEvent(self._lock, self._window, Events.PauseEvent())
             elif message == "PLAY\n":
-                wx.PostEvent(self._window, Events.PlayEvent())
+                postEvent(self._lock, self._window, Events.PlayEvent())
             elif message == "STOP\n":
-                wx.PostEvent(self._window, Events.StopEvent())
+                postEvent(self._lock, self._window, Events.StopEvent())
             elif message == "NEXT\n":
-                wx.PostEvent(self._window, Events.NextEvent())
+                postEvent(self._lock, self._window, Events.NextEvent())
             elif message == "PREV\n":
-                wx.PostEvent(self._window, Events.PreviousEvent())
+                postEvent(self._lock, self._window, Events.PreviousEvent())
             elif message == "RATEUP\n":
-                wx.PostEvent(self._window, Events.RateUpEvent())
+                postEvent(self._lock, self._window, Events.RateUpEvent())
             elif message == "RATEDOWN\n":
-                wx.PostEvent(self._window, Events.RateDownEvent())
+                postEvent(self._lock, self._window, Events.RateDownEvent())
             else:
                 raise BadMessageError
         self._logger.debug("Connection ("+self._address+") monitor stopped.")
@@ -182,10 +185,10 @@ class ConnectionMonitor(threading.Thread):
 class MainWindow(wx.Frame):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
                  loggerFactory, prefsFactory, configParser, socket, address,
-                 title, defaultRestorePlaylist, defaultEnqueueOnStartup,
-                 defaultRescanOnStartup, defaultPlaylistLength,
-                 defaultPlayDelay, defaultIgnore, defaultTrackCheckDelay,
-                 defaultInactivityTime=30000,
+                 title, threadLock, defaultRestorePlaylist,
+                 defaultEnqueueOnStartup, defaultRescanOnStartup,
+                 defaultPlaylistLength, defaultPlayDelay, defaultIgnore,
+                 defaultTrackCheckDelay, defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|"\
                     +"*.*", defaultDefaultDirectory="",
                 defaultHaveLogPanel=True):
@@ -243,12 +246,12 @@ class MainWindow(wx.Frame):
         self._refreshTimer.Start(1000, oneShot=False)
         
         self._logger.debug("Starting track monitor.")
-        self._trackMonitor = TrackMonitor(self, self._db, self._player,
-                                          self._trackFactory, loggerFactory,
-                                          self._trackCheckDelay)
+        self._trackMonitor = TrackMonitor(self, threadLock, self._db,
+                                          self._player, self._trackFactory,
+                                          loggerFactory, self._trackCheckDelay)
         
         self._logger.debug("Starting socket monitor.")
-        self._socketMonitor = SocketMonitor(self, socket, address,
+        self._socketMonitor = SocketMonitor(self, threadLock, socket, address,
                                             loggerFactory)
         
         self.Bind(wx.EVT_TIMER, self._onPlayTimerDing, self._playTimer)
@@ -1220,8 +1223,7 @@ class MainWindow(wx.Frame):
             self.selectTrack(index)
         elif self._index >= index:
             self._index += 1
-        
-    # TODO: give higher priority?
+            
     def addTrackAtPos(self, track, index, select=False):
         multicompletion = MultiCompletion(
             5, lambda isScored, lastPlayed, score, scoreValue, trackID,\
@@ -1405,8 +1407,6 @@ class MainWindow(wx.Frame):
         
     def _populateDetailsCompletion(self, track, score, playCount, lastPlayed,
                                    tags):
-        self._logger.debug("Populating details panel.")
-
         detailString = "Artist:  \t"+track.getArtist()\
             +"\nTitle:  \t"+track.getTitle()\
             +"\nAlbum:  \t"+track.getAlbum()\
@@ -1430,12 +1430,15 @@ class MainWindow(wx.Frame):
         detailString += "\nFilepath:      "+track.getPath()
         
         self.clearDetails()
+        
+        self._logger.debug("Populating details panel.")
         self.addToDetails(detailString)
         self._details.SetInsertionPoint(0)
         
 ## the first populateDetails seems to produce a larger font than subsequent
 ## calls in Mac OS
     def populateDetails(self, track):
+        self._logger.debug("Collecting details for details panel.")
         multicompletion = MultiCompletion(
             4, lambda score, playCount, lastPlayed, tags, track=track:\
                 self._populateDetailsCompletion(track, score, playCount,

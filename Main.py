@@ -23,6 +23,7 @@ import Prefs
 import Randomizer
 import socket
 import sys
+import threading
 import traceback
 import Track
 from Util import BasePrefsPage, wx
@@ -119,7 +120,8 @@ class Main(wx.App):
                                           self._configParser, self._debugMode)
 
         self._logger.debug("Initializing database.")
-        db = Database.Database(trackFactory, self._loggerFactory,
+        threadLock = threading.Lock()
+        db = Database.Database(threadLock, trackFactory, self._loggerFactory,
                                self._configParser, self._debugMode,
                                self._databaseFile, self._defaultDefaultScore)
 
@@ -140,7 +142,7 @@ class Main(wx.App):
         gui = GUI.MainWindow(None, db, randomizer, player, trackFactory,
                              self._system, self._loggerFactory, prefsFactory,
                              self._configParser, socket, address, self._title,
-                             self._defaultRestorePlaylist,
+                             threadLock, self._defaultRestorePlaylist,
                              self._defaultEnqueueOnStartup,
                              self._defaultRescanOnStartup,
                              self._defaultPlaylistLength,
