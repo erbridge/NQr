@@ -174,7 +174,8 @@ class Track:
         
     def _getPlayCountCompletion(self, playCount, completion):
         self._playCount = playCount
-        completion()
+        if completion != None:
+            completion()
         
     def _addPlayCompletion(self, completion):
         if self._playCount == None:
