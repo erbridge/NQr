@@ -2,6 +2,7 @@
 ##
 ## TODO: work out what weights should be (poss make sliders)
 ## TODO: use tags to limit track selection
+## TODO: make oldest not include tracks below threshold
 
 import ConfigParser
 from Errors import EmptyDatabaseError, UnsafeInputError, NoTrackError
@@ -158,6 +159,7 @@ class Randomizer:
                 score += 11 # creates a positive score
             weight = self.getWeight(score, time)
             trackWeightList.append([trackID, weight])
+            exclude.append(trackID)
             totalWeight += weight
         completion(trackWeightList, totalWeight)
         
@@ -170,13 +172,13 @@ class Randomizer:
         trackListCompletion = lambda rawTrackIDList,\
             multicompletion=multicompletion: multicompletion.put(0,
                                                                  rawTrackIDList)
-        oldestCompletion = lambda oldest, multicompletion=multicompletion:\
-            multicompletion.put(1, oldest)
-        
+        self._db.getOldestLastPlayed(
+            lambda oldest, multicompletion=multicompletion:\
+                multicompletion.put(1, oldest))
         self._db.getAllSecondsSinceLastPlayedAndScoreDictNoDebug(
             lambda dict, multicompletion=multicompletion:\
                 multicompletion.put(2, dict))
-        self._db.getOldestLastPlayed(oldestCompletion)
+        
         if tags == None:
             self._db.getAllTrackIDs(trackListCompletion)
         else:
