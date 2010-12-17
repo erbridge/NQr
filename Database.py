@@ -204,14 +204,15 @@ class DatabaseEventHandler(wx.EvtHandler):
                                           errcompletion=errcompletion)
         
     def _executeAndFetchLastRowID(self, stmt, args, completion, priority=None,
-                                  trace=[]):
+                                  trace=[], errcompletion=None):
         if priority == None:
             priority = self._priority
         trace = extractTraceStack(trace)
         self._dbThread.executeAndFetchLastRowID(stmt, args,
                                                 self._completionEvent(
                                                     completion), priority,
-                                                trace=trace)
+                                                trace=trace,
+                                                errcompletion=errcompletion)
         
     def _getTrackID(self, track, completion, priority=None):
         path = track.getPath()
@@ -220,8 +221,10 @@ class DatabaseEventHandler(wx.EvtHandler):
             priority=priority)
         
     def getTrackID(self, track, completion, priority=None):
-        mycompletion = lambda trackID, track=track, completion=completion:\
-            self._getTrackIDCompletion(track, trackID, completion)
+        mycompletion = lambda trackID, track=track, completion=completion,\
+            priority=priority: self._getTrackIDCompletion(track, trackID,
+                                                          completion,
+                                                          priority=priority)
         self._getTrackID(track, mycompletion, priority=priority)
         
     def _getDirectoryIDCompletion(self, directory, directoryID, completion):
@@ -783,9 +786,9 @@ class Database(DatabaseEventHandler):
         c.close()
         
     def _maybeAddTrackCallback(self, track, trackID, completion,
-                               wasAdded=False):
+                               wasAdded=False, priority=None):
         path = track.getPath()
-        if trackID == None:
+        if trackID == None and wasAdded == False:
             mycompletion = lambda id, track=track, completion=completion:\
                 self._maybeAddTrackCallback(track, id, completion,
                                             wasAdded=True)
@@ -795,7 +798,7 @@ class Database(DatabaseEventHandler):
                    ?, ?, 0)""", (path, track.getArtist(), track.getAlbum(),
                                  track.getTitle(), track.getTrackNumber(),
                                  track.getLength(), track.getBPM()),
-                mycompletion)
+                mycompletion, priority=priority)
             return
         if wasAdded == True:
             self._logger.info("\'"+path+"\' has been added to the library.")
@@ -805,7 +808,7 @@ class Database(DatabaseEventHandler):
         if completion != None:
             completion(trackID)
         
-    def _addTrackCompletion(self, path=None, track=None, completion=None):
+    def addTrack(self, path=None, track=None, completion=None, priority=None):
         if path == None:
             if track == None:
                 self._logger.error("No track has been identified.")
@@ -820,14 +823,19 @@ class Database(DatabaseEventHandler):
             except NoTrackError:
                 self._logger.debug("\'"+path+"\' is an invalid file.")
                 completion(None)
-        mycompletion = lambda trackID, track=track, completion=completion:\
-            self._maybeAddTrackCallback(track, trackID, completion)
-        self._getTrackID(track, mycompletion)
+        mycompletion = lambda trackID, track=track, completion=completion,\
+            priority=priority: self._maybeAddTrackCallback(track, trackID,
+                                                           completion,
+                                                           priority=priority)
+        self._getTrackID(track, mycompletion, priority=priority)
 
-    def addTrack(self, path=None, track=None, completion=None):
-        self.complete(
-            lambda path=path, track=track, completion=completion:\
-                self._addTrackCompletion(path, track, completion))
+#    def addTrack(self, path=None, track=None, completion=None, priority=None):
+#        self.complete(
+#            lambda path=path, track=track, completion=completion,\
+#                priority=priority: self._addTrackCompletion(path, track,
+#                                                            completion,
+#                                                            priority),
+#            priority=priority)
 
     ## returns a list of tuples of the form (trackID, )
     ## FIXME: make faster by doing something like: select
@@ -859,12 +867,13 @@ class Database(DatabaseEventHandler):
 ##                raise NoTrackError
 #        return result
         
-    def _getTrackIDCompletion(self, track, trackID, completion):
+    def _getTrackIDCompletion(self, track, trackID, completion, priority=None):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
         if trackID == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
-            self.addTrack(path=path, track=track, completion=completion)
+            self.addTrack(path=path, track=track, completion=completion,
+                          priority=priority)
             return
         completion(trackID)
         
@@ -1283,6 +1292,11 @@ class Database(DatabaseEventHandler):
                                  lambda rawList, completion=completion:\
                 self._getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(
                     rawList, completion))
+        
+    def _getOldestLastPlayedCompletion(self, oldest, completion):
+        if oldest == None:
+            oldest = 0
+        completion(oldest)
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     #        played again, this will get stuck. We need to keep track of
@@ -1290,16 +1304,16 @@ class Database(DatabaseEventHandler):
     #        currently bad tracks rely on being chosen by randomizer to update 
     #        historical status.
     def getOldestLastPlayed(self, completion, priority=None):
-        errcompletion = ErrorCompletion(
-            NoResultError, lambda completion=completion: completion(0))
-        self._executeAndFetchOne(
+        self._executeAndFetchOneOrNull(
             """select strftime('%s', 'now') - strftime('%s', min(datetime))
                from (select max(playid) as id, trackid from plays,
                      (select trackid as historicalid from tracks where
                       historical = 0) as historicaltracks where
                      plays.trackid = historicaltracks.historicalid group by
                      trackid) as maxplays, plays where maxplays.id =
-               plays.playid""", (), completion, errcompletion=errcompletion,
+               plays.playid""", (),
+            lambda oldest, completion=completion:\
+                self._getOldestLastPlayedCompletion(oldest, completion),
             priority=priority)
 
     def _getPlayCountCompletion(self, plays, completion):
