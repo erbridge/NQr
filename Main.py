@@ -11,7 +11,6 @@
 ## TODO: build HTTP server for remote control
 ##
 ## FIXME: queues wrong track if track changes at time of start up
-## FIXME: sockets should shutdown before closing 
 
 import ConfigParser
 import Database

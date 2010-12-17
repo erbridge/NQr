@@ -2,6 +2,7 @@
 
 import ConfigParser
 from Errors import MultiCompletionPutError
+import Events
 import os.path
 import traceback
 
@@ -117,6 +118,15 @@ def postEvent(lock, target, event):
     if lock.acquire():
         wx.PostEvent(target, event)
         lock.release()
+        
+def postDebugLog(lock, target, logger, message):
+    postEvent(lock, target, Events.LogEvent(logger, "debug", message))
+    
+def postInfoLog(lock, target, logger, message):
+    postEvent(lock, target, Events.LogEvent(logger, "info", message))
+    
+def postErrorLog(lock, target, logger, message):
+    postEvent(lock, target, Events.LogEvent(logger, "error", message))
     
 class RedirectErr:
     def __init__(self, textCtrl, stderr):
@@ -163,7 +173,7 @@ class ErrorCompletion:
     
     def __call__(self, err, *args, **kwargs):
         for exception in self._exceptions:
-            if isinstance(err, exception):
+            if isinstance(err, exception) or err == exception:
                 self._completion(*args, **kwargs)
                 return
         raise err

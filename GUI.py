@@ -34,7 +34,7 @@ import threading
 import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, RedirectErr,\
     RedirectOut, plural, BasePrefsPage, validateDirectory, validateNumeric,\
-    roughAge, postEvent, wx
+    roughAge, postEvent, postDebugLog, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
@@ -74,7 +74,8 @@ class TrackMonitor(threading.Thread):
             except NoTrackError:
                 newTrackPath = None
             if newTrackPath != currentTrackPath:
-                self._logger.debug("Track has changed.")
+                postDebugLog(self._lock, self._window, self._logger,
+                             "Track has changed.")
                 currentTrackPath = newTrackPath
                 postEvent(self._lock, self._window,
                           Events.TrackChangeEvent(self._db, self._trackFactory,
@@ -83,9 +84,11 @@ class TrackMonitor(threading.Thread):
                 self._enqueueing = True
             if self._enqueueing == False\
                     and self._player.hasNextTrack() == False:
-                self._logger.debug("End of playlist reached.")
+                postDebugLog(self._lock, self._window, self._logger,
+                             "End of playlist reached.")
                 postEvent(self._lock, self._window, Events.NoNextTrackEvent())
-        self._logger.debug("Track monitor stopped.")
+        postDebugLog(self._lock, self._window, self._logger,
+                     "Track monitor stopped.")
 
     def abort(self):
         self._abortFlag = True
@@ -110,13 +113,15 @@ class SocketMonitor(threading.Thread):
         while not self._abortFlag:
             # FIXME: has windows permission issues...
             (conn, address) = self._socket.accept()
-            self._logger.debug("Starting connection ("+address[0]+":"\
-                               +str(address[1])+") monitor.")
+            postDebugLog(self._lock, self._window, self._logger,
+                         "Starting connection ("+address[0]+":"+str(address[1])\
+                            +") monitor.")
             connMonitor = ConnectionMonitor(self._window, self._lock, conn,
                                             address, self._logger)
             connMonitor.start()
             self._connections.append(connMonitor)
-        self._logger.debug("Stopping socket monitor.")
+        postDebugLog(self._lock, self._window, self._logger,
+                     "Stopping socket monitor.")
         self._socket.close()
                 
     def abort(self):
@@ -143,8 +148,8 @@ class ConnectionMonitor(threading.Thread):
             except RuntimeError as err:
                 if str(err) != "socket connection broken":
                     raise err
-                self._logger.debug("Stopping connection ("+self._address\
-                                   +") monitor.")
+                postDebugLog(self._lock, self._window, self._logger,
+                             "Stopping connection ("+self._address+") monitor.")
                 self._conn.shutdown(2)
                 self._conn.close()
                 break
@@ -167,7 +172,8 @@ class ConnectionMonitor(threading.Thread):
                 postEvent(self._lock, self._window, Events.RateDownEvent())
             else:
                 raise BadMessageError
-        self._logger.debug("Connection ("+self._address+") monitor stopped.")
+        postDebugLog(self._lock, self._window, self._logger,
+                     "Connection ("+self._address+") monitor stopped.")
                                
     def _recieve(self):
         byte = ""
@@ -269,6 +275,7 @@ class MainWindow(wx.Frame):
         Events.EVT_PREV(self, self._onPrevious)
         Events.EVT_RATE_UP(self, self._onRateUp)
         Events.EVT_RATE_DOWN(self, self._onRateDown)
+        Events.EVT_LOG(self, self._onLog)
         
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
@@ -1116,6 +1123,9 @@ class MainWindow(wx.Frame):
     def _onRequestAttention(self, e):
         self._logger.debug("Requesting user attention.")
         self.RequestUserAttention() # poss use wx.USER_ATTENTION_ERROR as arg?
+        
+    def _onLog(self, e):
+        e.doLog()
         
     def _onPlayTimerDingCompletion(self, track):
         if track == self._playingTrack:

@@ -140,3 +140,24 @@ class ExceptionEvent(wx.PyEvent):
         
     def getException(self):
         return self._err
+    
+ID_EVT_LOG = wx.NewId()
+
+def EVT_LOG(handler, func):
+    handler.Connect(-1, -1, ID_EVT_LOG, func)
+
+class LogEvent(wx.PyEvent):
+    def __init__(self, logger, level, message):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_LOG)
+        self._logger = logger
+        self._level = level
+        self._message = message
+        
+    def doLog(self):
+        if self._level == "debug":
+            self._logger.debug(self._message)
+        elif self._level == "info":
+            self._logger.info(self._message)
+        elif self._level == "error":
+            self._logger.error(self._message)
