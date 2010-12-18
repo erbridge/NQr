@@ -25,24 +25,25 @@
 
 #from collections import deque
 import ConfigParser
-from Errors import NoTrackError, EmptyDatabaseError, BadMessageError
+from Errors import BadMessageError
 import Events
 import os
 import socket
 import sys
 import threading
 import time
-from Util import MultiCompletion, ErrorCompletion, doNothing, RedirectErr,\
-    RedirectOut, plural, BasePrefsPage, validateDirectory, validateNumeric,\
-    roughAge, postEvent, postDebugLog, wx
+from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
+    BasePrefsPage, validateDirectory, validateNumeric, roughAge, postEvent,\
+    postDebugLog, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
 ## must be aborted when closing!
-class TrackMonitor(threading.Thread):
+class TrackMonitor(threading.Thread, wx.EvtHandler):
     def __init__(self, window, lock, db, player, trackFactory, loggerFactory,
                  trackCheckDelay):
         threading.Thread.__init__(self, name="Track Monitor")
+        wx.EvtHandler.__init__(self)
 #        self.setDaemon(True)
         self._window = window
         self._lock = lock
@@ -53,40 +54,24 @@ class TrackMonitor(threading.Thread):
         self._trackCheckDelay = trackCheckDelay
         self._abortFlag = False
         self._enqueueing = False
+        
+        Events.EVT_PATH(self, self._onGetPath)
+        Events.EVT_HAS_NEXT_TRACK(self, self._onGetHasNextTrack)
 
 ## poss should use position rather than filename?
 ## FIXME: sometimes gets the wrong track if skipped too fast: should return the
 ##        path with the event (poss fixed). Also happens if track changes while
 ##        scoring
     def run(self):
-        logging = True
-        try:
-            currentTrackPath = self._player.getCurrentTrackPath(logging=logging)
-        except NoTrackError:
-            currentTrackPath = None
+        self._logging = True
+        self._currentTrackPath = None
         while not self._abortFlag:
             time.sleep(self._trackCheckDelay)
-            if self._abortFlag == True:
-                break
-            try:
-                newTrackPath = self._player.getCurrentTrackPath(logging=logging)
-                logging = False
-            except NoTrackError:
-                newTrackPath = None
-            if newTrackPath != currentTrackPath:
-                postDebugLog(self._lock, self._window, self._logger,
-                             "Track has changed.")
-                currentTrackPath = newTrackPath
-                postEvent(self._lock, self._window,
-                          Events.TrackChangeEvent(self._db, self._trackFactory,
-                                                  currentTrackPath))
-                logging = True
-                self._enqueueing = True
-            if self._enqueueing == False\
-                    and self._player.hasNextTrack() == False:
-                postDebugLog(self._lock, self._window, self._logger,
-                             "End of playlist reached.")
-                postEvent(self._lock, self._window, Events.NoNextTrackEvent())
+            postEvent(self._lock, self._window,
+                      Events.GetCurrentPathEvent(self._player, self,
+                                                 self._logging))
+            postEvent(self._lock, self._window,
+                      Events.GetHasNextTrackEvent(self._player, self))
         postDebugLog(self._lock, self._window, self._logger,
                      "Track monitor stopped.")
 
@@ -95,6 +80,28 @@ class TrackMonitor(threading.Thread):
     
     def setEnqueueing(self, status):
         self._enqueueing = status
+        
+    def _onGetPath(self, e):
+        if self._abortFlag:
+            return
+        newTrackPath = e.getPath()
+        self._logging = False
+        if newTrackPath != self._currentTrackPath:
+            postDebugLog(self._lock, self._window, self._logger,
+                         "Track has changed.")
+            self._currentTrackPath = newTrackPath
+            postEvent(self._lock, self._window,
+                      Events.TrackChangeEvent(self._db, self._trackFactory,
+                                              self._currentTrackPath))
+            self._logging = True
+            self._enqueueing = True
+            
+    def _onGetHasNextTrack(self, e):
+        if self._abortFlag or self._enqueueing or e.getHasNextTrack():
+            return
+        postDebugLog(self._lock, self._window, self._logger,
+                     "End of playlist reached.")
+        postEvent(self._lock, self._window, Events.NoNextTrackEvent())
 
 class SocketMonitor(threading.Thread):
     def __init__(self, window, lock, socket, address, loggerFactory):
@@ -197,11 +204,8 @@ class MainWindow(wx.Frame):
                  defaultTrackCheckDelay, defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|"\
                     +"*.*", defaultDefaultDirectory="",
-                defaultHaveLogPanel=True):
+                 defaultHaveLogPanel=True):
         self._ID_TOGGLENQR = wx.NewId()
-        ID_PLAYTIMER = wx.NewId()
-        ID_INACTIVITYTIMER = wx.NewId()
-        ID_REFRESHTIMER = wx.NewId()
 
         self._db = db
         self._randomizer = randomizer
@@ -241,14 +245,14 @@ class MainWindow(wx.Frame):
         self._initCreateMainPanel()
 
         self._logger.debug("Creating play delay timer.")
-        self._playTimer = wx.Timer(self, ID_PLAYTIMER)
+        self._playTimer = wx.Timer(self, -1)
 
         self._logger.debug("Creating and starting inactivity timer.")
-        self._inactivityTimer = wx.Timer(self, ID_INACTIVITYTIMER)
+        self._inactivityTimer = wx.Timer(self, -1)
         self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
 
         self._logger.debug("Creating and starting track list refresh timer.")
-        self._refreshTimer = wx.Timer(self, ID_REFRESHTIMER)
+        self._refreshTimer = wx.Timer(self, -1)
         self._refreshTimer.Start(1000, oneShot=False)
         
         self._logger.debug("Starting track monitor.")
@@ -276,6 +280,8 @@ class MainWindow(wx.Frame):
         Events.EVT_RATE_UP(self, self._onRateUp)
         Events.EVT_RATE_DOWN(self, self._onRateDown)
         Events.EVT_LOG(self, self._onLog)
+        Events.EVT_GET_CURRENT_PATH(self, self._onGetCurrentPath)
+        Events.EVT_GET_HAS_NEXT_TRACK(self, self._onGetHasNextTrack)
         
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
@@ -295,6 +301,7 @@ class MainWindow(wx.Frame):
     def _onStart(self):
         self._trackMonitor.start()
         self._socketMonitor.start()
+        self.resetInactivityTimer(2000*self._trackCheckDelay)
         
         if self._rescanOnStartup:
             self._onRescan()
@@ -563,36 +570,36 @@ class MainWindow(wx.Frame):
         self._trackList.InsertColumn(6, "Weight", format=wx.LIST_FORMAT_CENTER,
                                      width=80)
 
-        try:
-            self._logger.debug("Adding current track to track playlist.")
-            currentTrackPath = self._player.getCurrentTrackPath()
-            currentTrack = self._trackFactory.getTrackFromPath(self._db,
-                                                               currentTrackPath)
-            multicompletion = MultiCompletion(
-                2, lambda currentTrackID, oldTrackID,\
-                    currentTrack=currentTrack: self._compareTracksCompletion(
-                        currentTrack, currentTrackID, oldTrackID))
-            currentTrack.getID(lambda trackID, multicompletion=multicompletion:\
-                                    multicompletion.put(0, trackID),
-                               priority=1)
-            errcompletion = ErrorCompletion(EmptyDatabaseError,
-                                            lambda: doNothing())
-            self._db.getLastPlayedTrackID(
-                lambda trackID, multicompletion=multicompletion:\
-                    multicompletion.put(1, trackID), errcompletion, priority=1)
-#            try:
-#                if currentTrackID != self._db.getLastPlayedTrackID():
-#                    self._logger.debug("Adding play for current track.")
-#                    currentTrack.addPlay()
-#            except EmptyDatabaseError:
-#                pass
-            self._db.getLastPlayedInSeconds(
-                currentTrack,
-                lambda previous, currentTrack=currentTrack:\
-                    currentTrack.setPreviousPlay(previous), priority=1)
-            self.addTrack(currentTrack, select=True)
-        except NoTrackError:
-            pass
+#        try:
+#            self._logger.debug("Adding current track to track playlist.")
+#            currentTrackPath = self._player.getCurrentTrackPath()
+#            currentTrack = self._trackFactory.getTrackFromPath(self._db,
+#                                                               currentTrackPath)
+#            multicompletion = MultiCompletion(
+#                2, lambda currentTrackID, oldTrackID,\
+#                    currentTrack=currentTrack: self._compareTracksCompletion(
+#                        currentTrack, currentTrackID, oldTrackID))
+#            currentTrack.getID(lambda trackID, multicompletion=multicompletion:\
+#                                    multicompletion.put(0, trackID),
+#                               priority=1)
+#            errcompletion = ErrorCompletion(EmptyDatabaseError,
+#                                            lambda: doNothing())
+#            self._db.getLastPlayedTrackID(
+#                lambda trackID, multicompletion=multicompletion:\
+#                    multicompletion.put(1, trackID), errcompletion, priority=1)
+##            try:
+##                if currentTrackID != self._db.getLastPlayedTrackID():
+##                    self._logger.debug("Adding play for current track.")
+##                    currentTrack.addPlay()
+##            except EmptyDatabaseError:
+##                pass
+#            self._db.getLastPlayedInSeconds(
+#                currentTrack,
+#                lambda previous, currentTrack=currentTrack:\
+#                    currentTrack.setPreviousPlay(previous), priority=1)
+#            self.addTrack(currentTrack, select=True)
+#        except NoTrackError:
+#            pass
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self._onSelectTrack,
                   self._trackList)
@@ -1126,6 +1133,12 @@ class MainWindow(wx.Frame):
         
     def _onLog(self, e):
         e.doLog()
+        
+    def _onGetCurrentPath(self, e):
+        e.doGetPath()
+        
+    def _onGetHasNextTrack(self, e):
+        e.doGetHasNextTrack()
         
     def _onPlayTimerDingCompletion(self, track):
         if track == self._playingTrack:

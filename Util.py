@@ -115,9 +115,11 @@ def roughAge(time):
     return _doRough(time, 52, "year", 7*24*60*60, "week")
 
 def postEvent(lock, target, event):
-    if lock.acquire():
+    if lock != None and lock.acquire():
         wx.PostEvent(target, event)
         lock.release()
+    elif lock == None:
+        wx.PostEvent(target, event)
         
 def postDebugLog(lock, target, logger, message):
     postEvent(lock, target, Events.LogEvent(logger, "debug", message))

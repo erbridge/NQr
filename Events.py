@@ -1,6 +1,7 @@
 ## GUI Events
 
-from Util import wx
+from Errors import NoTrackError
+from Util import postEvent, wx
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
 
@@ -161,3 +162,69 @@ class LogEvent(wx.PyEvent):
             self._logger.info(self._message)
         elif self._level == "error":
             self._logger.error(self._message)
+            
+ID_EVT_GET_CURRENT_PATH = wx.NewId()
+
+def EVT_GET_CURRENT_PATH(handler, func):
+    handler.Connect(-1, -1, ID_EVT_GET_CURRENT_PATH, func)
+
+class GetCurrentPathEvent(wx.PyEvent):
+    def __init__(self, player, returnTarget, logging=True, lock=None):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_GET_CURRENT_PATH)
+        self._player = player
+        self._returnTarget = returnTarget
+        self._logging = logging
+        self._lock = lock
+        
+    def doGetPath(self):
+        try:
+            path = self._player.getCurrentTrackPath(logging=self._logging)
+        except NoTrackError:
+            path = None
+        postEvent(self._lock, self._returnTarget, PathEvent(path))
+        
+ID_EVT_PATH = wx.NewId()
+
+def EVT_PATH(handler, func):
+    handler.Connect(-1, -1, ID_EVT_PATH, func)
+
+class PathEvent(wx.PyEvent):
+    def __init__(self, path):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_PATH)
+        self._path = path
+        
+    def getPath(self):
+        return self._path
+    
+ID_EVT_GET_HAS_NEXT_TRACK = wx.NewId()
+
+def EVT_GET_HAS_NEXT_TRACK(handler, func):
+    handler.Connect(-1, -1, ID_EVT_GET_HAS_NEXT_TRACK, func)
+
+class GetHasNextTrackEvent(wx.PyEvent):
+    def __init__(self, player, returnTarget, lock=None):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_GET_HAS_NEXT_TRACK)
+        self._player = player
+        self._returnTarget = returnTarget
+        self._lock = lock
+        
+    def doGetHasNextTrack(self):
+        boolean = self._player.hasNextTrack()
+        postEvent(self._lock, self._returnTarget, HasNextTrackEvent(boolean))
+        
+ID_EVT_HAS_NEXT_TRACK = wx.NewId()
+
+def EVT_HAS_NEXT_TRACK(handler, func):
+    handler.Connect(-1, -1, ID_EVT_HAS_NEXT_TRACK, func)
+
+class HasNextTrackEvent(wx.PyEvent):
+    def __init__(self, boolean):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_HAS_NEXT_TRACK)
+        self._boolean = boolean
+        
+    def getHasNextTrack(self):
+        return self._boolean
