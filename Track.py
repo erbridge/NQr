@@ -59,7 +59,7 @@ class TrackFactory:
         return track
 
     def _getTrackFromCache(self, trackID):
-        self._logger.debug("Retrieving track from cache.")
+#        self._logger.debug("Retrieving track from cache.")
         if type(trackID) is not int:
             self._logger.error(str(trackID)+" is not a valid track ID")
             raise TypeError(str(trackID)+" is not a valid track ID")
