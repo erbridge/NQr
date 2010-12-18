@@ -38,15 +38,22 @@ from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
+class EventPoster:
+    def __init__(self, window, lock):
+        self._window = window
+        self._lock = lock
+        
+    def postEvent(self, event):
+        postEvent(self._lock, self._window, event)
+
 ## must be aborted when closing!
-class TrackMonitor(threading.Thread, wx.EvtHandler):
+class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
     def __init__(self, window, lock, db, player, trackFactory, loggerFactory,
                  trackCheckDelay):
         threading.Thread.__init__(self, name="Track Monitor")
         wx.EvtHandler.__init__(self)
+        EventPoster.__init__(self, window, lock)
 #        self.setDaemon(True)
-        self._window = window
-        self._lock = lock
         self._db = db
         self._player = player
         self._trackFactory = trackFactory
@@ -67,11 +74,9 @@ class TrackMonitor(threading.Thread, wx.EvtHandler):
         self._currentTrackPath = None
         while not self._abortFlag:
             time.sleep(self._trackCheckDelay)
-            postEvent(self._lock, self._window,
-                      Events.GetCurrentPathEvent(self._player, self,
-                                                 self._logging))
-            postEvent(self._lock, self._window,
-                      Events.GetHasNextTrackEvent(self._player, self))
+            self.postEvent(Events.GetCurrentPathEvent(self._player, self,
+                                                      self._logging))
+            self.postEvent(Events.GetHasNextTrackEvent(self._player, self))
         postDebugLog(self._lock, self._window, self._logger,
                      "Track monitor stopped.")
 
@@ -90,9 +95,8 @@ class TrackMonitor(threading.Thread, wx.EvtHandler):
             postDebugLog(self._lock, self._window, self._logger,
                          "Track has changed.")
             self._currentTrackPath = newTrackPath
-            postEvent(self._lock, self._window,
-                      Events.TrackChangeEvent(self._db, self._trackFactory,
-                                              self._currentTrackPath))
+            self.postEvent(Events.TrackChangeEvent(self._db, self._trackFactory,
+                                                   self._currentTrackPath))
             self._logging = True
             self._enqueueing = True
             
@@ -101,7 +105,7 @@ class TrackMonitor(threading.Thread, wx.EvtHandler):
             return
         postDebugLog(self._lock, self._window, self._logger,
                      "End of playlist reached.")
-        postEvent(self._lock, self._window, Events.NoNextTrackEvent())
+        self.postEvent(Events.NoNextTrackEvent())
 
 class SocketMonitor(threading.Thread):
     def __init__(self, window, lock, socket, address, loggerFactory):
@@ -138,13 +142,12 @@ class SocketMonitor(threading.Thread):
         sock.shutdown(2)
         sock.close()
         
-class ConnectionMonitor(threading.Thread):
+class ConnectionMonitor(threading.Thread, EventPoster):
     def __init__(self, window, lock, connection, address, logger):
         self._address = address[0]+":"+str(address[1])
         threading.Thread.__init__(self, name=self._address+" Monitor")
+        EventPoster.__init__(window, lock)
 #        self.setDaemon(True)
-        self._window = window
-        self._lock = lock
         self._conn = connection
         self._logger = logger
     
@@ -161,22 +164,21 @@ class ConnectionMonitor(threading.Thread):
                 self._conn.close()
                 break
             if message == "ATTEND\n":
-                postEvent(self._lock, self._window,
-                          Events.RequestAttentionEvent())
+                self.postEvent(Events.RequestAttentionEvent())
             elif message == "PAUSE\n":
-                postEvent(self._lock, self._window, Events.PauseEvent())
+                self.postEvent(Events.PauseEvent())
             elif message == "PLAY\n":
-                postEvent(self._lock, self._window, Events.PlayEvent())
+                self.postEvent(Events.PlayEvent())
             elif message == "STOP\n":
-                postEvent(self._lock, self._window, Events.StopEvent())
+                self.postEvent(Events.StopEvent())
             elif message == "NEXT\n":
-                postEvent(self._lock, self._window, Events.NextEvent())
+                self.postEvent(Events.NextEvent())
             elif message == "PREV\n":
-                postEvent(self._lock, self._window, Events.PreviousEvent())
+                self.postEvent(Events.PreviousEvent())
             elif message == "RATEUP\n":
-                postEvent(self._lock, self._window, Events.RateUpEvent())
+                self.postEvent(Events.RateUpEvent())
             elif message == "RATEDOWN\n":
-                postEvent(self._lock, self._window, Events.RateDownEvent())
+                self.postEvent(Events.RateDownEvent())
             else:
                 raise BadMessageError
         postDebugLog(self._lock, self._window, self._logger,
