@@ -97,7 +97,8 @@ class Main(wx.App):
                                self._configParser, self._defaultPlayer,
                                self._safePlayers)
             
-        elif self._player == "iTunes" and self._system == "Mac OS X":
+        elif self._player == "iTunes"\
+                 and self._system in ["Mac OS X", "Darwin"]:
             self._logger.debug("Loading iTunes module.")
             import iTunesMacOS
             player = iTunesMacOS.iTunesMacOS(self._loggerFactory, self._noQueue,
@@ -172,7 +173,7 @@ class Main(wx.App):
         elif self._system == "FreeBSD":
             self._safePlayers = ["XMMS"]
             self._defaultPlayer = "XMMS"
-        elif self._system == "Mac OS X":
+        elif self._system in ["Mac OS X", "Darwin"]:
             self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
         self._defaultDefaultScore = 10

@@ -8,12 +8,7 @@ import ConfigParser
 from Errors import EmptyDatabaseError, UnsafeInputError, NoTrackError
 import random
 from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage,\
-    validateNumeric, roughAge
-
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
+    validateNumeric, roughAge, wx
 
 ## tracks with a score >= scoreThreshold get played
 ## by default, -10s are not played

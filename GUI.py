@@ -22,6 +22,7 @@
 ## FIXME: reduce processing - e.g. check tracks less often (if doing this
 ##        change delay in _onNext() etc.)
 ## FIXME: old track score should update if track is in track list twice
+## FIXME: prevent clicking changing insert point in log window
 
 #from collections import deque
 import ConfigParser
@@ -146,7 +147,7 @@ class ConnectionMonitor(threading.Thread, EventPoster):
     def __init__(self, window, lock, connection, address, logger):
         self._address = address[0]+":"+str(address[1])
         threading.Thread.__init__(self, name=self._address+" Monitor")
-        EventPoster.__init__(window, lock)
+        EventPoster.__init__(self, window, lock)
 #        self.setDaemon(True)
         self._conn = connection
         self._logger = logger

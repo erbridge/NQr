@@ -156,7 +156,7 @@ class iTunesMacOS(MediaPlayer):
         if logging == True:
             self._logger.debug("Retrieving path of track at position "\
                                +str(trackPosition)+".")
-        self._getTrackAtPos(trackPosition).location().path
+        return self._getTrackAtPos(trackPosition).location().path
 ##        if logging == True:
 ##            self._logger.debug("Converting path into unicode.")
 ##        return convertToUnicode(rawPath, self._logger, logging)
