@@ -44,7 +44,7 @@ class MediaPlayer:
         try:
             self.getTrackPathAtPos(self.getCurrentTrackPos()+1)
             return True
-        except NoTrackError:
+        except NoTrackError and TypeError:
             return False
 
 ## FIXME: gets confused if the playlist is empty (in winamp): sets currently
@@ -55,10 +55,12 @@ class MediaPlayer:
 
     # must always be checked for trackness
     def getTrackPathAtPos(self, trackPosition, logging=True):
+        if trackPosition == None:
+            return None
         path = self._getTrackPathAtPos(trackPosition, logging)
         return os.path.realpath(path)
     
-    def _getUnplayedTrackIDsCompletion(self, id, path):
+    def _getUnplayedTrackIDsCallback(self, id, path):
         # The track may be one we don't know added directly to the player
         if id is not None:
             self._ids.append(id)
@@ -71,12 +73,15 @@ class MediaPlayer:
         
     def getUnplayedTrackIDs(self, db, completion):
         self._ids = []
-        for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
-            path = self.getTrackPathAtPos(pos)
-            db.maybeGetIDFromPath(
-                path,
-                lambda id, path=path: self._getUnplayedTrackIDsCompletion(id,
-                                                                          path))
+        try:
+            for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
+                path = self.getTrackPathAtPos(pos)
+                db.maybeGetIDFromPath(
+                    path,
+                    lambda id, path=path: self._getUnplayedTrackIDsCallback(
+                        id, path))
+        except TypeError:
+            pass
         db.complete(lambda: self._getUnplayedTrackIDListCompletion(completion))
 
     def addTrack(self, filepath):

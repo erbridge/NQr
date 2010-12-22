@@ -1427,8 +1427,12 @@ class MainWindow(wx.Frame):
 
     def selectTrack(self, index):
         self._logger.debug("Selecting track in position "+str(index)+".")
-        self._trackList.SetItemState(index, wx.LIST_STATE_SELECTED, -1)
-        self._trackList.EnsureVisible(index)
+        try:
+            self._trackList.SetItemState(index, wx.LIST_STATE_SELECTED, -1)
+            self._trackList.EnsureVisible(index)
+        except wx.PyAssertionError as err:
+            if "invalid list ctrl item index in SetItem" not in str(err):
+                raise err
         
     def _populateDetailsCompletion(self, track, score, playCount, lastPlayed,
                                    tags):
