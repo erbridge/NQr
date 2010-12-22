@@ -14,105 +14,51 @@
 import ConfigParser
 import datetime
 from Errors import NoResultError, EmptyQueueError, NoTrackError,\
-    EmptyDatabaseError, AbortThreadError
+    EmptyDatabaseError
 import Events
 import os.path
 import Queue
 import sqlite3
-import threading
 import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
-    extractTraceStack, BasePrefsPage, validateNumeric, postEvent, postDebugLog,\
-    postInfoLog, postErrorLog, EventPoster, wx
+    extractTraceStack, BasePrefsPage, validateNumeric, EventPoster, BaseThread,\
+    wx
 
-class Thread(threading.Thread, EventPoster):
+class Thread(BaseThread):
     def __init__(self, db, path, name, logger, errcallback, lock,
                  mainThread=None):
-        threading.Thread.__init__(self, name=name)
-        EventPoster.__init__(self, db, logger, lock)
-        self._name = name
-        self._errcallback = errcallback
+        BaseThread.__init__(self, db, name, logger, errcallback, lock)
         self._mainThread = mainThread
         self._databasePath = os.path.realpath(path)
-        self._queue = Queue.PriorityQueue()
-        self._eventCount = 0
-        self._abortCount = 0
-        self._emptyCount = 0
-        self._raisedEmpty = True
-        self._interrupt = False
-        
-    def queue(self, thing, trace, priority=2):
-        self._eventCount += 1
-        self._queue.put((priority, self._eventCount, thing, trace))
-        if self._raisedEmpty == True:
-            self._raisedEmpty = False
-            self._queueEmptyQueueCallback()
 
-    def run(self):
-        self.postDebugLog("Starting \'"+self._name+"\' thread.")
+    def _run(self):
         self._conn = sqlite3.connect(self._databasePath)
-        cursor = self._conn.cursor()
-        while True:
-            try:
-                got = self._queue.get()
-                got[2](self, cursor, got[3])
-                self._abortCount = 0
-                self._emptyCount = 0
-                self._commit()
-            except AbortThreadError:
-                if self._abortCount > 20:
-                    self._commit()
-                    if self._mainThread and self._abortMainThread:
-                        self._mainThread.abort()
-                    break
-                self.abort(got[3])
-                self._abortCount += 1
-            except EmptyQueueError as err:
-                if self._emptyCount > 20:
-                    self._raise(err, self._errcallback)
-                    self._raisedEmpty = True
-                elif self._raisedEmpty == False:
-                    self._emptyCount += 1
-                    self._queueEmptyQueueCallback()
-        self.postDebugLog("\'"+self._name+"\' thread stopped.")
-            
-    def _commit(self):
-            try:
-                self._conn.commit()
-            except sqlite3.OperationalError as err:
-                if str(err) != "disk I/O error":
-                    raise err
-                self.postErrorLog("Got a disk I/O error. Retrying commit.")
-                time.sleep(.01)
-                self._commit()
+        self._cursor = self._conn.cursor()
+
+    def _queueCallback(self, completion, trace):
+        completion(self, self._cursor, trace)
+        self._commit()
         
-    def _raise(self, err, errcompletion=None):
-        try:
-            errcompletion(err)
-        except:
-            self.postEvent(Events.ExceptionEvent(err))
-            
-    def _emptyQueueCallback(self, trace):
+    def _emptyQueueCallback(self, thread, cursor, trace):
         raise EmptyQueueError(trace=trace)
-        
-    def _queueEmptyQueueCallback(self):
-        self.queue(lambda thread, cursor, traceBack: thread._emptyQueueCallback(
-                       traceBack), extractTraceStack([]), 999)
-        
-    def setAbortInterrupt(self, interrupt):
-        self._interrupt = interrupt
-        
-    def _abortCallback(self, trace):
+
+    def _abort(self):
+        self._commit()
+        if self._mainThread and self._abortMainThread:
+            self._mainThread.abort()
+
+    def _abortCallback(self, thread, cursor, trace):
         raise AbortThreadError(trace=trace)
             
-    def abort(self, trace=[], abortMainThread=True):
-        self._abortMainThread = abortMainThread
-        if self._interrupt == True:
-            priority = 0
-        else:
-            priority = 1000
-        self.queue(lambda thread, cursor, traceBack: thread._abortCallback(
-                       traceBack), extractTraceStack(trace), priority)
+    def _commit(self):
+        try:
+            self._conn.commit()
+        except sqlite3.OperationalError as err:
+            if str(err) != "disk I/O error":
+                raise err
+            self.postErrorLog("Got a disk I/O error. Retrying commit.")
+            time.sleep(.01)
+            self._commit()
         
 class DatabaseEventHandler(wx.EvtHandler, EventPoster):
     def __init__(self, db, dbThread, logger, threadLock, priority):

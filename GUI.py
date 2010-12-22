@@ -26,7 +26,7 @@
 
 #from collections import deque
 import ConfigParser
-from Errors import BadMessageError
+from Errors import BadMessageError, EmptyQueueError, AbortThreadError
 import Events
 import os
 import socket
@@ -34,55 +34,69 @@ import sys
 import threading
 import time
 from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
-    BasePrefsPage, validateDirectory, validateNumeric, roughAge, postEvent,\
-    postDebugLog, EventPoster, wx
+    BasePrefsPage, validateDirectory, validateNumeric, roughAge, EventPoster,\
+    BaseThread, extractTraceStack, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
 ## must be aborted when closing!
-class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
-    def __init__(self, window, lock, db, player, trackFactory, loggerFactory,
+class TrackMonitor(BaseThread):
+    def __init__(self, parent, lock, db, player, trackFactory, loggerFactory,
                  trackCheckDelay):
-        threading.Thread.__init__(self, name="Track Monitor")
-        wx.EvtHandler.__init__(self)
-        EventPoster.__init__(
-            self, window, loggerFactory.getLogger("NQr.TrackMonitor", "debug"),
-            lock)
+        BaseThread.__init__(
+            self, parent, "Track Monitor",
+            loggerFactory.getLogger("NQr.TrackMonitor", "debug"), None, lock)
 #        self.setDaemon(True)
         self._db = db
         self._player = player
         self._trackFactory = trackFactory
         self._trackCheckDelay = trackCheckDelay
-        self._abortFlag = False
         self._enqueueing = False
-        
-        Events.EVT_PATH(self, self._onGetPath)
-        Events.EVT_HAS_NEXT_TRACK(self, self._onGetHasNextTrack)
+        self._abortFlag = False
+        self._logging = True
+        self._currentTrackPath = None
 
 ## poss should use position rather than filename?
 ## FIXME: sometimes gets the wrong track if skipped too fast: should return the
 ##        path with the event (poss fixed). Also happens if track changes while
 ##        scoring
-    def run(self):
-        self._logging = True
-        self._currentTrackPath = None
-        while not self._abortFlag:
-            time.sleep(self._trackCheckDelay)
-            self.postEvent(Events.GetCurrentPathEvent(self._player, self,
-                                                      self._logging))
-            self.postEvent(Events.GetHasNextTrackEvent(self._player, self))
-        self.postDebugLog("Track monitor stopped.")
+    def _run(self):
+        self._restartTimer()
 
-    def abort(self):
+    def _queueCallback(self, completion, trace):
+        completion(trace)
+
+    def _emptyQueueCallback(self, trace):
+        raise EmptyQueueError(trace=trace)
+
+    def _abort(self):
         self._abortFlag = True
+        self._timer.cancel()
+
+    def _abortCallback(self, trace):
+        raise AbortThreadError(trace=trace)
     
     def setEnqueueing(self, status):
         self._enqueueing = status
+
+    def _restartTimer(self):
+        self._timer = threading.Timer(self._trackCheckDelay, self._onTimerDing)
+        self._timer.start()
+
+    def _onTimerDing(self):
+        self.queue(lambda trace: self._checkPath(), extractTraceStack([]))
+        self.queue(lambda trace: self._checkHasNextTrack(),
+                   extractTraceStack([]))
+        self._restartTimer()
         
-    def _onGetPath(self, e):
+    def _checkPath(self):
         if self._abortFlag:
             return
-        newTrackPath = e.getPath()
+        try:
+            newTrackPath = self._player.getCurrentTrackPath(
+                logging=self._logging)
+        except NoTrackError:
+            newTrackPath = None
         self._logging = False
         if newTrackPath != self._currentTrackPath:
             self.postDebugLog("Track has changed.")
@@ -92,17 +106,17 @@ class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
             self._logging = True
             self._enqueueing = True
             
-    def _onGetHasNextTrack(self, e):
-        if self._abortFlag or self._enqueueing or e.getHasNextTrack():
+    def _checkHasNextTrack(self):
+        if self._abortFlag or self._enqueueing or self._player.hasNextTrack():
             return
         self.postDebugLog("End of playlist reached.")
         self.postEvent(Events.NoNextTrackEvent())
 
-class SocketMonitor(threading.Thread, EventPoster):
+class SocketMonitor(BaseThread):
     def __init__(self, window, lock, socket, address, loggerFactory):
-        threading.Thread.__init__(self, name="Socket Monitor")
         self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
-        EventPoster.__init__(self, window, self._logger, lock)
+        BaseThread.__init__(self, window, "Socket Monitor", self._logger, None,
+                            lock)
 #        self.setDaemon(True)
         self._window = window
         self._lock = lock
@@ -132,11 +146,11 @@ class SocketMonitor(threading.Thread, EventPoster):
         sock.shutdown(2)
         sock.close()
         
-class ConnectionMonitor(threading.Thread, EventPoster):
+class ConnectionMonitor(BaseThread):
     def __init__(self, window, lock, connection, address, logger):
         self._address = address[0]+":"+str(address[1])
-        threading.Thread.__init__(self, name=self._address+" Monitor")
-        EventPoster.__init__(self, window, logger, lock)
+        BaseThread.__init__(self, window, self._address+" Monitor", logger,
+                            None, lock)
 #        self.setDaemon(True)
         self._conn = connection
     
@@ -249,6 +263,7 @@ class MainWindow(wx.Frame):
         self._trackMonitor = TrackMonitor(self, threadLock, self._db,
                                           self._player, self._trackFactory,
                                           loggerFactory, self._trackCheckDelay)
+        self._trackMonitor.start()
         
         self._logger.debug("Starting socket monitor.")
         self._socketMonitor = SocketMonitor(self, threadLock, socket, address,
@@ -270,8 +285,6 @@ class MainWindow(wx.Frame):
         Events.EVT_RATE_UP(self, self._onRateUp)
         Events.EVT_RATE_DOWN(self, self._onRateDown)
         Events.EVT_LOG(self, self._onLog)
-        Events.EVT_GET_CURRENT_PATH(self, self._onGetCurrentPath)
-        Events.EVT_GET_HAS_NEXT_TRACK(self, self._onGetHasNextTrack)
         
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
@@ -289,7 +302,7 @@ class MainWindow(wx.Frame):
         wx.CallAfter(self._onStart)
             
     def _onStart(self):
-        self._trackMonitor.start()
+##        self._trackMonitor.start()
         self._socketMonitor.start()
         self.resetInactivityTimer(2000*self._trackCheckDelay)
         
@@ -1123,12 +1136,6 @@ class MainWindow(wx.Frame):
         
     def _onLog(self, e):
         e.doLog()
-        
-    def _onGetCurrentPath(self, e):
-        e.doGetPath()
-        
-    def _onGetHasNextTrack(self, e):
-        e.doGetHasNextTrack()
         
     def _onPlayTimerDingCompletion(self, track):
         if track == self._playingTrack:

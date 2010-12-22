@@ -1,9 +1,11 @@
 ## Utility function and classes
 
 import ConfigParser
-from Errors import MultiCompletionPutError
+from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError
 import Events
 import os.path
+import Queue
+import threading
 import traceback
 
 import wxversion
@@ -226,4 +228,84 @@ class BasePrefsPage(wx.Panel):
         pass
         
     def _loadSettings(self): # override me
+        pass
+
+class BaseThread(threading.Thread, EventPoster):
+    def __init__(self, parent, name, logger, errcallback, lock):
+        threading.Thread.__init__(self, name=name)
+        EventPoster.__init__(self, parent, logger, lock)
+        self._name = name
+        self._errcallback = errcallback
+        self._queue = Queue.PriorityQueue()
+        self._eventCount = 0
+        self._abortCount = 0
+        self._emptyCount = 0
+        self._raisedEmpty = True
+        self._interrupt = False
+        
+    def queue(self, thing, trace, priority=2):
+        self._eventCount += 1
+        self._queue.put((priority, self._eventCount, thing, trace))
+        if self._raisedEmpty:
+            self._raisedEmpty = False
+            self._queueEmptyQueueCallback()
+
+    def run(self):
+        self.postDebugLog("Starting \'"+self._name+"\' thread.")
+        self._run()
+        while True:
+            try:
+                got = self._queue.get()
+                self._queueCallback(got[2], got[3])
+                self._abortCount = 0
+                self._emptyCount = 0
+            except AbortThreadError:
+                if self._abortCount > 20: # FIXME: make more deterministic
+                    self._abort()
+                    break
+                self.abort(got[3])
+                self._abortCount += 1
+            except EmptyQueueError as err:
+                if self._emptyCount > 20: # FIXME: make more deterministic
+                    if self._errcallback != None:
+                        self._raise(err, self._errcallback)
+                    self._raisedEmpty = True
+                elif self._raisedEmpty == False:
+                    self._emptyCount += 1
+                    self._queueEmptyQueueCallback()
+        self.postDebugLog("\'"+self._name+"\' thread stopped.")
+        
+    def _raise(self, err, errcompletion=None):
+        try:
+            errcompletion(err)
+        except:
+            self.postEvent(Events.ExceptionEvent(err))
+        
+    def _queueEmptyQueueCallback(self):
+        self.queue(self._emptyQueueCallback, extractTraceStack([]), 999)
+        
+    def setAbortInterrupt(self, interrupt):
+        self._interrupt = interrupt
+            
+    def abort(self, trace=[], abortMainThread=True):
+        self._abortMainThread = abortMainThread
+        if self._interrupt:
+            priority = 0
+        else:
+            priority = 1000
+        self.queue(self._abortCallback, extractTraceStack(trace), priority)
+
+    def _run(self): # override me
+        pass
+            
+    def _emptyQueueCallback(self, trace, *args): # override me
+        raise EmptyQueueError(trace=trace)
+
+    def _abort(self): # override me
+        pass
+
+    def _abortCallback(self, trace, *args): # override me
+        raise AbortThreadError(trace=trace)
+
+    def _queueCallback(self, completion, trace): # override me
         pass
