@@ -152,21 +152,21 @@ class EventPoster:
     
 class RedirectErr:
     def __init__(self, textCtrl, stderr):
-        self._out = textCtrl
-        self._out2 = stderr
+        self._out = stderr
+        self._out2 = textCtrl
 
     def write(self, string):
-        self._out.WriteText(string)
-        self._out2.write(string)
+        self._out.write(string)
+        self._out2.WriteText(string)
         
 class RedirectOut:
     def __init__(self, textCtrl, stdout):
-        self._out = textCtrl
-        self._out2 = stdout
+        self._out = stdout
+        self._out2 = textCtrl
 
     def write(self, string):
-        self._out.WriteText(string)
-        self._out2.write(string)
+        self._out.write(string)
+        self._out2.WriteText(string)
         
 class MultiCompletion:
     def __init__(self, number, completion):
