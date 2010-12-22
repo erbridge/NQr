@@ -95,6 +95,8 @@ class iTunesMacOS(MediaPlayer):
     def play(self):
         self.launchBackground()
         self._logger.debug("Resuming playback or restarting current track.")
+        if self._iTunes.player_state() == k.playing:
+            self._iTunes.stop()
         self._iTunes.play()
         
     def playAtPosition(self, position):
