@@ -162,3 +162,49 @@ class LogEvent(wx.PyEvent):
             self._logger.info(self._message)
         elif self._level == "error":
             self._logger.error(self._message)
+        elif self._level == "warning":
+            self._logger.warning(self._message)
+
+ID_EVT_ENQUEUE_RANDOM = wx.NewId()
+
+def EVT_ENQUEUE_RANDOM(handler, func):
+    handler.Connect(-1, -1, ID_EVT_ENQUEUE_RANDOM, func)
+
+class EnqueueRandomEvent(wx.PyEvent):
+    def __init__(self, number, tags=None):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_ENQUEUE_RANDOM)
+        self._number = number
+        self._tags = tags
+        
+    def getNumber(self):
+        return self._number
+
+    def getTags(self):
+        return self._tags
+
+ID_EVT_CHOOSE_TRACKS = wx.NewId()
+
+def EVT_CHOOSE_TRACKS(handler, func):
+    handler.Connect(-1, -1, ID_EVT_CHOOSE_TRACKS, func)
+
+class ChooseTracksEvent(wx.PyEvent):
+    def __init__(self, number, exclude, completion, tags=None):
+        wx.PyEvent.__init__(self)
+        self.SetEventType(ID_EVT_CHOOSE_TRACKS)
+        self._number = number
+        self._exclude = exclude
+        self._completion = completion
+        self._tags = tags
+        
+    def getNumber(self):
+        return self._number
+
+    def getExclude(self):
+        return self._exclude
+
+    def getCompletion(self):
+        return self._completion
+
+    def getTags(self):
+        return self._tags

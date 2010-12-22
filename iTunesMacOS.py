@@ -30,108 +30,108 @@ class iTunesMacOS(MediaPlayer):
             return False
         
     def launch(self):
-        self._logger.debug("Launching iTunes.")
+        self._sendDebug("Launching iTunes.")
         if self._getRunning() == False:
             self._iTunes.launch()
         else:
-            self._logger.info("iTunes is already running.")
+            self._sendInfo("iTunes is already running.")
             self._iTunes.Focus() # FIXME: does this work?
 
     def launchBackground(self, debug=True):
         if self._getRunning() == False:
-            self._logger.debug("Launching iTunes.")
+            self._sendDebug("Launching iTunes.")
             self._iTunes.launch()
             while True:
                 time.sleep(.25)
                 if self._getRunning() == True:
-                    self._logger.info("iTunes has been launched.")
+                    self._sendInfo("iTunes has been launched.")
                     return
                 
     def close(self):
-        self._logger.debug("Closing iTunes.")
+        self._sendDebug("Closing iTunes.")
         if self._getRunning() == True:
             self._iTunes.quit()
             while True:
                 time.sleep(.25)
                 if self._getRunning() == False:
-                    self._logger.info("iTunes has been closed.")
+                    self._sendInfo("iTunes has been closed.")
                     return
         else:
-            self._logger.debug("iTunes is not running.")
+            self._sendDebug("iTunes is not running.")
             
     def _addTrack(self, filepath):
         self.launchBackground()
-        self._logger.info("Adding \'"+filepath+"\' to playlist.")
+        self._sendInfo("Adding \'"+filepath+"\' to playlist.")
         track = self._iTunes.add(
             mactypes.File(filepath).hfspath, to=self._playlist)
 
     def _insertTrack(self, filepath, position):
         self.launchBackground()
-        self._logger.info("Inserting \'"+filepath+"\' into playlist position "\
+        self._sendInfo("Inserting \'"+filepath+"\' into playlist position "\
                           +str(position)+".")
         self._playlist.Insert(filepath, position) # FIXME: doesn't work
         
     def deleteTrack(self, position):
         self.launchBackground()
-        self._logger.debug("Deleting track in position "+str(position)\
-                           +" from playlist.")
+        self._sendDebug("Deleting track in position "+str(position)\
+                        +" from playlist.")
         self._iTunes.delete(self._tracks[position + 1])
 
     def clearPlaylist(self):
         self.launchBackground()
-        self._logger.debug("Clearing playlist.")
+        self._sendDebug("Clearing playlist.")
         self._playlist.delete(self._tracks)
 
     def nextTrack(self):
         self.launchBackground()
-        self._logger.debug("Moving to next track in playlist.")
+        self._sendDebug("Moving to next track in playlist.")
         self._iTunes.next_track()
 
     def pause(self):
         self.launchBackground()
-        self._logger.debug("Pausing playback.")
+        self._sendDebug("Pausing playback.")
         self._iTunes.playpause()
 
     def play(self):
         self.launchBackground()
-        self._logger.debug("Resuming playback or restarting current track.")
+        self._sendDebug("Resuming playback or restarting current track.")
         if self._iTunes.player_state() == k.playing:
             self._iTunes.stop()
         self._iTunes.play()
         
     def playAtPosition(self, position):
         self.launchBackground()
-        self._logger.debug("Playing track at position.")
+        self._sendDebug("Playing track at position.")
         self._iTunes.play(self._tracks[position + 1])
 
     def previousTrack(self):
         self.launchBackground()
-        self._logger.debug("Moving to previous track in playlist.")
+        self._sendDebug("Moving to previous track in playlist.")
         self._iTunes.previous_track()
 
     def stop(self):
         self.launchBackground()
-        self._logger.debug("Stopping playback.")
+        self._sendDebug("Stopping playback.")
         self._iTunes.stop()
 
     def getShuffle(self):
         self.launchBackground()
-        self._logger.debug("Retrieving shuffle status.")
+        self._sendDebug("Retrieving shuffle status.")
         return self._playlist.shuffle() # FIXME: prob doesn't work
 
     def setShuffle(self, status):
         self.launchBackground()
-        self._logger.debug("Setting shuffle status.")
+        self._sendDebug("Setting shuffle status.")
         if status == True or status == 1:
             self._iTunes.set(self._playlist.shuffle, to=True)
-            self._logger.info("Shuffle turned on.")
+            self._sendInfo("Shuffle turned on.")
         if status == False or status == 0:
             self._iTunes.set(self._playlist.shuffle, to=False)
-            self._logger.info("Shuffle turned off.")
+            self._sendInfo("Shuffle turned off.")
 
     def getPlaylistLength(self):
         self.launchBackground()
-        self._logger.debug("Retrieving playlist length.")
+        self._sendDebug("Retrieving playlist length.")
         return len(self._tracks())
 
     def getCurrentTrackPos(self):
@@ -154,9 +154,9 @@ class iTunesMacOS(MediaPlayer):
     ## debug log.
     def _getTrackPathAtPos(self, trackPosition, logging=True):
         if logging == True:
-            self._logger.debug("Retrieving path of track at position "\
-                               +str(trackPosition)+".")
+            self._sendDebug("Retrieving path of track at position "\
+                            +str(trackPosition)+".")
         return self._getTrackAtPos(trackPosition).location().path
 ##        if logging == True:
-##            self._logger.debug("Converting path into unicode.")
+##            self._sendDebug("Converting path into unicode.")
 ##        return convertToUnicode(rawPath, self._logger, logging)

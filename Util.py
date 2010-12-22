@@ -27,12 +27,12 @@ def formatLength(rawLength):
         length = str(int(minutes))+":0"+str(int(seconds))
     return length
 
-def convertToUnicode(string, logger, logging=True):
+def convertToUnicode(string, warningCompletion, logging=True):
     try:
         unicodeString = unicode(string)
     except UnicodeDecodeError:
         if logging == True:
-            logger.warning("Found bad characters. Attempting to resolve.")
+            warningCompletion("Found bad characters. Attempting to resolve.")
         unicodeString = u""
         for char in string:
             try:
@@ -48,7 +48,7 @@ def convertToUnicode(string, logger, logging=True):
                 unicodeString += unichr(int(hexStr, 16))
         
         if logging == True:
-            logger.warning("Bad characters resolved.")
+            warningCompletion("Bad characters resolved.")
     return unicodeString
         
 def doNothing():
@@ -132,6 +132,9 @@ def postInfoLog(lock, target, logger, message):
 def postErrorLog(lock, target, logger, message):
     postEvent(lock, target, Events.LogEvent(logger, "error", message))
 
+def postWarningLog(lock, target, logger, message):
+    postEvent(lock, target, Events.LogEvent(logger, "warning", message))
+
 class EventPoster:
     def __init__(self, window, logger, lock):
         self._window = window
@@ -149,6 +152,9 @@ class EventPoster:
 
     def postErrorLog(self, message):
         postErrorLog(self._lock, self._window, self._logger, message)
+        
+    def postWarningLog(self, message):
+        postWarningLog(self._lock, self._window, self._logger, message)
     
 class RedirectErr:
     def __init__(self, textCtrl, stderr):

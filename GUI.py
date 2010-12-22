@@ -199,7 +199,7 @@ class ConnectionMonitor(BaseThread):
     def abort(self): # FIXME: does this work?
         self._conn.close()
         
-class MainWindow(wx.Frame):
+class MainWindow(wx.Frame, EventPoster):
     def __init__(self, parent, db, randomizer, player, trackFactory, system,
                  loggerFactory, prefsFactory, configParser, socket, address,
                  title, threadLock, defaultRestorePlaylist,
@@ -214,6 +214,7 @@ class MainWindow(wx.Frame):
         self._db = db
         self._randomizer = randomizer
         self._player = player
+        self._player.makeEventPoster(self, threadLock)
         self._trackFactory = trackFactory
         self._system = system
         self._loggerFactory = loggerFactory
@@ -241,7 +242,8 @@ class MainWindow(wx.Frame):
         self._enqueueing = False
 
         wx.Frame.__init__(self, parent, title=title)
-
+        EventPoster.__init__(self, self, self._logger, threadLock)
+        
         self._logger.debug("Creating status bar.")
         self.CreateStatusBar()
         self._initCreateMenuBar()
@@ -285,6 +287,8 @@ class MainWindow(wx.Frame):
         Events.EVT_RATE_UP(self, self._onRateUp)
         Events.EVT_RATE_DOWN(self, self._onRateDown)
         Events.EVT_LOG(self, self._onLog)
+        Events.EVT_ENQUEUE_RANDOM(self, self._onEnqueueRandomTracks)
+        Events.EVT_CHOOSE_TRACKS(self, self._onChooseTracks)
         
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
 
@@ -310,6 +314,9 @@ class MainWindow(wx.Frame):
             self._onRescan()
         
         self.maintainPlaylist()
+
+    def _trackMonitorQueue(self, completion):
+        self._trackMonitor.queue(completion, extractTraceStack([]))
 
     def _initCreateMenuBar(self):
         self._logger.debug("Creating menu bar.")
@@ -1037,29 +1044,29 @@ class MainWindow(wx.Frame):
         self.Destroy()
 
     def _onLaunchPlayer(self, e):
-        self._player.launch()
+        self._trackMonitorQueue(lambda trace: self._player.launch())
 
     def _onExitPlayer(self, e):
-        self._player.close()
+        self._trackMonitorQueue(lambda trace: self._player.close())
 
     def _onNext(self, e):
-        self._player.nextTrack()
+        self._trackMonitorQueue(lambda trace: self._player.nextTrack())
         self.resetInactivityTimer(2000*self._trackCheckDelay)
 
     def _onPause(self, e):
-        self._player.pause()
+        self._trackMonitorQueue(lambda trace: self._player.pause())
         self.resetInactivityTimer(1)
 
     def _onPlay(self, e):
-        self._player.play()
+        self._trackMonitorQueue(lambda trace: self._player.play())
         self.resetInactivityTimer(1)
 
     def _onPrevious(self, e):
-        self._player.previousTrack()
+        self._trackMonitorQueue(lambda trace: self._player.previousTrack())
         self.resetInactivityTimer(2000*self._trackCheckDelay)
 
     def _onStop(self, e):
-        self._player.stop()
+        self._trackMonitorQueue(lambda trace: self._player.stop())
         self.resetInactivityTimer(1)
         
     def _onSelectCurrent(self, e):
@@ -1069,20 +1076,27 @@ class MainWindow(wx.Frame):
         self.resetInactivityTimer()
         try:
             self._logger.info("Requeueing track.")
-            self._player.addTrack(self._track.getPath())
+            self._trackMonitorQueue(
+                lambda trace, track=self._track: self._player.addTrack(
+                    track.getPath()))
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
                 raise err
             self._logger.error("No track selected.")
             return
+
+    def _onRequeueAndPlayCompletion(self, path):
+        position = self._player.getCurrentTrackPos() + 1
+        self._player.insertTrack(path, position)
+        self._player.playAtPosition(position)
         
     def _onRequeueAndPlay(self, e):
         self.resetInactivityTimer()
         try:
             self._logger.info("Requeueing track and playing it.")
-            position = self._player.getCurrentTrackPos() + 1
-            self._player.insertTrack(self._track.getPath(), position)
-            self._player.playAtPosition(position)
+            path = self._track.getPath()
+            self._trackMonitorQueue(
+                lambda trace, path=path: self._onRequeueAndPlayCompletion(path))
             self.resetInactivityTimer(2000*self._trackCheckDelay)
         except AttributeError as err:
             if str(err) != "'MainWindow' object has no attribute '_track'":
@@ -1090,23 +1104,35 @@ class MainWindow(wx.Frame):
             self._logger.error("No track selected.")
             return
 
+    def _getShuffleCompletion(self):
+        self._oldShuffleStatus = self._player.getShuffle()
+
+    def _savePlaylistCompletion(self):
+        self._oldPlaylist = self._player.savePlaylist()
+
     def _onToggleNQr(self, e=None, startup=False):
         self._logger.debug("Toggling NQr.")
         if self._optionsMenu.IsChecked(self._ID_TOGGLENQR) == False:
             self._toggleNQr = False
             self._logger.info("Restoring shuffle status.")
-            self._player.setShuffle(self._oldShuffleStatus)
+            self._trackMonitorQueue(
+                lambda trace, status=self._oldShuffleStatus:\
+                    self._player.setShuffle(status))
             if self._restorePlaylist == True and self._oldPlaylist != None:
-                self._player.loadPlaylist(self._oldPlaylist)
+                self._trackMonitorQueue(
+                    lambda trace, playlist=self._oldPlaylist:\
+                        self._player.loadPlaylist(playlist))
             self._logger.info("Enqueueing turned off.")
         elif self._optionsMenu.IsChecked(self._ID_TOGGLENQR) == True:
             self._toggleNQr = True
             self._logger.info("Storing shuffle status.")
-            self._oldShuffleStatus = self._player.getShuffle()
-            self._player.setShuffle(False)
+            self._trackMonitorQueue(lambda trace: self._getShuffleCompletion())
+            self._trackMonitorQueue(
+                lambda trace: self._player.setShuffle(False))
             ## poss shouldn't restore the playlist ever?
             if self._restorePlaylist == True:
-                self._oldPlaylist = self._player.savePlaylist()
+                self._trackMonitorQueue(
+                    lambda trace: self._savePlaylistCompletion())
             self._logger.info("Enqueueing turned on.")
             if startup == False:
                 self.maintainPlaylist()
@@ -1180,17 +1206,25 @@ class MainWindow(wx.Frame):
             time = self._inactivityTime
         self._inactivityTimer.Start(time, oneShot=False)
 
+    def _cropCompletion(self):
+        trackPosition = self._player.getCurrentTrackPos()
+        if trackPosition > self._defaultTrackPosition:
+            self._player.cropPlaylist(
+                trackPosition - self._defaultTrackPosition)
+
+    def _enqueueRandomCompletion(self):
+        playlistLength = self._player.getPlaylistLength()
+        if playlistLength < self._defaultPlaylistLength:
+            self.postEvent(
+                Events.EnqueueRandomEvent(
+                    self._defaultPlaylistLength - playlistLength))
+
     def maintainPlaylist(self):
         if self._toggleNQr == True:
             self._logger.debug("Maintaining playlist.")
-            trackPosition = self._player.getCurrentTrackPos()
-            if trackPosition > self._defaultTrackPosition:
-                self._player.cropPlaylist(
-                    trackPosition - self._defaultTrackPosition)
-            playlistLength = self._player.getPlaylistLength()
-            if playlistLength < self._defaultPlaylistLength:
-                self.enqueueRandomTracks(
-                    self._defaultPlaylistLength - playlistLength)
+            self._trackMonitorQueue(lambda trace: self._cropCompletion())
+            self._trackMonitorQueue(
+                lambda trace: self._enqueueRandomCompletion())
                 
     def _onSelectTrackCompletion(self, track):
         self._track = track
@@ -1268,8 +1302,15 @@ class MainWindow(wx.Frame):
     def enqueueTrack(self, track):
         path = track.getPath()
         self._logger.debug("Enqueueing \'"+path+"\'.")
-        self._player.addTrack(path)
+        self._trackMonitorQueue(lambda trace: self._player.addTrack(path))
 #        self._db.addEnqueue(track)
+
+    def _onEnqueueRandomTracks(self, e):
+        self.enqueueRandomTracks(e.getNumber(), e.getTags())
+
+    def _onChooseTracks(self, e):
+        self._randomizer.chooseTracks(e.getNumber(), e.getExclude(),
+                                      e.getCompletion(), e.getTags())
 
 ## TODO: would be better for NQr to create a queue during idle time and pop from
 ##       it when enqueuing
@@ -1281,14 +1322,16 @@ class MainWindow(wx.Frame):
         self._trackMonitor.setEnqueueing(True)
         self._logger.debug("Enqueueing "+str(number)+" random track"\
                            +plural(number)+'.')
-        completion = lambda tracks: \
-                     self._enqueueRandomTracksCompletion(tracks)
         # FIXME: poss use a changing value for number to speed up queueing if it
         #        takes a long time - unnecessary?
-        self._player.getUnplayedTrackIDs(
-            self._db, lambda exclude, number=number, completion=completion,\
-                tags=tags: self._randomizer.chooseTracks(number, exclude,
-                                                         completion, tags))
+        self._trackMonitorQueue(
+            lambda trace: self._player.getUnplayedTrackIDs(
+                self._db,
+                lambda exclude, number=number, tags=tags: self.postEvent(
+                    Events.ChooseTracksEvent(
+                        number, exclude,
+                        lambda tracks: self._enqueueRandomTracksCompletion(
+                            tracks), tags))))
 
     def _enqueueRandomTracksCompletion(self, tracks):
 ## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs

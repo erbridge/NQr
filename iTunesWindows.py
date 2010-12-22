@@ -37,7 +37,7 @@ class iTunesWindows(MediaPlayer):
             return False
         
     def launch(self):
-        self._logger.debug("Launching iTunes.")
+        self._sendDebug("Launching iTunes.")
         if self._getRunning() == False:
             # FIXME: untested!!
             PIPE = subprocess.PIPE
@@ -48,106 +48,106 @@ class iTunesWindows(MediaPlayer):
                 if self._getRunning() == True:
                     return
         else:
-            self._logger.info("iTunes is already running.")
+            self._sendInfo("iTunes is already running.")
             self._iTunes.Focus() # FIXME: does this work?
 
     def launchBackground(self, debug=True):
         if self._getRunning() == False:
-            self._logger.debug("Launching iTunes.")
+            self._sendDebug("Launching iTunes.")
             # FIXME: untested!!
             PIPE = subprocess.PIPE
             subprocess.Popen("start itunes", stdout=PIPE, shell=True)
             while True:
                 time.sleep(.25)
                 if self._getRunning() == True:
-                    self._logger.info("iTunes has been launched.")
+                    self._sendInfo("iTunes has been launched.")
                     return
                 
     def close(self):
-        self._logger.debug("Closing iTunes.")
+        self._sendDebug("Closing iTunes.")
         if self._getRunning() == True:
             self._iTunes.close() # FIXME: does this work?
             while True:
                 time.sleep(.25)
                 if self._getRunning() == False:
-                    self._logger.info("iTunes has been closed.")
+                    self._sendInfo("iTunes has been closed.")
                     return
         else:
-            self._logger.debug("iTunes is not running.")
+            self._sendDebug("iTunes is not running.")
             
     def _addTrack(self, filepath):
         self.launchBackground()
-        self._logger.info("Adding \'"+filepath+"\' to playlist.")
+        self._sendInfo("Adding \'"+filepath+"\' to playlist.")
         self._playlist.AddTrack(filepath) # FIXME: poss needs track object
         
     def _insertTrack(self, filepath, position):
         self.launchBackground()
-        self._logger.info("Inserting \'"+filepath+"\' into playlist position "\
-                          +str(position)+".")
+        self._sendInfo("Inserting \'"+filepath+"\' into playlist position "\
+                       +str(position)+".")
         self._playlist.Insert(filepath, position) # FIXME: prob doesn't work
             
 ##    def playTrack(self, filepath):
 
     def deleteTrack(self, position):
         self.launchBackground()
-        self._logger.debug("Deleting track in position "+str(position)\
-                           +" from playlist.")
+        self._sendDebug("Deleting track in position "+str(position)\
+                        +" from playlist.")
         self._playlist.Delete(position) # FIXME: prob doesn't work
 
     def clearPlaylist(self):
         self.launchBackground()
-        self._logger.debug("Clearing playlist.")
+        self._sendDebug("Clearing playlist.")
         self._playlist.Clear() # FIXME: prob doesn't work
 
     def nextTrack(self):
         self.launchBackground()
-        self._logger.debug("Moving to next track in playlist.")
+        self._sendDebug("Moving to next track in playlist.")
         self._iTunes.NextTrack()
 
     def pause(self):
         self.launchBackground()
-        self._logger.debug("Pausing playback.")
+        self._sendDebug("Pausing playback.")
         self._iTunes.Pause()
 
     def play(self):
         self.launchBackground()
-        self._logger.debug("Resuming playback or restarting current track.")
+        self._sendDebug("Resuming playback or restarting current track.")
         self._iTunes.Play()
         
     def playAtPosition(self, position):
         self.launchBackground()
-        self._logger.debug("Playing track at position.")
+        self._sendDebug("Playing track at position.")
         self._iTunes.setCurrentTrack(position) # FIXME: prob doesn't work
         self._iTunes.Play()
 
     def previousTrack(self):
         self.launchBackground()
-        self._logger.debug("Moving to previous track in playlist.")
+        self._sendDebug("Moving to previous track in playlist.")
         self._iTunes.PreviousTrack()
 
     def stop(self):
         self.launchBackground()
-        self._logger.debug("Stopping playback.")
+        self._sendDebug("Stopping playback.")
         self._iTunes.Stop()
 
     def getShuffle(self):
         self.launchBackground()
-        self._logger.debug("Retrieving shuffle status.")
+        self._sendDebug("Retrieving shuffle status.")
         return self._iTunes.GetShuffle() # FIXME: prob doesn't work
 
     def setShuffle(self, status):
         self.launchBackground()
-        self._logger.debug("Setting shuffle status.")
+        self._sendDebug("Setting shuffle status.")
         if status == True or status == 1:
             self._iTunes.SetShuffle(1) # FIXME: prob doesn't work
-            self._logger.info("Shuffle turned on.")
+            self._sendInfo("Shuffle turned on.")
         if status == False or status == 0:
             self._iTunes.SetShuffle(0) # FIXME: prob doesn't work
-            self._logger.info("Shuffle turned off.")
+            self._sendInfo("Shuffle turned off.")
 
     def getPlaylistLength(self):
         self.launchBackground()
-        self._logger.debug("Retrieving playlist length.")
+        self._sendDebug("Retrieving playlist length.")
         return self._tracks.Count
 
     def getCurrentTrackPos(self):
@@ -170,10 +170,10 @@ class iTunesWindows(MediaPlayer):
     ## debug log.
     def _getTrackPathAtPos(self, trackPosition, logging=True):
         if logging == True:
-            self._logger.debug("Retrieving path of track at position "\
-                               +str(trackPosition)+".")
+            self._sendDebug("Retrieving path of track at position "\
+                            +str(trackPosition)+".")
         # FIXME: prob doesn't work
         rawPath = self._getTrackAtPos(trackPosition).FilePath
         if logging == True:
-            self._logger.debug("Converting path into unicode.")
-        return convertToUnicode(rawPath, self._logger, logging)
+            self._sendDebug("Converting path into unicode.")
+        return convertToUnicode(rawPath, self._sendWarning, logging)

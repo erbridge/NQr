@@ -3,9 +3,11 @@
 import ConfigParser
 from Errors import NoTrackError
 import os.path
-from Util import BasePrefsPage, wx
+from Util import BasePrefsPage, EventPoster, wx
 
-class MediaPlayer:
+# FIXME: since it now all runs in the track monitor,
+#        needs to have logs post events in classes that inherit from this one
+class MediaPlayer(EventPoster):
     def __init__(self, loggerFactory, name, noQueue, configParser,
                  defaultPlayer, safePlayers):
         self._logger = loggerFactory.getLogger(name, "debug")
@@ -14,9 +16,38 @@ class MediaPlayer:
         self._safePlayers = safePlayers
         self.loadSettings()
         self._noQueue = noQueue
+        self._eventPoster = False
+
+    def makeEventPoster(self, target, lock):
+        EventPoster.__init__(self, target, self._logger, lock)
+        self._eventPoster = True
+
+    def _sendDebug(self, message):
+        if self._eventPoster:
+            self.postDebugLog(message)
+        else:
+            self._logger.debug(message)
+
+    def _sendInfo(self, message):
+        if self._eventPoster:
+            self.postInfoLog(message)
+        else:
+            self._logger.info(message)
+
+    def _sendError(self, message):
+        if self._eventPoster:
+            self.postErrorLog(message)
+        else:
+            self._logger.error(message)
+
+    def _sendWarning(self, message):
+        if self._eventPoster:
+            self.postWarningLog(message)
+        else:
+            self._logger.warning(message)
 
     def savePlaylist(self):
-        self._logger.debug("Storing current playlist.")
+        self._sendDebug("Storing current playlist.")
         playlist = []
         for trackPosition in range(self.getPlaylistLength()):
             playlist.append(self.getTrackPathAtPos(trackPosition))
@@ -25,7 +56,7 @@ class MediaPlayer:
 ## FIXME: sets currently playing track to first track in the list, but continues
 ##        to play the old track (fixed with work-around)
     def loadPlaylist(self, playlist):
-        self._logger.debug("Restoring playlist.")
+        self._sendDebug("Restoring playlist.")
         currentTrackPath = self.getCurrentTrackPath()
         self.clearPlaylist()
         self.addTrack(currentTrackPath)
@@ -34,9 +65,9 @@ class MediaPlayer:
 
     def cropPlaylist(self, number):
         if number == 1:
-            self._logger.debug("Cropping playlist by "+str(number)+" track.")
+            self._sendDebug("Cropping playlist by "+str(number)+" track.")
         else:
-            self._logger.debug("Cropping playlist by "+str(number)+" tracks.")
+            self._sendDebug("Cropping playlist by "+str(number)+" tracks.")
         for n in range(number):
             self.deleteTrack(0)
         
@@ -66,7 +97,7 @@ class MediaPlayer:
             self._ids.append(id)
         else:
             ## FIXME: why skip them rather than adding them to db? (Felix)
-            self._logger.info("Skipping unknown unplayed track "+path)
+            self._sendInfo("Skipping unknown unplayed track "+path)
             
     def _getUnplayedTrackIDListCompletion(self, completion):
         completion(self._ids)
@@ -86,13 +117,13 @@ class MediaPlayer:
 
     def addTrack(self, filepath):
         if self._noQueue:
-            self._logger.info("Not queueing "+filepath)
+            self._sendInfo("Not queueing "+filepath)
             return
         self._addTrack(filepath)
         
     def insertTrack(self, filepath, position):
         if self._noQueue:
-            self._logger.info("Not queueing "+filepath)
+            self._sendInfo("Not queueing "+filepath)
             return
         self._insertTrack(filepath, position)
 
@@ -178,7 +209,7 @@ class PrefsPage(BasePrefsPage):
         try:
             player = self._configParser.get("Player", "player")
             if player not in self._safePlayers:
-                self._logger.warning("Chosen player is not supported.")
+                self._sendWarning("Chosen player is not supported.")
                 player = self._defaultPlayer
             self._settings["player"] = player
         except ConfigParser.NoOptionError:

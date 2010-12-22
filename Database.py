@@ -791,13 +791,13 @@ class Database(DatabaseEventHandler):
         self._executeAndFetchAll("select trackid from tracks", (), completion)
     
     ## FIXME: not working yet, poss works for one tag
-    def getAllTrackIDsWithTags(self, completion, tags):
-        self._logger.debug("Retrieving all track IDs with tags: "+str(tags)+".")
-        self._executeAndFetchAll(
-            """select trackid from tracks left outer join
-               (select trackid from tags left outer join tagnames using (tagid)
-                on tagnames.tagid = tags.tagid, tagnames.name in ?) on
-                tags.trackid = tracks.trackid""", tags, completion)
+##    def getAllTrackIDsWithTags(self, completion, tags):
+##        self._logger.debug("Retrieving all track IDs with tags: "+str(tags)+".")
+##        self._executeAndFetchAll(
+##            """select trackid from tracks left outer join
+##               (select trackid from tags left outer join tagnames using (tagid)
+##                on tagnames.tagid = tags.tagid, tagnames.name in ?) on
+##                tags.trackid = tracks.trackid""", tags, completion)
 
 #    def _getTrackID(self, track):#, update=False):
 #        path = track.getPath()
