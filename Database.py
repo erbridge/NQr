@@ -23,18 +23,16 @@ import threading
 import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
     extractTraceStack, BasePrefsPage, validateNumeric, postEvent, postDebugLog,\
-    postInfoLog, postErrorLog, wx
+    postInfoLog, postErrorLog, EventPoster, wx
 
-class Thread(threading.Thread):
+class Thread(threading.Thread, EventPoster):
     def __init__(self, db, path, name, logger, errcallback, lock,
                  mainThread=None):
         threading.Thread.__init__(self, name=name)
+        EventPoster.__init__(self, db, logger, lock)
         self._name = name
-        self._logger = logger
         self._errcallback = errcallback
-        self._lock = lock
         self._mainThread = mainThread
-        self._db = db
         self._databasePath = os.path.realpath(path)
         self._queue = Queue.PriorityQueue()
         self._eventCount = 0
@@ -51,8 +49,7 @@ class Thread(threading.Thread):
             self._queueEmptyQueueCallback()
 
     def run(self):
-        postDebugLog(self._lock, self._db, self._logger,
-                     "Starting \'"+self._name+"\' thread.")
+        self.postDebugLog("Starting \'"+self._name+"\' thread.")
         self._conn = sqlite3.connect(self._databasePath)
         cursor = self._conn.cursor()
         while True:
@@ -77,8 +74,7 @@ class Thread(threading.Thread):
                 elif self._raisedEmpty == False:
                     self._emptyCount += 1
                     self._queueEmptyQueueCallback()
-        postDebugLog(self._lock, self._db, self._logger,
-                     "\'"+self._name+"\' thread stopped.")
+        self.postDebugLog("\'"+self._name+"\' thread stopped.")
             
     def _commit(self):
             try:
@@ -86,8 +82,7 @@ class Thread(threading.Thread):
             except sqlite3.OperationalError as err:
                 if str(err) != "disk I/O error":
                     raise err
-                postErrorLog(self._lock, self._db, self._logger,
-                             "Got a disk I/O error. Retrying commit.")
+                self.postErrorLog("Got a disk I/O error. Retrying commit.")
                 time.sleep(.01)
                 self._commit()
         
@@ -95,7 +90,7 @@ class Thread(threading.Thread):
         try:
             errcompletion(err)
         except:
-            postEvent(self._lock, self._db, Events.ExceptionEvent(err))
+            self.postEvent(Events.ExceptionEvent(err))
             
     def _emptyQueueCallback(self, trace):
         raise EmptyQueueError(trace=trace)
@@ -119,18 +114,18 @@ class Thread(threading.Thread):
         self.queue(lambda thread, cursor, traceBack: thread._abortCallback(
                        traceBack), extractTraceStack(trace), priority)
         
-class DatabaseEventHandler(wx.EvtHandler):
-    def __init__(self, dbThread, threadLock, priority):
+class DatabaseEventHandler(wx.EvtHandler, EventPoster):
+    def __init__(self, db, dbThread, logger, threadLock, priority):
         wx.EvtHandler.__init__(self)
+        EventPoster.__init__(self, db, logger, threadLock)
         self._dbThread = dbThread
-        self._threadLock = threadLock
         self._priority = priority
         
         Events.EVT_DATABASE(self, self._onDatabaseEvent)
         Events.EVT_EXCEPTION(self, self._onExceptionEvent)
         
     def _onDatabaseEvent(self, e):
-        postDebugLog(self._threadLock, self._db, self._logger, "Got event.")
+        self.postDebugLog("Got event.")
         e.complete()
         
     def _onExceptionEvent(self, e):
@@ -139,11 +134,9 @@ class DatabaseEventHandler(wx.EvtHandler):
     def _completionEventCompletion(self, completion, result=None,
                                    returnData=True):
         if returnData == False:
-            postEvent(self._threadLock, self,
-                      Events.DatabaseEvent(completion, returnData=False))
+            self.postEvent(Events.DatabaseEvent(completion, returnData=False))
         else:
-            postEvent(self._threadLock, self,
-                      Events.DatabaseEvent(completion, result=result))
+            self.postEvent(Events.DatabaseEvent(completion, result=result))
     
     def _completionEvent(self, completion, returnData=True):
         if returnData == False:
@@ -232,11 +225,9 @@ class DatabaseEventHandler(wx.EvtHandler):
         self._getTrackID(track, mycompletion, priority=priority)
         
     def _getDirectoryIDCompletion(self, directory, directoryID, completion):
-        postDebugLog(self._threadLock, self._db, self._logger,
-                     "Retrieving directory ID for \'"+directory+"\'.")
+        self.postDebugLog("Retrieving directory ID for \'"+directory+"\'.")
         if directoryID == None:
-            postDebugLog(self._threadLock, self._db, self._logger,
-                         "\'"+directory+"\' is not in the watch list.")
+            self.postDebugLog("\'"+directory+"\' is not in the watch list.")
         completion(directoryID)
         
     def _getDirectoryID(self, directory, completion):
@@ -251,8 +242,7 @@ class DatabaseEventHandler(wx.EvtHandler):
         
     def _updateTrackDetailsCompletion(self, track, trackID, infoLogging=True):
         path = track.getPath()
-        postDebugLog(self._threadLock, self._db, self._logger,
-                     "Updating \'"+path+"\' in the library.")
+        self.postDebugLog("Updating \'"+path+"\' in the library.")
         if trackID != None:
             if infoLogging == True:
                 mycompletion = lambda path=path: self._logger.info(
@@ -267,8 +257,7 @@ class DatabaseEventHandler(wx.EvtHandler):
                  track.getTrackNumber(), track.getLength(), track.getBPM(),
                  trackID), mycompletion)
         else:
-            postDebugLog(self._threadLock, self._db, self._logger,
-                         "\'"+path+"\' is not in the library.")
+            self.postDebugLog("\'"+path+"\' is not in the library.")
             
     def _updateTrackDetails(self, track, infoLogging=True):
         mycompletion = lambda trackID, track=track, infoLogging=infoLogging:\
@@ -294,32 +283,28 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                                       lambda: self._onEmptyQueueError())
         Thread.__init__(self, db, path, "Directory Walk", logger,
                         lambda err: errcallback(err), lock, dbThread)
-        DatabaseEventHandler.__init__(self, dbThread, lock, 3)
+        DatabaseEventHandler.__init__(self, db, dbThread, logger, lock, 3)
         self._logger = logger
         self._trackFactory = trackFactory
         
     def _onEmptyQueueError(self):
         if self._working == True:
             self._working = False
-            postInfoLog(self._threadLock, self._db, self._logger,
-                        "Probably finished directory walk.")
+            self.postInfoLog("Probably finished directory walk.")
         
     def getWorking(self):
         return self._working
         
     def _getTrackIDCompletion(self, track, trackID, completion):
         path = track.getPath()
-        postDebugLog(self._threadLock, self._db, self._logger,
-                     "Retrieving track ID for \'"+path+"\'.")
+        self.postDebugLog("Retrieving track ID for \'"+path+"\'.")
         if trackID == None:
-            postDebugLog(self._threadLock, self._db, self._logger,
-                         "\'"+path+"\' is not in the library.")
+            self.postDebugLog("\'"+path+"\' is not in the library.")
         track.setID(self._trackFactory, trackID)
         completion(trackID)
         
     def _addTrackCompletion(self, path, track, trackID):
-        postDebugLog(self._threadLock, self._db, self._logger,
-                     "Adding \'"+path+"\' to the library.")
+        self.postDebugLog("Adding \'"+path+"\' to the library.")
 #        if hasTrackID == False or trackID == None:
         if trackID == None:
             mycompletion = lambda path=path: self._logger.info(
@@ -335,8 +320,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
 #            trackID = cursor.lastrowid
 #            self._logger.info("\'"+path+"\' has been added to the library.")
         else:
-            postDebugLog(self._threadLock, self._db, self._logger,
-                         "\'"+path+"\' is already in the library.")
+            self.postDebugLog("\'"+path+"\' is already in the library.")
         track.setID(self._trackFactory, trackID)
 #        return trackID
         
@@ -346,8 +330,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                                                             useCache=False)
         except NoTrackError:
 #            track = None
-            postDebugLog(self._threadLock, self._db, self._logger,
-                         "\'"+path+"\' is an invalid file.")
+            self.postDebugLog("\'"+path+"\' is an invalid file.")
             return
 #        if track == None:
 #            self._logger.debug("\'"+path+"\' is an invalid file.")
@@ -364,8 +347,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                         thread._doAddTrack(path, traceBack), trace)
             
     def doWalkDirectoryNoWatch(self, directory, callback, trace):
-        postDebugLog(self._threadLock, self._db, self._logger,
-                     "Finding files from \'"+directory+"\'.")
+        self.postDebugLog("Finding files from \'"+directory+"\'.")
         contents = os.listdir(directory)
         for n in range(len(contents)):
             path = os.path.realpath(directory+'/'+contents[n])
@@ -404,12 +386,10 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
             self._execute("insert into directories (path) values (?)",
                           (directory, ), mycompletion)
         else:
-            postDebugLog(self._threadLock, self._db, self._logger,
-                         "\'"+directory+"\' is already in the watch list.")
+            self.postDebugLog("\'"+directory+"\' is already in the watch list.")
     
     def doWalkDirectory(self, directory, callback, trace):
-        postDebugLog(self._threadLock, self._db, self._logger,
-                     "Adding \'"+directory+"\' to the watch list.")
+        self.postDebugLog("Adding \'"+directory+"\' to the watch list.")
         mycompletion = lambda directoryID, directory=directory:\
             self.maybeAddToWatch(directory, directoryID)
         self.getDirectoryID(directory, mycompletion)
@@ -432,8 +412,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
             self.addDirectoryNoWatch(directory)
         
     def doRescanDirectories(self, trace):
-        postInfoLog(self._threadLock, self._db, self._logger,
-                    "Rescanning the watch list for new files.")
+        self.postInfoLog("Rescanning the watch list for new files.")
         errcompletion = ErrorCompletion(
             NoResultError,
             lambda: self._logger.info("The watch list is empty."))
@@ -584,10 +563,10 @@ class Database(DatabaseEventHandler):
     def __init__(self, threadLock, trackFactory, loggerFactory, configParser,
                  debugMode, databasePath, defaultDefaultScore):
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
-        DatabaseEventHandler.__init__(self, DatabaseThread(self, threadLock,
-                                                           databasePath,
-                                                           self._logger),
-                                      threadLock, 2)
+        DatabaseEventHandler.__init__(
+            self, self,
+            DatabaseThread(self, threadLock, databasePath, self._logger),
+            self._logger, threadLock, 2)
         self._db = self
         self._trackFactory = trackFactory
         self._configParser = configParser

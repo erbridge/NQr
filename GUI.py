@@ -35,21 +35,9 @@ import threading
 import time
 from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
     BasePrefsPage, validateDirectory, validateNumeric, roughAge, postEvent,\
-    postDebugLog, wx
+    postDebugLog, EventPoster, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
-
-class EventPoster:
-    def __init__(self, window, logger, lock):
-        self._window = window
-        self._logger = logger
-        self._lock = lock
-        
-    def postEvent(self, event):
-        postEvent(self._lock, self._window, event)
-
-    def postDebugLog(self, message):
-        postDebugLog(self._lock, self._window, self._logger, message)
 
 ## must be aborted when closing!
 class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
@@ -57,8 +45,9 @@ class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
                  trackCheckDelay):
         threading.Thread.__init__(self, name="Track Monitor")
         wx.EvtHandler.__init__(self)
-        self._logger = loggerFactory.getLogger("NQr.TrackMonitor", "debug")
-        EventPoster.__init__(self, window, self._logger, lock)
+        EventPoster.__init__(
+            self, window, loggerFactory.getLogger("NQr.TrackMonitor", "debug"),
+            lock)
 #        self.setDaemon(True)
         self._db = db
         self._player = player
@@ -150,7 +139,6 @@ class ConnectionMonitor(threading.Thread, EventPoster):
         EventPoster.__init__(self, window, logger, lock)
 #        self.setDaemon(True)
         self._conn = connection
-        self._logger = logger
     
     def run(self):
         while True:

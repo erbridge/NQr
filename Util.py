@@ -129,6 +129,24 @@ def postInfoLog(lock, target, logger, message):
     
 def postErrorLog(lock, target, logger, message):
     postEvent(lock, target, Events.LogEvent(logger, "error", message))
+
+class EventPoster:
+    def __init__(self, window, logger, lock):
+        self._window = window
+        self._logger = logger
+        self._lock = lock
+        
+    def postEvent(self, event):
+        postEvent(self._lock, self._window, event)
+
+    def postDebugLog(self, message):
+        postDebugLog(self._lock, self._window, self._logger, message)
+
+    def postInfoLog(self, message):
+        postInfoLog(self._lock, self._window, self._logger, message)
+
+    def postErrorLog(self, message):
+        postErrorLog(self._lock, self._window, self._logger, message)
     
 class RedirectErr:
     def __init__(self, textCtrl, stderr):
