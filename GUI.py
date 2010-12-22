@@ -40,12 +40,16 @@ from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
 ##import wx.lib.agw.multidirdialog as wxMDD
 
 class EventPoster:
-    def __init__(self, window, lock):
+    def __init__(self, window, logger, lock):
         self._window = window
+        self._logger = logger
         self._lock = lock
         
     def postEvent(self, event):
         postEvent(self._lock, self._window, event)
+
+    def postDebugLog(self, message):
+        postDebugLog(self._lock, self._window, self._logger, message)
 
 ## must be aborted when closing!
 class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
@@ -53,12 +57,12 @@ class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
                  trackCheckDelay):
         threading.Thread.__init__(self, name="Track Monitor")
         wx.EvtHandler.__init__(self)
-        EventPoster.__init__(self, window, lock)
+        self._logger = loggerFactory.getLogger("NQr.TrackMonitor", "debug")
+        EventPoster.__init__(self, window, self._logger, lock)
 #        self.setDaemon(True)
         self._db = db
         self._player = player
         self._trackFactory = trackFactory
-        self._logger = loggerFactory.getLogger("NQr.TrackMonitor", "debug")
         self._trackCheckDelay = trackCheckDelay
         self._abortFlag = False
         self._enqueueing = False
@@ -78,8 +82,7 @@ class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
             self.postEvent(Events.GetCurrentPathEvent(self._player, self,
                                                       self._logging))
             self.postEvent(Events.GetHasNextTrackEvent(self._player, self))
-        postDebugLog(self._lock, self._window, self._logger,
-                     "Track monitor stopped.")
+        self.postDebugLog("Track monitor stopped.")
 
     def abort(self):
         self._abortFlag = True
@@ -93,8 +96,7 @@ class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
         newTrackPath = e.getPath()
         self._logging = False
         if newTrackPath != self._currentTrackPath:
-            postDebugLog(self._lock, self._window, self._logger,
-                         "Track has changed.")
+            self.postDebugLog("Track has changed.")
             self._currentTrackPath = newTrackPath
             self.postEvent(Events.TrackChangeEvent(self._db, self._trackFactory,
                                                    self._currentTrackPath))
@@ -104,19 +106,19 @@ class TrackMonitor(threading.Thread, wx.EvtHandler, EventPoster):
     def _onGetHasNextTrack(self, e):
         if self._abortFlag or self._enqueueing or e.getHasNextTrack():
             return
-        postDebugLog(self._lock, self._window, self._logger,
-                     "End of playlist reached.")
+        self.postDebugLog("End of playlist reached.")
         self.postEvent(Events.NoNextTrackEvent())
 
-class SocketMonitor(threading.Thread):
+class SocketMonitor(threading.Thread, EventPoster):
     def __init__(self, window, lock, socket, address, loggerFactory):
         threading.Thread.__init__(self, name="Socket Monitor")
+        self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
+        EventPoster.__init__(self, window, self._logger, lock)
 #        self.setDaemon(True)
         self._window = window
         self._lock = lock
         self._socket = socket
         self._address = address
-        self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
         self._connections = []
         self._abortFlag = False
 
@@ -125,15 +127,13 @@ class SocketMonitor(threading.Thread):
         while not self._abortFlag:
             # FIXME: has windows permission issues...
             (conn, address) = self._socket.accept()
-            postDebugLog(self._lock, self._window, self._logger,
-                         "Starting connection ("+address[0]+":"+str(address[1])\
-                            +") monitor.")
+            self.postDebugLog("Starting connection ("+address[0]+":"\
+                              +str(address[1])+") monitor.")
             connMonitor = ConnectionMonitor(self._window, self._lock, conn,
                                             address, self._logger)
             connMonitor.start()
             self._connections.append(connMonitor)
-        postDebugLog(self._lock, self._window, self._logger,
-                     "Stopping socket monitor.")
+        self.postDebugLog("Stopping socket monitor.")
         self._socket.close()
                 
     def abort(self):
@@ -147,7 +147,7 @@ class ConnectionMonitor(threading.Thread, EventPoster):
     def __init__(self, window, lock, connection, address, logger):
         self._address = address[0]+":"+str(address[1])
         threading.Thread.__init__(self, name=self._address+" Monitor")
-        EventPoster.__init__(self, window, lock)
+        EventPoster.__init__(self, window, logger, lock)
 #        self.setDaemon(True)
         self._conn = connection
         self._logger = logger
@@ -159,8 +159,8 @@ class ConnectionMonitor(threading.Thread, EventPoster):
             except RuntimeError as err:
                 if str(err) != "socket connection broken":
                     raise err
-                postDebugLog(self._lock, self._window, self._logger,
-                             "Stopping connection ("+self._address+") monitor.")
+                self.postDebugLog("Stopping connection ("+self._address\
+                                  +") monitor.")
                 self._conn.shutdown(2)
                 self._conn.close()
                 break
@@ -182,8 +182,7 @@ class ConnectionMonitor(threading.Thread, EventPoster):
                 self.postEvent(Events.RateDownEvent())
             else:
                 raise BadMessageError
-        postDebugLog(self._lock, self._window, self._logger,
-                     "Connection ("+self._address+") monitor stopped.")
+        self.postDebugLog("Connection ("+self._address+") monitor stopped.")
                                
     def _recieve(self):
         byte = ""
