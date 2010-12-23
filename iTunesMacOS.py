@@ -24,7 +24,6 @@ class iTunesMacOS(MediaPlayer):
             else:
                 self._playlist = self._iTunes.user_playlists[self._playlistName]
             self._tracks = self._playlist.tracks
-            self._iTunes.reveal(self._playlist)
             return True
         except CommandError:
             return False
@@ -45,6 +44,7 @@ class iTunesMacOS(MediaPlayer):
                 time.sleep(.25)
                 if self._getRunning() == True:
                     self._sendInfo("iTunes has been launched.")
+                    self._iTunes.reveal(self._playlist)
                     return
                 
     def close(self):

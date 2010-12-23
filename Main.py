@@ -11,6 +11,9 @@
 ## TODO: build HTTP server for remote control
 ##
 ## FIXME: queues wrong track if track changes at time of start up
+## FIXME: has problems if library is small, poss due to problems with multiple
+##        track addition
+## FIXME: iTunes only sees tracks in NQr playlist
 
 import ConfigParser
 import Database

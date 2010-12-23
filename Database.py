@@ -14,7 +14,7 @@
 import ConfigParser
 import datetime
 from Errors import NoResultError, EmptyQueueError, NoTrackError,\
-    EmptyDatabaseError
+    EmptyDatabaseError, AbortThreadError
 import Events
 import os.path
 import Queue
@@ -517,6 +517,7 @@ class Database(DatabaseEventHandler):
         self._trackFactory = trackFactory
         self._configParser = configParser
         self._defaultDefaultScore = defaultDefaultScore
+        self._addingTracks = {}
         self.loadSettings()
         self._debugMode = debugMode
         self._databasePath = databasePath
@@ -731,6 +732,11 @@ class Database(DatabaseEventHandler):
     def _maybeAddTrackCallback(self, track, trackID, completion,
                                wasAdded=False, priority=None):
         path = track.getPath()
+        if wasAdded == False and path in self._addingTracks:
+            self._addingTracks[path].append(completion)
+            return
+        elif wasAdded == False:
+            self._addingTracks[path] = [completion]
         if trackID == None and wasAdded == False:
             mycompletion = lambda id, track=track, completion=completion:\
                 self._maybeAddTrackCallback(track, id, completion,
@@ -748,9 +754,10 @@ class Database(DatabaseEventHandler):
         else:
             self._logger.debug("\'"+path+"\' is already in the library.")
         track.setID(self._trackFactory, trackID)
-        if completion != None:
-            completion(trackID)
-        
+        for comp in self._addingTracks[path]:
+            if comp != None:
+                comp(trackID)
+                
     def addTrack(self, path=None, track=None, completion=None, priority=None):
         if path == None:
             if track == None:
