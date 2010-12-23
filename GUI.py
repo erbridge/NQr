@@ -265,7 +265,6 @@ class MainWindow(wx.Frame, EventPoster):
         self._trackMonitor = TrackMonitor(self, threadLock, self._db,
                                           self._player, self._trackFactory,
                                           loggerFactory, self._trackCheckDelay)
-        self._trackMonitor.start()
         
         self._logger.debug("Starting socket monitor.")
         self._socketMonitor = SocketMonitor(self, threadLock, socket, address,
@@ -306,7 +305,7 @@ class MainWindow(wx.Frame, EventPoster):
         wx.CallAfter(self._onStart)
             
     def _onStart(self):
-##        self._trackMonitor.start()
+        self._trackMonitor.start()
         self._socketMonitor.start()
         self.resetInactivityTimer(2000*self._trackCheckDelay)
         
