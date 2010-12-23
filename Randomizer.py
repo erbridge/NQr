@@ -76,10 +76,12 @@ class Randomizer:
             if newPart != "":
                 return False
         return True
-        
-    def _addTrackToListCallback(self, track, weight):
-        track.setWeight(weight)
-        self._tracks.append(track)
+
+    def chooseTracks(self, number, exclude, completion, tags=None):
+        self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
+        mycompletion = lambda trackIDs, completion=completion:\
+            self._chooseTracksCompletion(trackIDs, completion)
+        self._chooseTrackIDs(number, exclude, mycompletion, tags)
 
     def _chooseTracksCompletion(self, trackIDs, completion):
         self._tracks = [] # FIXME: possibly clears list before posting it
@@ -94,12 +96,17 @@ class Randomizer:
                     track, weight), errcompletion=errcompletion)
         self._db.complete(
             lambda completion=completion: completion(self._tracks))
-
-    def chooseTracks(self, number, exclude, completion, tags=None):
-        self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
-        mycompletion = lambda trackIDs, completion=completion:\
-            self._chooseTracksCompletion(trackIDs, completion)
-        self._chooseTrackIDs(number, exclude, mycompletion, tags)
+        
+    def _addTrackToListCallback(self, track, weight):
+        track.setWeight(weight)
+        self._tracks.append(track)
+    
+    ## will throw exception if database is empty?
+    def _chooseTrackIDs(self, number, exclude, completion, tags=None):
+        mycompletion = lambda trackWeightList, totalWeight, number=number,\
+            completion=completion: self._chooseTrackIDsCompletion(
+                number, trackWeightList, totalWeight, completion)
+        self._createLists(exclude, mycompletion, tags)
 
     def _chooseTrackIDsCompletion(self, number, trackWeightList, totalWeight,
                                   completion):
@@ -120,13 +127,27 @@ class Randomizer:
                     trackIDs.append([trackID, norm])
                     break
         completion(trackIDs)
-    
-    ## will throw exception if database is empty?
-    def _chooseTrackIDs(self, number, exclude, completion, tags=None):
-        mycompletion = lambda trackWeightList, totalWeight, number=number,\
-            completion=completion: self._chooseTrackIDsCompletion(
-                number, trackWeightList, totalWeight, completion)
-        self._createLists(exclude, mycompletion, tags)
+        
+    def _createLists(self, exclude, completion, tags=None):
+        multicompletion = MultiCompletion(3,
+            lambda rawTrackIDList, oldest, timeAndScoreDict, exclude=exclude,\
+                completion=completion: self._createListsCompletion(
+                    exclude, oldest, rawTrackIDList, timeAndScoreDict,
+                    completion))
+        trackListCompletion = lambda rawTrackIDList,\
+            multicompletion=multicompletion: multicompletion.put(0,
+                                                                 rawTrackIDList)
+        self._db.getOldestLastPlayed(
+            lambda oldest, multicompletion=multicompletion:\
+                multicompletion.put(1, oldest))
+        self._db.getAllSecondsSinceLastPlayedAndScoreDictNoDebug(
+            lambda dict, multicompletion=multicompletion:\
+                multicompletion.put(2, dict))
+        
+        if tags == None:
+            self._db.getAllTrackIDs(trackListCompletion)
+        else:
+            self._db.getAllTrackIDsWithTags(trackListCompletion, tags)
 
     # FIXME: Empty database error needs to be caught
     def _createListsCompletion(self, exclude, oldest, rawTrackIDList,
@@ -157,27 +178,6 @@ class Randomizer:
             exclude.append(trackID)
             totalWeight += weight
         completion(trackWeightList, totalWeight)
-        
-    def _createLists(self, exclude, completion, tags=None):
-        multicompletion = MultiCompletion(3,
-            lambda rawTrackIDList, oldest, timeAndScoreDict, exclude=exclude,\
-                completion=completion: self._createListsCompletion(
-                    exclude, oldest, rawTrackIDList, timeAndScoreDict,
-                    completion))
-        trackListCompletion = lambda rawTrackIDList,\
-            multicompletion=multicompletion: multicompletion.put(0,
-                                                                 rawTrackIDList)
-        self._db.getOldestLastPlayed(
-            lambda oldest, multicompletion=multicompletion:\
-                multicompletion.put(1, oldest))
-        self._db.getAllSecondsSinceLastPlayedAndScoreDictNoDebug(
-            lambda dict, multicompletion=multicompletion:\
-                multicompletion.put(2, dict))
-        
-        if tags == None:
-            self._db.getAllTrackIDs(trackListCompletion)
-        else:
-            self._db.getAllTrackIDsWithTags(trackListCompletion, tags)
         
     def _setWeightAlgorithm(self, rawWeightAlgorithm):
         self._weightAlgorithm = eval("lambda score, time: "+rawWeightAlgorithm)
