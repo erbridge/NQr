@@ -128,7 +128,7 @@ class Randomizer:
                 number, trackWeightList, totalWeight, completion)
         self._createLists(exclude, mycompletion, tags)
 
-    # FIXME: do this in its own thread?
+    # FIXME: Empty database error needs to be caught
     def _createListsCompletion(self, exclude, oldest, rawTrackIDList,
                                timeAndScoreDict, completion):
         self._logger.debug("Creating weighted list of tracks.")

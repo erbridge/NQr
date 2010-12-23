@@ -757,6 +757,7 @@ class Database(DatabaseEventHandler):
         for comp in self._addingTracks[path]:
             if comp != None:
                 comp(trackID)
+        del self._addingTracks[path]
                 
     def addTrack(self, path=None, track=None, completion=None, priority=None):
         if path == None:
