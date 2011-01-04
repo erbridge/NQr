@@ -436,7 +436,7 @@ class MainWindow(wx.Frame, EventPoster):
         for tag in tags:
             tagID = wx.NewId()
             self._allTags[tagID] = tag
-            self._addMenuItem(self._tagMenu, tag, " Tag track with \'"+tag+"\'",
+            self._addMenuItem(menu, tag, " Tag track with \'"+tag+"\'",
                               self._onTag, id=tagID, checkItem=True)
             
     def _initCreateTagMenu(self):

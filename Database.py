@@ -17,7 +17,6 @@ from Errors import NoResultError, EmptyQueueError, NoTrackError,\
     EmptyDatabaseError, AbortThreadError
 import Events
 import os.path
-import Queue
 import sqlite3
 import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
@@ -285,7 +284,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                 (path, track.getArtist(), track.getAlbum(), track.getTitle(),
                  track.getTrackNumber(), track.getLength(), track.getBPM()),
                 lambda path=path: self._logger.info(
-                    "\'"+path\+"\' has been added to the library."))
+                    "\'"+path+"\' has been added to the library."))
 #            trackID = cursor.lastrowid
 #            self._logger.info("\'"+path+"\' has been added to the library.")
         else:
@@ -871,28 +870,6 @@ class Database(DatabaseEventHandler):
         self.getPathFromIDNoDebug(
             secondTrackID, lambda secondPath, multicompletion=multicompletion:\
                 multicompletion.put(1, secondPath))
-        
-    def _getLinkIDCompletion2(self, firstTrackID, secondTrackID, linkID,
-                              completion, completeTrackIDs=False):
-        self._logger.debug("Retrieving link ID.")
-        if linkID == None:
-            self._logger.debug("The tracks are not linked.")
-        if completeTrackIDs == True:
-            completion(firstTrackID, secondTrackID, linkID)
-        else:
-            completion(linkID)
-            
-    def _getLinkIDCompletion(self, firstTrackID, secondTrackID, completion,
-                             completeTrackIDs=False):
-        mycompletion = lambda linkID, firstTrackID=firstTrackID,\
-            secondTrackID=secondTrackID, completion=completion,\
-            completeTrackIDs=completeTrackIDs:\
-                self._getLinkIDCompletion2(firstTrackID, secondTrackID, linkID,
-                                           completion, completeTrackIDs)
-        self._executeAndFetchOneOrNull(
-            """select linkid from links where firsttrackid = ? and
-               secondtrackid = ?""", (firstTrackID, secondTrackID),
-            mycompletion)
         
     def getLinkID(self, firstTrack, secondTrack, completion,
                   completeTrackIDs=False):
@@ -1548,9 +1525,8 @@ class Database(DatabaseEventHandler):
         mycompletion = lambda details, completion=completion,\
             debugMessage=debugMessage: self._getDetailCompletion(
                 details, self._unscoredIndex, lambda unscored,\
-                    completion=completion, debugMessage=debugMessage:\
-                        self._getIsScoredCompletion(unscored, completion),
-                debugMessage=debugMessage)
+                    completion=completion: self._getIsScoredCompletion(
+                        unscored, completion), debugMessage=debugMessage)
         if trackID != None:
             self._getTrackDetails(mycompletion, trackID=trackID,
                                   priority=priority)

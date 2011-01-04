@@ -36,7 +36,7 @@ class iTunesMacOS(MediaPlayer):
             self._sendInfo("iTunes is already running.")
             self._iTunes.Focus() # FIXME: does this work?
 
-    def launchBackground(self, debug=True):
+    def launchBackground(self):
         if self._getRunning() == False:
             self._sendDebug("Launching iTunes.")
             self._iTunes.launch()

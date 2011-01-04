@@ -1,7 +1,6 @@
 ## GUI Events
 
-from Errors import NoTrackError
-from Util import postEvent, wx
+from Util import wx
 
 ID_EVT_TRACK_CHANGE = wx.NewId()
 
