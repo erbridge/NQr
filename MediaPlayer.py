@@ -9,11 +9,12 @@ from Util import BasePrefsPage, EventPoster, wx
 #        needs to have logs post events in classes that inherit from this one
 class MediaPlayer(EventPoster):
     def __init__(self, loggerFactory, name, noQueue, configParser,
-                 defaultPlayer, safePlayers):
+                 defaultPlayer, safePlayers, trackFactory):
         self._logger = loggerFactory.getLogger(name, "debug")
         self._configParser = configParser
         self._defaultPlayer = defaultPlayer
         self._safePlayers = safePlayers
+        self._trackFactory = trackFactory
         self.loadSettings()
         self._noQueue = noQueue
         self._eventPoster = False
@@ -90,30 +91,42 @@ class MediaPlayer(EventPoster):
             return None
         path = self._getTrackPathAtPos(trackPosition, logging)
         return os.path.realpath(path)
-    
-    def _getUnplayedTrackIDsCallback(self, id, path):
-        # The track may be one we don't know added directly to the player
-        if id is not None:
-            self._ids.append(id)
-        else:
-            ## FIXME: why skip them rather than adding them to db? (Felix)
-            self._sendInfo("Skipping unknown unplayed track "+path)
-            
-    def _getUnplayedTrackIDListCompletion(self, completion):
-        completion(self._ids)
         
     def getUnplayedTrackIDs(self, db, completion):
         self._ids = []
+        count = 0
         try:
-            for pos in range(self.getCurrentTrackPos(), self.getPlaylistLength()):
+            for pos in range(self.getCurrentTrackPos(),
+                             self.getPlaylistLength()):
                 path = self.getTrackPathAtPos(pos)
                 db.maybeGetIDFromPath(
                     path,
-                    lambda id, path=path: self._getUnplayedTrackIDsCallback(
-                        id, path))
+                    lambda id, db=db, path=path:\
+                        self._getUnplayedTrackIDsCallback(db, id, path))
+                count += 1
         except TypeError:
             pass
-        db.complete(lambda: self._getUnplayedTrackIDListCompletion(completion))
+        db.complete(
+            lambda db=db, count=count, completion=completion:\
+                self._getUnplayedTrackIDListCompletion(db, count, completion))
+        
+    def _getUnplayedTrackIDsCallback(self, db, id, path):
+        # The track may be one we don't know added directly to the player
+        mycompletion = lambda trackID: self._ids.append(trackID)
+        if id is None:
+            db.getTrackID(self._trackFactory.getTrackFromPathNoID(db, path),
+                          mycompletion)
+            return
+        mycompletion(id)
+            
+    def _getUnplayedTrackIDListCompletion(self, db, count, completion):
+        if len(self._ids) != count:
+            db.complete(
+                lambda db=db, count=count, completion=completion:\
+                    self._getUnplayedTrackIDListCompletion(db, count,
+                                                           completion))
+            return
+        completion(self._ids)
 
     def addTrack(self, filepath):
         if self._noQueue:

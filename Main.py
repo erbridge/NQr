@@ -83,6 +83,11 @@ class Main(wx.App):
         # Do platform-dependent imports, and choose a player type. For
         # now, we just choose it based on the platform...
         self._logger.debug("Running on "+self._system+".")
+        
+        self._logger.debug("Initializing track factory.")
+        trackFactory = Track.TrackFactory(self._loggerFactory,
+                                          self._configParser, self._debugMode)
+        
         player = None
         if self._player == "Winamp":
             self._logger.debug("Loading Winamp module.")
@@ -91,14 +96,15 @@ class Main(wx.App):
                                                  self._noQueue,
                                                  self._configParser,
                                                  self._defaultPlayer,
-                                                 self._safePlayers)
+                                                 self._safePlayers,
+                                                 trackFactory)
             
         elif self._player == "XMMS":
             self._logger.debug("Loading XMMS module.")
             import XMMS
             player = XMMS.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
-                               self._safePlayers)
+                               self._safePlayers, trackFactory)
             
         elif self._player == "iTunes"\
                  and self._system in ["Mac OS X", "Darwin"]:
@@ -107,7 +113,7 @@ class Main(wx.App):
             player = iTunesMacOS.iTunesMacOS(self._loggerFactory, self._noQueue,
                                              self._configParser,
                                              self._defaultPlayer,
-                                             self._safePlayers)
+                                             self._safePlayers, trackFactory)
         
         elif self._player == "iTunes" and self._system == "Windows":
             self._logger.debug("Loading iTunes module.")
@@ -116,11 +122,8 @@ class Main(wx.App):
                                                  self._noQueue,
                                                  self._configParser,
                                                  self._defaultPlayer,
-                                                 self._safePlayers)
-
-        self._logger.debug("Initializing track factory.")
-        trackFactory = Track.TrackFactory(self._loggerFactory,
-                                          self._configParser, self._debugMode)
+                                                 self._safePlayers,
+                                                 trackFactory)
 
         self._logger.debug("Initializing database.")
         threadLock = threading.Lock()

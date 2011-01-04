@@ -10,9 +10,10 @@ from MediaPlayer import MediaPlayer
 
 class iTunesWindows(MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
-                 safePlayers, playlistName="\"NQr\""):
+                 safePlayers, trackFactory, playlistName="\"NQr\""):
         MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes", noQueue,
-                             configParser, defaultPlayer, safePlayers)
+                             configParser, defaultPlayer, safePlayers,
+                             trackFactory)
         self._playlistName = playlistName
         self.launchBackground()
     

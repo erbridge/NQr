@@ -39,9 +39,10 @@ IPC_GETWND_PE = 1
 #        (poss already does this...)
 class WinampWindows(MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
-                 safePlayers):
+                 safePlayers, trackFactory):
         MediaPlayer.__init__(self, loggerFactory, "NQr.Winamp", noQueue,
-                             configParser, defaultPlayer, safePlayers)
+                             configParser, defaultPlayer, safePlayers,
+                             trackFactory)
         self._winamp = winampImport.Winamp()
         self.launchBackground()
         

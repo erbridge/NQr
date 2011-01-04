@@ -6,9 +6,10 @@ from MediaPlayer import MediaPlayer
 
 class XMMS(MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
-                 safePlayers):
+                 safePlayers, trackFactory):
         MediaPlayer.__init__(self, loggerFactory, "NQr.XMMS", noQueue,
-                             configParser, defaultPlayer, safePlayers)
+                             configParser, defaultPlayer, safePlayers,
+                             trackFactory)
 
     def getShuffle(self):
         # is_shuffle() returns 0 or 1 instead of true or false
