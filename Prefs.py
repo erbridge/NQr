@@ -1,7 +1,7 @@
 ## Preference window
 ##
 ## TODO: create validation rules for text controls
-## TODO: add a restore defaults option (which deletes the settings file?)
+## TODO: add a restore defaults option (which backs up the settings file?)
 
 from Util import wx
 

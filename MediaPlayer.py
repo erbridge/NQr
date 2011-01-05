@@ -1,4 +1,7 @@
 ## Base class for media players
+##
+## TODO: make all players behave like winamp to allow closing while NQr is
+##       running
 
 import ConfigParser
 from Errors import NoTrackError

@@ -149,7 +149,7 @@ class Randomizer:
         else:
             self._db.getAllTrackIDsWithTags(trackListCompletion, tags)
 
-    # FIXME: Empty database error needs to be caught
+    # FIXME: EmptyDatabaseError needs to be caught
     def _createListsCompletion(self, exclude, oldest, rawTrackIDList,
                                timeAndScoreDict, completion):
         self._logger.debug("Creating weighted list of tracks.")

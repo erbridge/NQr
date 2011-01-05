@@ -115,6 +115,8 @@ class WinampWindows(MediaPlayer):
         self.launchBackground()
         self._sendDebug("Moving to next track in playlist.")
         self._winamp.next()
+        if self._winamp.getStatus() != "playing":
+            self.play()
 
     def pause(self):
         self.launchBackground()
@@ -136,6 +138,8 @@ class WinampWindows(MediaPlayer):
         self.launchBackground()
         self._sendDebug("Moving to previous track in playlist.")
         self._winamp.previous()
+        if self._winamp.getStatus() != "playing":
+            self.play()
 
     def stop(self):
         self.launchBackground()

@@ -1,6 +1,5 @@
 ## Track information
 ##
-## TODO: check getPath gets Mac path in correct form for iTunes
 ## TODO: create clearCache function for when user has changed metadata?
 ##       * I would actually make tracks update themselves and the
 ##       database when you spot a metadata change. (Ben)
