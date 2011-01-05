@@ -40,3 +40,6 @@ class BadMessageError(Error):
 
 class DuplicateTagError(Error):
     pass
+
+class PlayerNotRunningError(Error):
+    pass

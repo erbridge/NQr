@@ -26,7 +26,8 @@
 
 #from collections import deque
 import ConfigParser
-from Errors import BadMessageError, EmptyQueueError, AbortThreadError
+from Errors import BadMessageError, EmptyQueueError, AbortThreadError,\
+    NoTrackError, PlayerNotRunningError
 import Events
 import os
 import socket
@@ -97,6 +98,8 @@ class TrackMonitor(BaseThread):
                 logging=self._logging)
         except NoTrackError:
             newTrackPath = None
+        except PlayerNotRunningError:
+            return
         self._logging = False
         if newTrackPath != self._currentTrackPath:
             self.postDebugLog("Track has changed.")
@@ -107,7 +110,11 @@ class TrackMonitor(BaseThread):
             self._enqueueing = True
             
     def _checkHasNextTrack(self):
-        if self._abortFlag or self._enqueueing or self._player.hasNextTrack():
+        try:
+            if self._abortFlag or self._enqueueing or\
+                    self._player.hasNextTrack():
+                return
+        except PlayerNotRunningError:
             return
         self.postDebugLog("End of playlist reached.")
         self.postEvent(Events.NoNextTrackEvent())

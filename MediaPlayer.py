@@ -88,7 +88,7 @@ class MediaPlayer(EventPoster):
     # must always be checked for trackness
     def getTrackPathAtPos(self, trackPosition, logging=True):
         if trackPosition == None:
-            return None
+            raise NoTrackError
         path = self._getTrackPathAtPos(trackPosition, logging)
         return os.path.realpath(path)
         

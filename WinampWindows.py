@@ -3,7 +3,7 @@
 ## Tested on Winamp 5+
 
 import ctypes
-from Errors import NoTrackError
+from Errors import NoTrackError, PlayerNotRunningError
 from MediaPlayer import MediaPlayer
 import subprocess
 import time
@@ -163,7 +163,8 @@ class WinampWindows(MediaPlayer):
         return self._winamp.getPlaylistLength()
 
     def getCurrentTrackPos(self):
-        self.launchBackground()
+        if self._winamp.getRunning() == False:
+            raise PlayerNotRunningError
         return self._winamp.getCurrentTrack()
 
     ## poss insecure: should always be checked for trackness
@@ -171,7 +172,8 @@ class WinampWindows(MediaPlayer):
     ## Has logging option so track monitor can call it without spamming the
     ## debug log.
     def _getTrackPathAtPos(self, trackPosition, logging=True):
-        self.launchBackground()
+        if self._winamp.getRunning() == False:
+            raise PlayerNotRunningError
         if logging == True:
             self._sendDebug("Retrieving path of track at position "\
                                +str(trackPosition)+".")
