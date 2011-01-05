@@ -1411,8 +1411,8 @@ class MainWindow(wx.Frame, EventPoster):
 
     def refreshSelectedTrackScore(self):
         self.refreshScore(self._index, self._track)
-        self._track.getScore(lambda score: self.setScoreSliderPosition(score),
-                             priority=1)
+        self._track.getScoreValue(
+            lambda score: self.setScoreSliderPosition(score), priority=1)
         self.populateDetails(self._track)
 
     def refreshTrack(self, index, track):
