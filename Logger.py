@@ -1,9 +1,8 @@
 ## Logger
-##
-## FIXME: make a limit on the number of logger files saved - perhaps time limit?
 
-import logging
 import datetime
+import logging
+import os.path
 
 class LoggerFactory:
     def __init__(self, debugMode):
@@ -12,6 +11,9 @@ class LoggerFactory:
         dateString = str(
             datetime.datetime.strftime(datetime.datetime.utcnow(),
                                        '%Y%m%d_%H%M%S'))
+        
+        # FIXME: allow user to choose number of days
+        self.cleanDirectory(30) # removes logs older than 30 days
 
         debugLogFilename = "logs/debug_"+dateString+".log"
         infoLogFilename = "logs/info_"+dateString+".log"
@@ -46,6 +48,19 @@ class LoggerFactory:
         logging.getLogger("NQr").addHandler(errorFileHandler)
 
         self._logger = self.getLogger("NQr.Logger", "debug")
+        
+    def cleanDirectory(self, days):
+        now = datetime.datetime.utcnow()
+        limit = now - datetime.timedelta(days=days)
+        for log in os.listdir("logs"):
+            name, ext = os.path.splitext(log)
+            if ext != ".log":
+                continue
+            time = datetime.datetime.strptime(
+                    name.split("_")[1]+name.split("_")[2], '%Y%m%d%H%M%S')
+            path = os.path.join("logs", log)
+            if time < limit:
+                os.remove(path)
 
     def getLogger(self, name, level):
         logger = logging.getLogger(name)
