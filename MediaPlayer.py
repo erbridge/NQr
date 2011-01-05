@@ -3,7 +3,7 @@
 import ConfigParser
 from Errors import NoTrackError
 import os.path
-from Util import BasePrefsPage, EventPoster, wx
+from Util import BasePrefsPage, EventPoster, getIsInstalled, wx
 
 # FIXME: since it now all runs in the track monitor,
 #        needs to have logs post events in classes that inherit from this one
@@ -160,7 +160,7 @@ class PrefsPage(BasePrefsPage):
 
         self.SetSizer(mainSizer)
     
-    def _initCreatePlayerSizer(self): # FIXME: should check which are installed
+    def _initCreatePlayerSizer(self):
         ID_PLAYER = wx.NewId()
         
         self._playerSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -175,11 +175,17 @@ class PrefsPage(BasePrefsPage):
             
             self._iTunesButton = wx.RadioButton(self, ID_PLAYER, "iTunes  \t")
             self._playerSizer.Add(self._iTunesButton, 0, wx.TOP|wx.BOTTOM, 3)
-
+            
             if self._settings["player"] == "Winamp":
                 self._winampButton.SetValue(True)
             elif self._settings["player"] == "iTunes":
                 self._iTunesButton.SetValue(True)
+                
+            if not getIsInstalled(self._system, "Winamp"):
+                self._winampButton.Enable(False)
+            # FIXME: may not be correct display name for iTunes (untested)
+            if not getIsInstalled(self._system, "iTunes"):
+                self._iTunesButton.Enable(False)
                 
         elif self._system == "FreeBSD":
             self._xmmsButton = wx.RadioButton(self, ID_PLAYER, "XMMS  \t",
@@ -189,6 +195,9 @@ class PrefsPage(BasePrefsPage):
             if self._settings["player"] == "XMMS":
                 self._xmmsButton.SetValue(True)
                 
+            if not getIsInstalled(self._system, "XMMS"):
+                self._xmmsButton.Enable(False)
+                
         elif self._system == "Mac OS X":
             self._iTunesButton = wx.RadioButton(self, ID_PLAYER, "iTunes  \t",
                                                 style=wx.RB_GROUP)
@@ -196,6 +205,9 @@ class PrefsPage(BasePrefsPage):
 
             if self._settings["player"] == "iTunes":
                 self._iTunesButton.SetValue(True)
+                
+            if not getIsInstalled(self._system, "iTunes"):
+                self._iTunesButton.Enable(False)
 
         wx.EVT_RADIOBUTTON(self, ID_PLAYER, self._onPlayerChange)
         

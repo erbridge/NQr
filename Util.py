@@ -116,6 +116,21 @@ def roughAge(time):
     # yes, this measure of a year is fairly crap :-)
     return _doRough(time, 52, "year", 7*24*60*60, "week")
 
+# FIXME: implement for other systems (maybe see:
+#        www.cyberciti.biz/faq/howto-display-list-of-all-installed-software/)
+def getIsInstalled(system, softwareName):
+    if system == "Windows":
+        import wmi
+        import _winreg
+        
+        result, names = wmi.Registry().EnumKey(
+            hDefKey=_winreg.HKEY_LOCAL_MACHINE,
+            sSubKeyName=r"Software\Microsoft\Windows\CurrentVersion\Uninstall")
+        if softwareName in names:
+            return True
+        return False
+    return True
+
 def postEvent(lock, target, event):
     if lock != None and lock.acquire():
         wx.PostEvent(target, event)
