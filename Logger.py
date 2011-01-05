@@ -5,15 +5,14 @@ import logging
 import os.path
 
 class LoggerFactory:
-    def __init__(self, debugMode):
+    def __init__(self, logAge, debugMode):
         self._debugMode = debugMode
 
         dateString = str(
             datetime.datetime.strftime(datetime.datetime.utcnow(),
                                        '%Y%m%d_%H%M%S'))
         
-        # FIXME: allow user to choose number of days
-        self.cleanDirectory(30) # removes logs older than 30 days
+        self.cleanDirectory(logAge) # removes logs older than logAge days
 
         debugLogFilename = "logs/debug_"+dateString+".log"
         infoLogFilename = "logs/info_"+dateString+".log"
@@ -49,7 +48,9 @@ class LoggerFactory:
 
         self._logger = self.getLogger("NQr.Logger", "debug")
         
-    def cleanDirectory(self, days):
+    def cleanDirectory(self, days): # set days to -1 to save all logs
+        if days == -1:
+            return
         now = datetime.datetime.utcnow()
         limit = now - datetime.timedelta(days=days)
         for log in os.listdir("logs"):

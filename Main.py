@@ -28,7 +28,7 @@ import sys
 import threading
 import traceback
 import Track
-from Util import BasePrefsPage, wx
+from Util import BasePrefsPage, validateNumeric, wx
 
 class Main(wx.App):
     def __init__(self):
@@ -41,7 +41,8 @@ class Main(wx.App):
         
         self.loadSettings()
         
-        self._loggerFactory = Logger.LoggerFactory(self._debugMode)
+        self._loggerFactory = Logger.LoggerFactory(self._logAge,
+                                                   self._debugMode)
         self._logger = self._loggerFactory.getLogger("NQr", "debug")
 
         sys.excepthook = self._exceptHook
@@ -190,10 +191,12 @@ class Main(wx.App):
         self._defaultPlayDelay = 4000
         self._defaultIgnoreNewTracks = False
         self._defaultTrackCheckDelay = 0.5
+        self._defaultLogAge = 30
         
     def getPrefsPage(self, parent, logger, system):
         return PrefsPage(parent, system, self._configParser, logger,
-                         self._defaultDebugMode, self._defaultNoQueue), "Dev"
+                         self._defaultDebugMode, self._defaultNoQueue,
+                         self._defaultLogAge), "Dev"
 
     def loadSettings(self):
         try:
@@ -209,6 +212,10 @@ class Main(wx.App):
         except ConfigParser.NoOptionError:
             self._noQueue = self._defaultNoQueue
         try:
+            self._logAge = self._configParser.getint("Main", "logAge")
+        except ConfigParser.NoOptionError:
+            self._logAge = self._defaultLogAge
+        try:
             self._configParser.add_section("Player")
         except ConfigParser.DuplicateSectionError:
             pass
@@ -223,14 +230,17 @@ class Main(wx.App):
         
 class PrefsPage(BasePrefsPage):
     def __init__(self, parent, system, configParser, logger, defaultDebugMode,
-                 defaultNoQueue):
+                 defaultNoQueue, defaultLogAge):
         BasePrefsPage.__init__(self, parent, system, configParser, logger,
-                               "Main", defaultDebugMode, defaultNoQueue)
+                               "Main", defaultDebugMode, defaultNoQueue,
+                               defaultLogAge)
         
+        self._initCreateLogAgeSizer()
         self._initCreateDebugCheckBox()
         self._initCreateQueueCheckBox()
         
         mainSizer = wx.BoxSizer(wx.VERTICAL)
+        mainSizer.Add(self._logAgeSizer, 0)
         mainSizer.Add(self._debugCheckBox, 0)
         mainSizer.Add(self._queueCheckBox, 0)
         
@@ -254,6 +264,22 @@ class PrefsPage(BasePrefsPage):
 
         self.Bind(wx.EVT_CHECKBOX, self._onQueueChange, self._queueCheckBox)
         
+    def _initCreateLogAgeSizer(self):
+        self._logAgeSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        logAgeLabel = wx.StaticText(self, -1, "Keep old logs for ")
+        self._logAgeSizer.Add(logAgeLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        
+        self._logAgeControl = wx.TextCtrl(
+            self, -1, str(self._settings["logAge"]), size=(40,-1))
+        self._logAgeSizer.Add(self._logAgeControl, 0)
+
+        logAgeUnits = wx.StaticText(self, -1, " days")
+        self._logAgeSizer.Add(logAgeUnits, 0, wx.RIGHT|wx.TOP|wx.BOTTOM, 3)
+
+        self.Bind(wx.EVT_TEXT, self._onLogAgeChange,
+                  self._logAgeControl)
+        
     def _onDebugChange(self, e):
         if self._debugCheckBox.IsChecked():
             self._settings["debugMode"] = True
@@ -265,10 +291,17 @@ class PrefsPage(BasePrefsPage):
             self._settings["noQueue"] = True
         else:
             self._settings["noQueue"] = False
+            
+    def _onLogAgeChange(self, e):
+        if validateNumeric(self._logAgeControl):
+            logAge = self._logAgeControl.GetLineText(0)
+            if logAge != "":
+                self._settings["logAge"] = int(logAge)
 
-    def _setDefaults(self, defaultDebugMode, defaultNoQueue):
+    def _setDefaults(self, defaultDebugMode, defaultNoQueue, defaultLogAge):
         self._defaultDebugMode = defaultDebugMode
         self._defaultNoQueue = defaultNoQueue
+        self._defaultLogAge = defaultLogAge
 
     def _loadSettings(self):
         try:
@@ -281,6 +314,11 @@ class PrefsPage(BasePrefsPage):
             self._settings["noQueue"] = noQueue
         except ConfigParser.NoOptionError:
             self._settings["noQueue"] = self._defaultNoQueue
+        try:
+            logAge = self._configParser.getint("Main", "logAge")
+            self._settings["logAge"] = logAge
+        except ConfigParser.NoOptionError:
+            self._settings["logAge"] = self._defaultLogAge
         
 if __name__ == '__main__':
     NQr = Main()
