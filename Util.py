@@ -1,7 +1,8 @@
 ## Utility function and classes
 
 import ConfigParser
-from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError
+from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError,\
+    NoEventHandlerError
 import Events
 import os.path
 import Queue
@@ -141,23 +142,41 @@ def doUpdate():
     pass
 
 def postEvent(lock, target, event):
-    if lock != None and lock.acquire():
-        wx.PostEvent(target, event)
-        lock.release()
-    elif lock == None:
-        wx.PostEvent(target, event)
+    try:
+        if lock != None and lock.acquire():
+            wx.PostEvent(target, event)
+            lock.release()
+        elif lock == None:
+            wx.PostEvent(target, event)
+    except TypeError as err:
+        if str(err) != "in method 'PostEvent', expected argument 1 of type "\
+                +"'wxEvtHandler *'":
+            raise err
+        raise NoEventHandlerError
         
 def postDebugLog(lock, target, logger, message):
-    postEvent(lock, target, Events.LogEvent(logger, "debug", message))
+    try:
+        postEvent(lock, target, Events.LogEvent(logger, "debug", message))
+    except NoEventHandlerError:
+        logger.debug("(post error)"+message)
     
 def postInfoLog(lock, target, logger, message):
-    postEvent(lock, target, Events.LogEvent(logger, "info", message))
+    try:
+        postEvent(lock, target, Events.LogEvent(logger, "info", message))
+    except NoEventHandlerError:
+        logger.info("(post error)"+message)
     
 def postErrorLog(lock, target, logger, message):
-    postEvent(lock, target, Events.LogEvent(logger, "error", message))
+    try:
+        postEvent(lock, target, Events.LogEvent(logger, "error", message))
+    except NoEventHandlerError:
+        logger.error("(post error)"+message)
 
 def postWarningLog(lock, target, logger, message):
-    postEvent(lock, target, Events.LogEvent(logger, "warning", message))
+    try:
+        postEvent(lock, target, Events.LogEvent(logger, "warning", message))
+    except NoEventHandlerError:
+        logger.warning("(post error)"+message)
 
 class EventPoster:
     def __init__(self, window, logger, lock):
@@ -304,7 +323,7 @@ class BaseThread(threading.Thread, EventPoster):
                 elif self._raisedEmpty == False:
                     self._emptyCount += 1
                     self._queueEmptyQueueCallback()
-        self.postDebugLog("\'"+self._name+"\' thread stopped.")
+        self.postInfoLog("\'"+self._name+"\' thread stopped.")
         
     def _raise(self, err, errcompletion=None):
         try:

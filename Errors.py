@@ -43,3 +43,6 @@ class DuplicateTagError(Error):
 
 class PlayerNotRunningError(Error):
     pass
+
+class NoEventHandlerError(Error):
+    pass
