@@ -181,20 +181,23 @@ class EventPoster:
         postWarningLog(self._lock, self._window, self._logger, message)
         
 class RedirectText:
+    def __init__(self, out, sysout):
+        self._out = sysout
+        self._out2 = out
+        
     def write(self, string):
         self._out.write(string)
-        self._out2.SetInsertionPointEnd()
-        self._out2.WriteText(string)
+        start, end = self._out2.GetSelection()
+        self._out2.AppendText(string)
+        self._out2.SetSelection(start, end)
     
 class RedirectErr(RedirectText):
     def __init__(self, textCtrl, stderr):
-        self._out = stderr
-        self._out2 = textCtrl
+        RedirectText.__init__(self, textCtrl, stderr)
         
 class RedirectOut(RedirectText):
     def __init__(self, textCtrl, stdout):
-        self._out = stdout
-        self._out2 = textCtrl
+        RedirectText.__init__(self, textCtrl, stdout)
         
 class MultiCompletion:
     def __init__(self, number, completion):
