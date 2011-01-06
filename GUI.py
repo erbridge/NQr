@@ -623,6 +623,8 @@ class MainWindow(wx.Frame, EventPoster):
                   self._trackList)
         self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self._onTrackRightClick,
                   self._trackList)
+        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._onTrackActivate,
+                  self._trackList)
         
     def _compareTracksCompletion(self, firstTrack, firstTrackID, secondTrackID):
         if firstTrackID != secondTrackID:
@@ -697,6 +699,9 @@ class MainWindow(wx.Frame, EventPoster):
         point = e.GetPoint()
 
         self.PopupMenu(self._trackRightClickMenu, point)
+        
+    def _onTrackActivate(self, e):
+        self._onRequeueAndPlay()
         
     def _onAboutCompletion(self, number, numberUnplayed, totals, oldest):
         self._logger.debug("Opening about dialog.")
@@ -1096,7 +1101,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._player.insertTrack(path, position)
         self._player.playAtPosition(position)
         
-    def _onRequeueAndPlay(self, e):
+    def _onRequeueAndPlay(self, e=None):
         self.resetInactivityTimer()
         try:
             self._logger.info("Requeueing track and playing it.")
