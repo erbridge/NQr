@@ -14,7 +14,7 @@ from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage,\
 ## by default, -10s are not played
 class Randomizer:
     def __init__(self, db, trackFactory, loggerFactory, configParser,
-                 defaultScoreThreshold=-9,
+                 defaultDefaultScore, defaultScoreThreshold=-9,
                  defaultWeight="(score ** 2) * (time ** 2)"):
         self._safeOperations = ["", "(", ")", "score", "time", "**", "*", "/",
                                 "+", "-"]
@@ -24,6 +24,7 @@ class Randomizer:
         self._configParser = configParser
         self._defaultScoreThreshold = defaultScoreThreshold
         self._defaultWeight = defaultWeight
+        self._defaultDefaultScore = defaultDefaultScore
         self.loadSettings()
         
     def getPrefsPage(self, parent, logger, system):
@@ -54,6 +55,15 @@ class Randomizer:
                                                              "scoreThreshold")
         except ConfigParser.NoOptionError:
             self._scoreThreshold = self._defaultScoreThreshold
+        try:
+            self._configParser.add_section("Database")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        try:
+            self._defaultScore = self._configParser.getint("Database",
+                                                           "defaultScore")
+        except ConfigParser.NoOptionError:
+            self._defaultScore = self._defaultDefaultScore
             
     def _isSafeAlgorithmPart(self, part):
         if part not in self._safeOperations:
@@ -112,70 +122,72 @@ class Randomizer:
                                   completion):
         trackIDs = []
         for n in range(number):
-##            poss should be here so tracks enqueued have times reset each time.
-##            would be much slower though.
-##            (trackWeightList, totalWeight) = self.createLists()
-            selector = random.random() * totalWeight
-            for [trackID, weight] in trackWeightList:
-                selector -= weight
-                if selector < 0:
-                    norm = float(weight) * len(trackWeightList) / totalWeight
-                    self._logger.debug("Selected "+str(trackID)+" with weight: "\
-                                      +str(weight)+" of a total: "\
-                                      +str(totalWeight)+" (norm "+str(norm)\
-                                      +").")
-                    trackIDs.append([trackID, norm])
-                    break
+            trackID, weight = self._selectTrackID(trackWeightList, totalWeight,
+                                                  trackIDs)
+            norm = float(weight) * len(trackWeightList) / totalWeight
+            self._logger.debug("Selected "+str(trackID)+" with weight: "\
+                               +str(weight)+" of a total: "\
+                               +str(totalWeight)+" (norm "+str(norm)\
+                               +").")
+            trackIDs.append([trackID, norm])
         completion(trackIDs)
         
+    def _selectTrackID(self, trackWeightList, totalWeight, trackIDs):
+        selector = random.random() * totalWeight
+        for [trackID, weight] in trackWeightList:
+            selector -= weight
+            if selector < 0:
+                if trackID in trackIDs:
+                    return self._selectTrackID(trackWeightList, totalWeight,
+                                               trackIDs)
+                return trackID, weight
+        
+        
     def _createLists(self, exclude, completion, tags=None):
-        multicompletion = MultiCompletion(3,
-            lambda rawTrackIDList, oldest, timeAndScoreDict, exclude=exclude,\
-                completion=completion: self._createListsCompletion(
-                    exclude, oldest, rawTrackIDList, timeAndScoreDict,
-                    completion))
-        trackListCompletion = lambda rawTrackIDList,\
-            multicompletion=multicompletion: multicompletion.put(0,
-                                                                 rawTrackIDList)
+        multicompletion = MultiCompletion(
+            2,
+            lambda oldest, list, exclude=exclude, completion=completion:\
+                self._createListsCompletion(exclude, oldest, list, completion))
         self._db.getOldestLastPlayed(
             lambda oldest, multicompletion=multicompletion:\
-                multicompletion.put(1, oldest))
-        self._db.getAllSecondsSinceLastPlayedAndScoreDictNoDebug(
-            lambda dict, multicompletion=multicompletion:\
-                multicompletion.put(2, dict))
-        
+                multicompletion.put(0, oldest))
         if tags == None:
-            self._db.getAllTrackIDs(trackListCompletion)
+            self._db.getRandomizerList(
+                lambda list, multicompletion=multicompletion:\
+                    multicompletion.put(1, list))
         else:
-            self._db.getAllTrackIDsWithTags(trackListCompletion, tags)
+            # FIXME: support tags
+#            self._db.getRandomizerListFromTags(
+#                tags,
+#                lambda list, multicompletion=multicompletion:\
+#                    multicompletion.put(1, list))
+            pass
 
     # FIXME: EmptyDatabaseError needs to be caught
-    def _createListsCompletion(self, exclude, oldest, rawTrackIDList,
-                               timeAndScoreDict, completion):
+    def _createListsCompletion(self, exclude, oldest, list, completion):
         self._logger.debug("Creating weighted list of tracks.")
-        if rawTrackIDList == []:
+        if list == []:
             self._logger.error("No tracks in database.")
             raise EmptyDatabaseError
         self._logger.debug("Oldest track was played "+str(oldest)\
-                          +" seconds ago ("+roughAge(oldest)+" ago).")
+                           +" seconds ago ("+roughAge(oldest)+" ago).")
         trackWeightList = []
         totalWeight = 0
-        for (trackID, ) in rawTrackIDList:
+        for (trackID, time, score, unscored) in list:
             # |exclude| is probably the list of currently enqueued but
             # unplayed tracks.
             if trackID in exclude:
                 continue
-            time = timeAndScoreDict[trackID][0]
-            score = timeAndScoreDict[trackID][1]
             if time == None:
                 time = oldest
+            if unscored == 1:
+                score = self._defaultScore
             if score < self._scoreThreshold:
                 score = 0
             else:
                 score += 11 # creates a positive score
             weight = self.getWeight(score, time)
             trackWeightList.append([trackID, weight])
-            exclude.append(trackID)
             totalWeight += weight
         completion(trackWeightList, totalWeight)
         

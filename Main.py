@@ -135,7 +135,8 @@ class Main(wx.App):
         self._logger.debug("Initializing randomizer.")
         randomizer = Randomizer.Randomizer(db, trackFactory,
                                            self._loggerFactory,
-                                           self._configParser)
+                                           self._configParser,
+                                           self._defaultDefaultScore)
 
         modules = [player, trackFactory, db, randomizer, self]
         prefsFactory = Prefs.PrefsFactory(self._prefsFile, self._loggerFactory,

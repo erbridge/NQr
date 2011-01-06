@@ -778,15 +778,6 @@ class Database(DatabaseEventHandler):
     def getAllTrackIDs(self, completion):
         self._logger.debug("Retrieving all track IDs.")
         self._executeAndFetchAll("select trackid from tracks", (), completion)
-    
-    ## FIXME: not working yet, poss works for one tag
-##    def getAllTrackIDsWithTags(self, completion, tags):
-##        self._logger.debug("Retrieving all track IDs with tags: "+str(tags)+".")
-##        self._executeAndFetchAll(
-##            """select trackid from tracks left outer join
-##               (select trackid from tags left outer join tagnames using (tagid)
-##                on tagnames.tagid = tags.tagid, tagnames.name in ?) on
-##                tags.trackid = tracks.trackid""", tags, completion)
         
     def _getTrackIDCompletion(self, track, trackID, completion, priority=None):
         path = track.getPath()
@@ -1165,25 +1156,11 @@ class Database(DatabaseEventHandler):
                 debugMessage)
         self._getLastPlayed(mycompletion, trackID=trackID, debug=debug)
 
-    def getAllSecondsSinceLastPlayedAndScoreDictNoDebug(self, completion):
+    def getRandomizerList(self, completion):
         self._executeAndFetchAll("""select trackid, strftime('%s', 'now') - 
                                     strftime('%s', lastplayed), score, unscored
                                     from tracks""", (),
-                                 lambda rawList, completion=completion:\
-                self._getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(
-                    rawList, completion))
-        
-    def _getAllSecondsSinceLastPlayedAndScoreDictNoDebugCompletion(self,
-                                                                   rawList,
-                                                                   completion):
-        dict = {}
-        for row in rawList:
-            if row[3] == 1:
-                score = self._defaultScore
-            else:
-                score = row[2]
-            dict[row[0]] = (row[1], score)
-        completion(dict)
+                                 completion)
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     #        played again, this will get stuck. We need to keep track of

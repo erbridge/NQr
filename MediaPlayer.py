@@ -79,7 +79,7 @@ class MediaPlayer(EventPoster):
         try:
             self.getTrackPathAtPos(self.getCurrentTrackPos()+1)
             return True
-        except NoTrackError and TypeError:
+        except NoTrackError, TypeError:
             return False
 
 ## FIXME: gets confused if the playlist is empty (in winamp): sets currently
