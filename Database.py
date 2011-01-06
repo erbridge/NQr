@@ -539,12 +539,17 @@ class Database(DatabaseEventHandler):
         self._cursor.close()
         conn.close()
         
+        Events.EVT_LOG(self, self._onLogEvent)
+        
         self._dbThread.start()
         
         self._directoryWalkThread = DirectoryWalkThread(
             self, threadLock, databasePath, self._logger, self._trackFactory,
             self._dbThread)
         self._directoryWalkThread.start()
+        
+    def _onLogEvent(self, e):
+        e.doLog()
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
