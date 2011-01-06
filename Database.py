@@ -517,6 +517,7 @@ class Database(DatabaseEventHandler):
         self._trackFactory = trackFactory
         self._configParser = configParser
         self._defaultDefaultScore = defaultDefaultScore
+        self._ignoreNewTracks = False
         self._addingTracks = {}
         self.loadSettings()
         self._debugMode = debugMode
@@ -717,6 +718,9 @@ class Database(DatabaseEventHandler):
         self._cursor.execute(
             """create unique index if not exists tg0 on tags(tagnameid,
                                                              trackid)""")
+
+    def setIgnoreNewTracks(self, status):
+        self._ignoreNewTracks = status
 
     def addTrack(self, path=None, track=None, completion=None, priority=None):
         if path == None:

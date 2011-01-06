@@ -14,15 +14,13 @@
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
-## TODO: gives scores a drop down menu in the track list.
-## TODO: add "select current track" keyboard shortcut and menu item
+## TODO: give scores a drop down menu in the track list.
 ##
 ## FIXME: track refreshes should only refresh things that will change - poss no
 ##        longer necessary?
 ## FIXME: reduce processing - e.g. check tracks less often (if doing this
 ##        change delay in _onNext() etc.)
-## FIXME: old track score should update if track is in track list twice
-## FIXME: prevent clicking changing insert point in log window
+## FIXME: old track details should update if track is in track list twice
 
 #from collections import deque
 import ConfigParser
@@ -1336,8 +1334,6 @@ class MainWindow(wx.Frame, EventPoster):
         self._trackMonitor.setEnqueueing(True)
         self._logger.debug("Enqueueing "+str(number)+" random track"\
                            +plural(number)+'.')
-        # FIXME: poss use a changing value for number to speed up queueing if it
-        #        takes a long time - unnecessary?
         self._trackMonitorQueue(
             lambda trace: self._player.getUnplayedTrackIDs(
                 self._db,
@@ -1348,7 +1344,6 @@ class MainWindow(wx.Frame, EventPoster):
                             tracks), tags))))
 
     def _enqueueRandomTracksCompletion(self, tracks):
-## FIXME: untested!! poss most of the legwork should be done in db.getLinkIDs
         self._logger.debug("Checking tracks for links.")
         # Perhaps set at the end?
         self._enqueueing = False
@@ -1356,6 +1351,8 @@ class MainWindow(wx.Frame, EventPoster):
         for track in tracks:
             self.enqueueTrack(track)
             # FIXME: needs links to be made async - started in Database
+            # FIXME: untested!! poss most of the legwork should be done in
+            #        db.getLinkIDs
 #            linkIDs = self._db.getLinkIDs(track)
 #            if linkIDs == None:
 #                self.enqueueTrack(track)
@@ -1596,6 +1593,7 @@ class MainWindow(wx.Frame, EventPoster):
         try:
             self._ignoreNewTracks = self._configParser.getboolean(
                 "GUI", "ignoreNewTracks")
+            self._db.setIgnoreNewTracks(self._ignoreNewTracks)
         except ConfigParser.NoOptionError:
             self._ignoreNewTracks = self._defaultIgnore
         try:
