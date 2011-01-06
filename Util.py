@@ -13,6 +13,8 @@ wxversion.select([x for x in wxversion.getInstalled()
                   if x.find('unicode') != -1])
 import wx
 
+versionNumber = "0.1"
+
 def plural(count):
     if count == 1:
         return ''
@@ -130,6 +132,13 @@ def getIsInstalled(system, softwareName):
             return True
         return False
     return True
+
+# FIXME: implement updating
+def getUpdate():
+    return None
+
+def doUpdate():
+    pass
 
 def postEvent(lock, target, event):
     if lock != None and lock.acquire():

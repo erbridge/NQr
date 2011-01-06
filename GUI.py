@@ -36,7 +36,7 @@ import threading
 import time
 from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
     BasePrefsPage, validateDirectory, validateNumeric, roughAge, EventPoster,\
-    BaseThread, extractTraceStack, wx
+    BaseThread, extractTraceStack, versionNumber, getUpdate, doUpdate, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
@@ -312,6 +312,8 @@ class MainWindow(wx.Frame, EventPoster):
         wx.CallAfter(self._onStart)
             
     def _onStart(self):
+        if getUpdate() != None:
+            doUpdate()
         self._trackMonitor.start()
         self._socketMonitor.start()
         self.resetInactivityTimer(2000*self._trackCheckDelay)
@@ -707,6 +709,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._logger.debug("Opening about dialog.")
         text = "\t  For all your NQing needs!\n"
         text += "\thttp://nqr.googlecode.com/\n\n"
+        text += "\t              Version - "+versionNumber+"\n\n\n"
         text += str(number)+" tracks in library:\n\n"
         
         scoreTableTitle = "\t     score\t|       number\n\t\t|\n"
