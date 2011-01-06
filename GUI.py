@@ -210,7 +210,8 @@ class MainWindow(wx.Frame, EventPoster):
                  title, threadLock, defaultRestorePlaylist,
                  defaultEnqueueOnStartup, defaultRescanOnStartup,
                  defaultPlaylistLength, defaultPlayDelay, defaultIgnore,
-                 defaultTrackCheckDelay, defaultInactivityTime=30000,
+                 defaultTrackCheckDelay, defaultDumpPath,
+                 defaultInactivityTime=30000,
                  wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|"\
                     +"*.*", defaultDefaultDirectory="",
                  defaultHaveLogPanel=True):
@@ -233,6 +234,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._defaultTrackPosition = int(round(self._defaultPlaylistLength/2))
         self._defaultPlayDelay = defaultPlayDelay
         self._defaultTrackCheckDelay = defaultTrackCheckDelay
+        self._dumpPath = defaultDumpPath
         self._defaultInactivityTime = defaultInactivityTime
         self._wildcards = wildcards
         self._defaultDefaultDirectory = defaultDefaultDirectory
@@ -473,6 +475,9 @@ class MainWindow(wx.Frame, EventPoster):
                           " Use NQr to enqueue tracks", self._onToggleNQr,
                           id=self._ID_TOGGLENQR, hotkey=("ctrl", "E"),
                           checkItem=True)
+        self._optionsMenu.AppendSeparator()
+        self._addMenuItem(self._optionsMenu, "&Dump Queues",
+                          " Dump thread queues to file", self._onDump)
 
     def _initCreateRightClickRateMenu(self):
         self._logger.debug("Creating rate menu.")
@@ -1148,6 +1153,10 @@ class MainWindow(wx.Frame, EventPoster):
             self._logger.info("Enqueueing turned on.")
             if startup == False:
                 self.maintainPlaylist()
+                
+    def _onDump(self, e):
+        self._trackMonitor.dumpQueue(self._dumpPath+"TrackMonitorQueue.dump")
+        self._db.dumpQueues(self._dumpPath)
                 
     def _onTrackChangeCompletion(self, track, previousPlay):
         track.setPreviousPlay(previousPlay)

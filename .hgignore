@@ -8,3 +8,5 @@ glob:tmp.py
 
 syntax: regexp
 \.tmp$
+syntax: regexp
+^dumps$

@@ -1,6 +1,7 @@
 ## Utility function and classes
 
 import ConfigParser
+import datetime
 from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError,\
     NoEventHandlerError
 import Events
@@ -344,6 +345,17 @@ class BaseThread(threading.Thread, EventPoster):
         else:
             priority = 1000
         self.queue(self._abortCallback, extractTraceStack(trace), priority)
+        
+    def dumpQueue(self, filename):
+        dump = self._queue.queue
+        file = open(filename, "w")
+        for item in dump:
+            string = datetime.datetime.strftime("%Y-%m-%d %H:%M:%S")\
+                +"Priority - "+str(item[0])+";   Event Number - "\
+                +str(item[1])+";   Object - "+str(item[2])+";   Trace - "\
+                +str(item[3])
+            file.write(string)
+        file.close()
 
     def _run(self): # override me
         pass

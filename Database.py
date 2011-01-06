@@ -1639,7 +1639,11 @@ class Database(DatabaseEventHandler):
     def abort(self, interruptWalk=False):
         self._directoryWalkThread.setAbortInterrupt(interruptWalk)
         self._directoryWalkThread.abort()
-        
+    
+    def dumpQueues(self, path):
+        self._directoryWalkThread.dumpQueue(path+"DirectoryWalkerQueue.dump")
+        self._dbThread.dumpQueue(path+"DatabaseQueue.dump") 
+    
     def getDirectoryWalking(self):
         return self._directoryWalkThread.getWorking()
 

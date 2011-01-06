@@ -156,7 +156,8 @@ class Main(wx.App):
                              self._defaultPlaylistLength,
                              self._defaultPlayDelay,
                              self._defaultIgnoreNewTracks,
-                             self._defaultTrackCheckDelay)
+                             self._defaultTrackCheckDelay,
+                             self._defaultDumpPath)
         gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
@@ -172,6 +173,7 @@ class Main(wx.App):
     def _setDefaults(self):
         self._prefsFile = "settings"
         self._databaseFile = "database"
+        self._defaultDumpPath = "dumps/"
         self._title = "NQr"
         self._defaultNoQueue = False
         self._defaultDebugMode = False
