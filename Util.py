@@ -6,6 +6,7 @@ import datetime
 from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError,\
     NoEventHandlerError
 import Events
+import logging
 import os.path
 import Queue
 import threading
@@ -157,10 +158,12 @@ def postEvent(lock, target, event):
         raise NoEventHandlerError
         
 def postDebugLog(lock, target, logger, message):
-    try:
-        postEvent(lock, target, Events.LogEvent(logger, "debug", message))
-    except NoEventHandlerError:
-        logger.debug("(post error)"+message)
+    # TODO: concurrency issue?
+    if logger.isEnabledFor(logging.DEBUG):
+        try:
+            postEvent(lock, target, Events.LogEvent(logger, "debug", message))
+        except NoEventHandlerError:
+            logger.debug("(post error)"+message)
     
 def postInfoLog(lock, target, logger, message):
     try:
