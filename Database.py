@@ -1048,13 +1048,15 @@ class Database(DatabaseEventHandler):
             self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
                                +secondTrackPath+"\'.")
 
-    def addPlay(self, track, msDelay=0, completion=None):
+    def addPlay(self, track, msDelay=0, completion=None, priority=None):
         mycompletion = lambda trackID, track=track, msDelay=msDelay,\
             completion=completion: self._addPlayCompletion(track, trackID,
-                                                           msDelay, completion)
-        track.getID(mycompletion)
+                                                           msDelay, completion,
+                                                           priority)
+        track.getID(mycompletion, priority=priority)
 
-    def _addPlayCompletion(self, track, trackID, msDelay=0, completion=None):
+    def _addPlayCompletion(self, track, trackID, msDelay=0, completion=None,
+                           priority=None):
         self._logger.debug("Adding play.")
         now = datetime.datetime.now()
         delay = datetime.timedelta(0, 0, 0, msDelay)
@@ -1071,7 +1073,7 @@ class Database(DatabaseEventHandler):
                            """update tracks set lastplayed = datetime(?) where
                               trackid = ?"""], [(trackID, playTime),
                                                 (playTime, trackID)],
-                            mycompletion)
+                            mycompletion, priority=priority)
              
     def getLastPlayedTrackID(self, completion, errcompletion, priority=None):
         mycompletion = lambda trackID, completion=completion,\

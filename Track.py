@@ -171,36 +171,34 @@ class Track:
         self._db.unsetTag(self, tag)
         self._tags.remove(tag)
         
+    def _addPlayCompletion(self, completion):
+        if self._playCount == None:
+            self.getPlayCount(completion)
+        else:
+            self._playCount += 1
+            completion(self._playCount)
+
+    def addPlay(self, delay=0, completion=None, priority=None):
+        self._db.addPlay(self, delay,
+                         lambda completion=completion: self._addPlayCompletion(
+                                completion), priority=priority)
+        
     def _getPlayCountCompletion(self, playCount, completion):
         self._playCount = playCount
         if completion != None:
-            completion()
-        
-    def _addPlayCompletion(self, completion):
-        if self._playCount == None:
-            self.getPlayCount(
-                lambda playCount, completion=completion:\
-                    self._getPlayCountCompletion(playCount, completion))
-        else:
-            self._playCount += 1
-            completion()
-
-    def addPlay(self, delay=0, completion=None):
-        self._db.addPlay(self, delay,
-                         lambda completion=completion: self._addPlayCompletion(
-                                completion))
-        
-    def _getPlayCount(self, playCount, completion):
-        self._playCount = playCount
-        completion(playCount)
+            completion(playCount)
 
     def getPlayCount(self, completion, priority=None):
         if self._playCount == None:
-            self._db.getPlayCount(lambda playCount, completion=completion:\
-                                    self._getPlayCount(playCount, completion),
-                                  track=self, priority=priority)
+            self._db.getPlayCount(
+                lambda playCount, completion=completion:\
+                    self._getPlayCountCompletion(playCount, completion),
+                track=self, priority=priority)
             return
         completion(self._playCount)
+        
+    def getLastPlay(self, completion, priority=None):
+        self._db.getLastPlayedLocalTime(self, completion, priority=priority)
 
     def setPreviousPlay(self, previous):
         self._previous = previous

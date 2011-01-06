@@ -611,7 +611,7 @@ class MainWindow(wx.Frame, EventPoster):
 ##            try:
 ##                if currentTrackID != self._db.getLastPlayedTrackID():
 ##                    self._logger.debug("Adding play for current track.")
-##                    currentTrack.addPlay()
+##                    currentTrack.addPlay(priority=1)
 ##            except EmptyDatabaseError:
 ##                pass
 #            self._db.getLastPlayedInSeconds(
@@ -634,7 +634,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _compareTracksCompletion(self, firstTrack, firstTrackID, secondTrackID):
         if firstTrackID != secondTrackID:
             self._logger.debug("Adding play for current track.")
-            firstTrack.addPlay()
+            firstTrack.addPlay(priority=1)
 
     def _initCreateScoreSlider(self):
         self._logger.debug("Creating score slider.")
@@ -1163,7 +1163,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._playTimer.Stop()
         if self._playTimer.Start(self._playDelay, oneShot=True) == False:
             # ensures play is added for track
-            track.addPlay()
+            track.addPlay(priority=1)
         self.addTrack(track)
         self.maintainPlaylist()
 
@@ -1197,9 +1197,10 @@ class MainWindow(wx.Frame, EventPoster):
 
     def _onPlayTimerDing(self, e):
         track = self._playingTrack
-        track.addPlay(self._playDelay,
-                      lambda track=track: self._onPlayTimerDingCompletion(
-                            track))
+        track.addPlay(
+            self._playDelay,
+            lambda playCount, track=track: self._onPlayTimerDingCompletion(
+                track), priority=1)
 
     def _onInactivityTimerDing(self, e):
         if self._index != 0:
@@ -1301,23 +1302,28 @@ class MainWindow(wx.Frame, EventPoster):
             
     def addTrackAtPos(self, track, index, select=False):
         multicompletion = MultiCompletion(
-            5, lambda isScored, lastPlayed, score, scoreValue, trackID,\
+            5,
+            lambda isScored, lastPlayed, score, scoreValue, trackID,\
                 index=index, track=track, select=select:\
                     self._addTrackAtPosCompletion(index, track, isScored,
                                                   lastPlayed, score, scoreValue,
                                                   trackID, select=select))
         
-        track.getIsScored(lambda isScored, multicompletion=multicompletion:\
-                            multicompletion.put(0, isScored), priority=1)
-        self._db.getLastPlayedLocalTime(
-            track, lambda lastPlayed, multicompletion=multicompletion:\
+        track.getIsScored(
+            lambda isScored, multicompletion=multicompletion:\
+                multicompletion.put(0, isScored), priority=1)
+        track.getLastPlay(
+            lambda lastPlayed, multicompletion=multicompletion:\
                 multicompletion.put(1, lastPlayed), priority=1)
-        track.getScore(lambda score, multicompletion=multicompletion:\
-                            multicompletion.put(2, score), priority=1)
-        track.getScoreValue(lambda scoreValue, multicompletion=multicompletion:
-                                multicompletion.put(3, scoreValue), priority=1)
-        track.getID(lambda trackID, multicompletion=multicompletion:\
-                        multicompletion.put(4, trackID), priority=1)
+        track.getScore(
+            lambda score, multicompletion=multicompletion:\
+                multicompletion.put(2, score), priority=1)
+        track.getScoreValue(
+            lambda scoreValue, multicompletion=multicompletion:
+                multicompletion.put(3, scoreValue), priority=1)
+        track.getID(
+            lambda trackID, multicompletion=multicompletion:\
+                multicompletion.put(4, trackID), priority=1)
         
 
     def enqueueTrack(self, track):
@@ -1471,8 +1477,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._trackList.RefreshItem(index)
 
     def refreshLastPlayed(self, index, track):
-        self._db.getLastPlayedLocalTime(
-            track,
+        track.getLastPlay(
             lambda lastPlayed, index=index: self._refreshLastPlayedCompletion(
                 index, lastPlayed), priority=1)
 
@@ -1527,19 +1532,23 @@ class MainWindow(wx.Frame, EventPoster):
     def populateDetails(self, track):
         self._logger.debug("Collecting details for details panel.")
         multicompletion = MultiCompletion(
-            4, lambda score, playCount, lastPlayed, tags, track=track:\
+            4,
+            lambda score, playCount, lastPlayed, tags, track=track:\
                 self._populateDetailsCompletion(track, score, playCount,
                                                 lastPlayed, tags))
         
-        track.getScore(lambda score, multicompletion=multicompletion:\
-                            multicompletion.put(0, score), priority=1)
-        track.getPlayCount(lambda playCount, multicompletion=multicompletion:\
-                                multicompletion.put(1, playCount), priority=1)
-        self._db.getLastPlayedLocalTime(
-            track, lambda lastPlayed, multicompletion=multicompletion:\
+        track.getScore(
+            lambda score, multicompletion=multicompletion:\
+                multicompletion.put(0, score), priority=1)
+        track.getPlayCount(
+            lambda playCount, multicompletion=multicompletion:\
+                multicompletion.put(1, playCount), priority=1)
+        track.getLastPlay(
+            lambda lastPlayed, multicompletion=multicompletion:\
                 multicompletion.put(2, lastPlayed), priority=1)
-        track.getTags(lambda tags, multicompletion=multicompletion:\
-                        multicompletion.put(3, tags), priority=1)
+        track.getTags(
+            lambda tags, multicompletion=multicompletion:\
+                multicompletion.put(3, tags), priority=1)
 
     def addToDetails(self, detail):
         self._details.AppendText(detail)
