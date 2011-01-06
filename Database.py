@@ -243,7 +243,7 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def getWorking(self):
         return self._working
         
-    def _getTrackIDCompletion(self, track, trackID, completion):
+    def _getTrackIDCompletion(self, track, trackID, completion, priority=None):
         path = track.getPath()
         self.postDebugLog("Retrieving track ID for \'"+path+"\'.")
         if trackID == None:

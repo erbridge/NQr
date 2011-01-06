@@ -1,6 +1,7 @@
 ## Utility function and classes
 
 import ConfigParser
+import copy
 import datetime
 from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError,\
     NoEventHandlerError
@@ -347,13 +348,13 @@ class BaseThread(threading.Thread, EventPoster):
         self.queue(self._abortCallback, extractTraceStack(trace), priority)
         
     def dumpQueue(self, filename):
-        dump = self._queue.queue
+        dump = copy.copy(self._queue.queue)
         file = open(filename, "w")
         for item in dump:
-            string = datetime.datetime.strftime("%Y-%m-%d %H:%M:%S")\
-                +"Priority - "+str(item[0])+";   Event Number - "\
+            string = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")\
+                +"   Priority - "+str(item[0])+";   Event Number - "\
                 +str(item[1])+";   Object - "+str(item[2])+";   Trace - "\
-                +str(item[3])
+                +str(item[3])+"\n"
             file.write(string)
         file.close()
 
