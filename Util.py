@@ -11,11 +11,12 @@ import Queue
 import threading
 import traceback
 
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
-import wx
+#import wxversion
+#wxversion.select([x for x in wxversion.getInstalled()
+#                  if x.find('unicode') != -1])
+#import wx
 
+wx = Events.wx
 versionNumber = "0.1"
 
 def plural(count):
@@ -220,30 +221,43 @@ class RedirectOut(RedirectText):
     def __init__(self, textCtrl, stdout):
         RedirectText.__init__(self, textCtrl, stdout)
         
-class MultiCompletion:
-    def __init__(self, number, completion):
+class BaseCallback:
+    def __init__(self, completion, child=None):
         self._completion = completion
+        self._child = child
+        
+    def getTrace(self):
+        if self._child:
+            trace = self._child.getTrace()
+        else:
+            trace = None
+        return extractTraceStack(trace)
+        
+class Callback(BaseCallback):
+    def __call__(self, *args, **kwargs):
+        self._completion(*args, **kwargs)
+        
+class MultiCompletion(BaseCallback):
+    def __init__(self, number, completion, child=None):
+        BaseCallback.__init__(self, completion, child)
         self._slots = [None] * number
         self._puts = [False] * number
     
-    def put(self, slot, value):
+    def __call__(self, slot, value):
         if self._puts[slot] == True:
             raise MultiCompletionPutError
         self._slots[slot] = value
         self._puts[slot] = True
         if False not in self._puts:
-            self._complete()
+            self._completion(*self._slots)        
         
-    def _complete(self):
-        self._completion(*self._slots)
-        
-class ErrorCompletion:
-    def __init__(self, exceptions, completion):
+class ErrorCompletion(BaseCallback):
+    def __init__(self, exceptions, completion, child=None):
+        BaseCallback.__init__(self, completion, child)
         if isinstance(exceptions, list):
             self._exceptions = exceptions
         else:
             self._exceptions = [exceptions]
-        self._completion = completion
     
     def __call__(self, err, *args, **kwargs):
         for exception in self._exceptions:

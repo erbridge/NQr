@@ -149,18 +149,18 @@ class Randomizer:
             lambda oldest, list, exclude=exclude, completion=completion:\
                 self._createListsCompletion(exclude, oldest, list, completion))
         self._db.getOldestLastPlayed(
-            lambda oldest, multicompletion=multicompletion:\
-                multicompletion.put(0, oldest))
+            lambda oldest, multicompletion=multicompletion: multicompletion(
+                0, oldest))
         if tags == None:
             self._db.getRandomizerList(
-                lambda list, multicompletion=multicompletion:\
-                    multicompletion.put(1, list))
+                lambda list, multicompletion=multicompletion: multicompletion(
+                    1, list))
         else:
             # FIXME: support tags
 #            self._db.getRandomizerListFromTags(
 #                tags,
-#                lambda list, multicompletion=multicompletion:\
-#                    multicompletion.put(1, list))
+#                lambda list, multicompletion=multicompletion: multicompletion(
+#                    1, list))
             pass
 
     # FIXME: EmptyDatabaseError needs to be caught

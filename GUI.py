@@ -45,7 +45,6 @@ class TrackMonitor(BaseThread):
         BaseThread.__init__(
             self, parent, "Track Monitor",
             loggerFactory.getLogger("NQr.TrackMonitor", "debug"), None, lock)
-#        self.setDaemon(True)
         self._db = db
         self._player = player
         self._trackFactory = trackFactory
@@ -122,7 +121,6 @@ class SocketMonitor(BaseThread):
         self._logger = loggerFactory.getLogger("NQr.SocketMonitor", "debug")
         BaseThread.__init__(self, window, "Socket Monitor", self._logger, None,
                             lock)
-#        self.setDaemon(True)
         self._window = window
         self._lock = lock
         self._socket = socket
@@ -156,7 +154,6 @@ class ConnectionMonitor(BaseThread):
         self._address = address[0]+":"+str(address[1])
         BaseThread.__init__(self, window, self._address+" Monitor", logger,
                             None, lock)
-#        self.setDaemon(True)
         self._conn = connection
     
     def run(self):
@@ -607,7 +604,7 @@ class MainWindow(wx.Frame, EventPoster):
 #                                            lambda: doNothing())
 #            self._db.getLastPlayedTrackID(
 #                lambda trackID, multicompletion=multicompletion:\
-#                    multicompletion.put(1, trackID), errcompletion, priority=1)
+#                    multicompletion(1, trackID), errcompletion, priority=1)
 ##            try:
 ##                if currentTrackID != self._db.getLastPlayedTrackID():
 ##                    self._logger.debug("Adding play for current track.")
@@ -741,15 +738,15 @@ class MainWindow(wx.Frame, EventPoster):
             4, lambda number, numberUnplayed, totals, oldest:\
                 self._onAboutCompletion(number, numberUnplayed, totals, oldest))
         self._db.getNumberOfTracks(
-            lambda number, multicompletion=multicompletion: multicompletion.put(
+            lambda number, multicompletion=multicompletion: multicompletion(
                 0, number), priority=1)
         self._db.getNumberOfUnplayedTracks(
             lambda numberUnplayed, multicompletion=multicompletion:\
-                multicompletion.put(1, numberUnplayed), priority=1)
+                multicompletion(1, numberUnplayed), priority=1)
         self._db.getScoreTotals(lambda totals, multicompletion=multicompletion:\
-                                    multicompletion.put(2, totals), priority=1)
+                                    multicompletion(2, totals), priority=1)
         self._db.getOldestLastPlayed(
-            lambda oldest, multicompletion=multicompletion: multicompletion.put(
+            lambda oldest, multicompletion=multicompletion: multicompletion(
                 3, oldest), priority=1)
         
     def _onPrefs(self, e):
@@ -1310,20 +1307,20 @@ class MainWindow(wx.Frame, EventPoster):
                                                   trackID, select=select))
         
         track.getIsScored(
-            lambda isScored, multicompletion=multicompletion:\
-                multicompletion.put(0, isScored), priority=1)
+            lambda isScored, multicompletion=multicompletion: multicompletion(
+                0, isScored), priority=1)
         track.getLastPlay(
-            lambda lastPlayed, multicompletion=multicompletion:\
-                multicompletion.put(1, lastPlayed), priority=1)
+            lambda lastPlayed, multicompletion=multicompletion: multicompletion(
+                1, lastPlayed), priority=1)
         track.getScore(
-            lambda score, multicompletion=multicompletion:\
-                multicompletion.put(2, score), priority=1)
+            lambda score, multicompletion=multicompletion: multicompletion(
+                2, score), priority=1)
         track.getScoreValue(
-            lambda scoreValue, multicompletion=multicompletion:
-                multicompletion.put(3, scoreValue), priority=1)
+            lambda scoreValue, multicompletion=multicompletion: multicompletion(
+                3, scoreValue), priority=1)
         track.getID(
-            lambda trackID, multicompletion=multicompletion:\
-                multicompletion.put(4, trackID), priority=1)
+            lambda trackID, multicompletion=multicompletion: multicompletion(
+                4, trackID), priority=1)
         
 
     def enqueueTrack(self, track):
@@ -1463,12 +1460,15 @@ class MainWindow(wx.Frame, EventPoster):
             3, lambda isScored, scoreValue, score, index=index:\
                 self._refreshScoreCompletion(index, isScored, scoreValue,
                                              score))
-        track.getIsScored(lambda isScored, multicompletion=multicompletion:\
-                            multicompletion.put(0, isScored), priority=1)
-        track.getScoreValue(lambda scoreValue, multicompletion=multicompletion:\
-                                multicompletion.put(1, scoreValue), priority=1)
-        track.getScore(lambda score, multicompletion=multicompletion:\
-                            multicompletion.put(2, score), priority=1)
+        track.getIsScored(
+            lambda isScored, multicompletion=multicompletion: multicompletion(
+                0, isScored), priority=1)
+        track.getScoreValue(
+            lambda scoreValue, multicompletion=multicompletion: multicompletion(
+                1, scoreValue), priority=1)
+        track.getScore(
+            lambda score, multicompletion=multicompletion: multicompletion(
+                2, score), priority=1)
         
     def _refreshLastPlayedCompletion(self, index, lastPlayed):
         if lastPlayed == None:
@@ -1538,17 +1538,18 @@ class MainWindow(wx.Frame, EventPoster):
                                                 lastPlayed, tags))
         
         track.getScore(
-            lambda score, multicompletion=multicompletion:\
-                multicompletion.put(0, score), priority=1)
+            lambda score, multicompletion=multicompletion: multicompletion(
+                0, score), priority=1)
         track.getPlayCount(
-            lambda playCount, multicompletion=multicompletion:\
-                multicompletion.put(1, playCount), priority=1)
+            lambda playCount, multicompletion=multicompletion: multicompletion(
+                1, playCount), priority=1)
         track.getLastPlay(
-            lambda lastPlayed, multicompletion=multicompletion:\
-                multicompletion.put(2, lastPlayed), priority=1)
+            lambda lastPlayed, multicompletion=multicompletion: multicompletion(
+                2, lastPlayed), priority=1)
         track.getTags(
-            lambda tags, multicompletion=multicompletion:\
-                multicompletion.put(3, tags), priority=1)
+            lambda tags, multicompletion=multicompletion: multicompletion(3,
+                                                                          tags),
+            priority=1)
 
     def addToDetails(self, detail):
         self._details.AppendText(detail)

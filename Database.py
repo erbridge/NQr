@@ -866,10 +866,10 @@ class Database(DatabaseEventHandler):
                                secondPath, linkID))
         self.getPathFromIDNoDebug(
             firstTrackID, lambda firstPath, multicompletion=multicompletion:\
-                multicompletion.put(0, firstPath))
+                multicompletion(0, firstPath))
         self.getPathFromIDNoDebug(
             secondTrackID, lambda secondPath, multicompletion=multicompletion:\
-                multicompletion.put(1, secondPath))
+                multicompletion(1, secondPath))
         
     def getLinkID(self, firstTrack, secondTrack, completion,
                   completeTrackIDs=False):
@@ -878,11 +878,12 @@ class Database(DatabaseEventHandler):
                 completeTrackIDs=completeTrackIDs:\
                     self._getLinkIDCompletion(firstTrackID, secondTrackID,
                                               completion, completeTrackIDs))
-        firstTrack.getID(lambda firstTrackID, multicompletion=multicompletion:\
-                         multicompletion.put(0, firstTrackID))
+        firstTrack.getID(
+            lambda firstTrackID, multicompletion=multicompletion:\
+                multicompletion(0, firstTrackID))
         secondTrack.getID(
             lambda secondTrackID, multicompletion=multicompletion:\
-                multicompletion.put(1, secondTrackID))
+                multicompletion(1, secondTrackID))
             
     def _getLinkIDCompletion(self, firstTrackID, secondTrackID, completion,
                              completeTrackIDs=False):
@@ -959,10 +960,10 @@ class Database(DatabaseEventHandler):
 #                linkIDs, oldLinkIDs, firstTrack, firstLinkIDs, secondTrack,
 #                secondLinkIDs, callback))
 #        self.getLinkIDs(
-#            firstTrack, lambda firstLinkIDs: multicompletion.put(0,
+#            firstTrack, lambda firstLinkIDs: multicompletion(0,
 #                                                                 firstLinkIDs))
 #        self.getLinkIDs(
-#            secondTrack, lambda secondLinkIDs: multicompletion.put(
+#            secondTrack, lambda secondLinkIDs: multicompletion(
 #                                1, secondLinkIDs))
 #        
 #    def _getLinksCompletion(self, track, linkIDs, callback):
@@ -998,11 +999,11 @@ class Database(DatabaseEventHandler):
         self._executeAndFetchOneOrNull(
             "select linkid from links where secondtrackid = ?", (trackID, ),
             lambda firstLinkID, multicompletion=multicompletion:\
-                multicompletion.put(0, firstLinkID))
+                multicompletion(0, firstLinkID))
         self._executeAndFetchOneOrNull(
             "select linkid from links where firsttrackid = ?", (trackID, ),
             lambda secondLinkID, multicompletion=multicompletion:\
-                multicompletion.put(1, secondLinkID))
+                multicompletion(1, secondLinkID))
 
     def _getLinkIDsCompletion2(self, trackID, firstLinkID, secondLinkID,
                                completion):
@@ -1437,13 +1438,17 @@ class Database(DatabaseEventHandler):
                                 tagName=tagName:\
                                     self._setTagCompletion(trackID, tagName,
                                                            tagNameID, tagNames))
-        track.getID(lambda trackID, multicompletion=multicompletion:\
-                        multicompletion.put(0, trackID))
-        self.getTags(track, lambda tagNames, multicompletion=multicompletion:\
-                        multicompletion.put(1, tagNames))
-        self.getTagNameID(tagName, lambda tagNameID,\
-                            multicompletion=multicompletion:\
-                                multicompletion.put(2, tagNameID))
+        track.getID(
+            lambda trackID, multicompletion=multicompletion: multicompletion(
+                0, trackID))
+        self.getTags(
+            track,
+            lambda tagNames, multicompletion=multicompletion: multicompletion(
+                1, tagNames))
+        self.getTagNameID(
+            tagName,
+            lambda tagNameID, multicompletion=multicompletion: multicompletion(
+                2, tagNameID))
             
     def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames):
         if tagName not in tagNames:
@@ -1456,11 +1461,13 @@ class Database(DatabaseEventHandler):
         multicompletion =\
             MultiCompletion(2, lambda trackID, tagNameID:\
                             self._unsetTagCompletion(trackID, tagNameID))
-        track.getID(lambda trackID, multicompletion=multicompletion:\
-                        multicompletion.put(0, trackID))
-        self.getTagNameID(tagName, lambda tagNameID,\
-                            multicompletion=multicompletion:\
-                                multicompletion.put(1, tagNameID))
+        track.getID(
+            lambda trackID, multicompletion=multicompletion: multicompletion(
+                0, trackID))
+        self.getTagNameID(
+            tagName,
+            lambda tagNameID, multicompletion=multicompletion: multicompletion(
+                1, tagNameID))
         
     def _unsetTagCompletion(self, trackID, tagNameID):
         self._execute("delete from tags where tagnameid = ? and trackid = ?",
