@@ -7,7 +7,7 @@ from Errors import NoTrackError, PlayerNotRunningError
 from MediaPlayer import MediaPlayer
 import subprocess
 import time
-from Util import convertToUnicode
+from Util import convertToUnicode, getTrace
 import win32api
 import win32con
 import win32process
@@ -166,18 +166,19 @@ class WinampWindows(MediaPlayer):
         self._sendDebug("Retrieving playlist length.")
         return self._winamp.getPlaylistLength()
 
-    def getCurrentTrackPos(self):
+    def getCurrentTrackPos(self, traceCallback=None):
         if self._winamp.getRunning() == False:
-            raise PlayerNotRunningError
+            raise PlayerNotRunningError(trace=getTrace(traceCallback))
         return self._winamp.getCurrentTrack()
 
     ## poss insecure: should always be checked for trackness
     ## gets track at a playlist position
     ## Has logging option so track monitor can call it without spamming the
     ## debug log.
-    def _getTrackPathAtPos(self, trackPosition, logging=True):
+    def _getTrackPathAtPos(self, trackPosition, traceCallback=None,
+                           logging=True):
         if self._winamp.getRunning() == False:
-            raise PlayerNotRunningError
+            raise PlayerNotRunningError(trace=getTrace(traceCallback))
         if logging == True:
             self._sendDebug("Retrieving path of track at position "\
                                +str(trackPosition)+".")
@@ -205,7 +206,7 @@ class WinampWindows(MediaPlayer):
             if winerror != 299:
                 raise err
             self._sendError("Playlist is empty.")
-            raise NoTrackError
+            raise NoTrackError(trace=getTrace(traceCallback))
         if logging == True:
             self._sendDebug("Converting path into unicode.")
         return convertToUnicode(rawPath, self._sendWarning, logging)

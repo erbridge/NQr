@@ -6,7 +6,7 @@
 import ConfigParser
 from Errors import NoTrackError
 import os.path
-from Util import BasePrefsPage, EventPoster, getIsInstalled, wx
+from Util import BasePrefsPage, EventPoster, getIsInstalled, getTrace, wx
 
 # FIXME: since it now all runs in the track monitor,
 #        needs to have logs post events in classes that inherit from this one
@@ -50,18 +50,19 @@ class MediaPlayer(EventPoster):
         else:
             self._logger.warning(message)
 
-    def savePlaylist(self):
+    def savePlaylist(self, traceCallback=None):
         self._sendDebug("Storing current playlist.")
         playlist = []
         for trackPosition in range(self.getPlaylistLength()):
-            playlist.append(self.getTrackPathAtPos(trackPosition))
+            playlist.append(self.getTrackPathAtPos(trackPosition,
+                                                   traceCallback=traceCallback))
         return playlist
 
 ## FIXME: sets currently playing track to first track in the list, but continues
 ##        to play the old track (fixed with work-around)
-    def loadPlaylist(self, playlist):
+    def loadPlaylist(self, playlist, traceCallback=None):
         self._sendDebug("Restoring playlist.")
-        currentTrackPath = self.getCurrentTrackPath()
+        currentTrackPath = self.getCurrentTrackPath(traceCallback=traceCallback)
         self.clearPlaylist()
         self.addTrack(currentTrackPath)
         for filepath in playlist:
@@ -75,9 +76,9 @@ class MediaPlayer(EventPoster):
         for n in range(number):
             self.deleteTrack(0)
         
-    def hasNextTrack(self):
+    def hasNextTrack(self, traceCallback=None):
         try:
-            self.getTrackPathAtPos(self.getCurrentTrackPos()+1)
+            self.getTrackPathAtPos(self.getCurrentTrackPos()+1, traceCallback)
             return True
         except NoTrackError, TypeError:
             return False
@@ -85,51 +86,64 @@ class MediaPlayer(EventPoster):
 ## FIXME: gets confused if the playlist is empty (in winamp): sets currently
 ##        playing track to first track in the list, but continues to play the
 ##        old track
-    def getCurrentTrackPath(self, logging=True):
-        return self.getTrackPathAtPos(self.getCurrentTrackPos(), logging)
+    def getCurrentTrackPath(self, traceCallback=None, logging=True):
+        return self.getTrackPathAtPos(self.getCurrentTrackPos(), traceCallback,
+                                      logging)
 
     # must always be checked for trackness
-    def getTrackPathAtPos(self, trackPosition, logging=True):
+    def getTrackPathAtPos(self, trackPosition, traceCallback=None,
+                          logging=True):
         if trackPosition == None:
-            raise NoTrackError
-        path = self._getTrackPathAtPos(trackPosition, logging)
+            raise NoTrackError(trace=getTrace(traceCallback))
+        path = self._getTrackPathAtPos(trackPosition, traceCallback, logging)
         return os.path.realpath(path)
         
-    def getUnplayedTrackIDs(self, db, completion):
+    def getUnplayedTrackIDs(self, db, completion, traceCallback=None):
         self._ids = []
         count = 0
         try:
-            for pos in range(self.getCurrentTrackPos(),
-                             self.getPlaylistLength()):
-                path = self.getTrackPathAtPos(pos)
-                db.maybeGetIDFromPath(
-                    path,
-                    lambda id, db=db, path=path:\
-                        self._getUnplayedTrackIDsCallback(db, id, path))
-                count += 1
+            for pos in range(
+                self.getCurrentTrackPos(traceCallback=traceCallback),
+                self.getPlaylistLength()):
+                    path = self.getTrackPathAtPos(pos,
+                                                  traceCallback=traceCallback)
+                    db.maybeGetIDFromPath(
+                        path,
+                        lambda thisCallback, id, db=db, path=path:\
+                            self._getUnplayedTrackIDsCallback(db, id, path,
+                                                              thisCallback),
+                        traceCallback=traceCallback)
+                    count += 1
         except TypeError:
             pass
         db.complete(
-            lambda db=db, count=count, completion=completion:\
-                self._getUnplayedTrackIDListCompletion(db, count, completion))
+            lambda thisCallback, db=db, count=count, completion=completion:\
+                self._getUnplayedTrackIDListCompletion(db, count, completion,
+                                                       thisCallback),
+            traceCallback=traceCallback)
         
-    def _getUnplayedTrackIDsCallback(self, db, id, path):
+    def _getUnplayedTrackIDsCallback(self, db, id, path, traceCallback):
         # The track may be one we don't know added directly to the player
-        mycompletion = lambda trackID: self._ids.append(trackID)
+        mycompletion = lambda thisCallback, trackID: self._ids.append(trackID)
         if id is None:
-            db.getTrackID(self._trackFactory.getTrackFromPathNoID(db, path),
-                          mycompletion)
+            db.getTrackID(
+                self._trackFactory.getTrackFromPathNoID(
+                    db, path, traceCallback=traceCallback), mycompletion,
+            traceCallback=traceCallback)
             return
-        mycompletion(id)
+        mycompletion(traceCallback, id)
             
-    def _getUnplayedTrackIDListCompletion(self, db, count, completion):
+    def _getUnplayedTrackIDListCompletion(self, db, count, completion,
+                                          traceCallback):
         if len(self._ids) != count:
             db.complete(
-                lambda db=db, count=count, completion=completion:\
+                lambda thisCallback, db=db, count=count, completion=completion:\
                     self._getUnplayedTrackIDListCompletion(db, count,
-                                                           completion))
+                                                           completion,
+                                                           thisCallback),
+                traceCallback=traceCallback)
             return
-        completion(self._ids)
+        completion(traceCallback, self._ids)
 
     def addTrack(self, filepath):
         if self._noQueue:

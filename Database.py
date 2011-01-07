@@ -14,19 +14,20 @@
 import ConfigParser
 import datetime
 from Errors import NoResultError, EmptyQueueError, NoTrackError,\
-    EmptyDatabaseError, AbortThreadError
+    EmptyDatabaseError
 import Events
 import os.path
 import sqlite3
 import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
     extractTraceStack, BasePrefsPage, validateNumeric, EventPoster, BaseThread,\
-    wx
+    getTrace, wx
 
 class Thread(BaseThread):
     def __init__(self, db, path, name, logger, errcallback, lock,
-                 mainThread=None):
-        BaseThread.__init__(self, db, name, logger, errcallback, lock)
+                 mainThread=None, raiseEmpty=False):
+        BaseThread.__init__(self, db, name, logger, errcallback, lock,
+                            raiseEmpty=raiseEmpty)
         self._mainThread = mainThread
         self._path = path
 
@@ -35,12 +36,9 @@ class Thread(BaseThread):
         self._conn = sqlite3.connect(self._path)
         self._cursor = self._conn.cursor()
 
-    def _queueCallback(self, completion, trace):
-        completion(self, self._cursor, trace)
+    def _queueCallback(self, completion):
+        completion(self._cursor)
         self._commit()
-        
-    def _emptyQueueCallback(self, thread, cursor, trace):
-        raise EmptyQueueError(trace=trace)
 
     def _abort(self):
         self._commit()
@@ -48,9 +46,6 @@ class Thread(BaseThread):
         self._conn.close()
         if self._mainThread and self._abortMainThread:
             self._mainThread.abort()
-
-    def _abortCallback(self, thread, cursor, trace):
-        raise AbortThreadError(trace=trace)
             
     def _commit(self):
         try:
@@ -81,147 +76,161 @@ class DatabaseEventHandler(wx.EvtHandler, EventPoster):
     
     def _completionEvent(self, completion, returnData=True):
         if returnData == False:
-            return lambda completion=completion:\
-                self._completionEventCompletion(completion, returnData=False)
-        return lambda result, completion=completion:\
-            self._completionEventCompletion(completion, result=result)
+            return lambda thisCallback, completion=completion:\
+                self._completionEventCompletion(completion, thisCallback,
+                                                returnData=False)
+        return lambda thisCallback, result, completion=completion:\
+            self._completionEventCompletion(completion, thisCallback,
+                                            result=result)
 
-    def _completionEventCompletion(self, completion, result=None,
-                                   returnData=True):
+    def _completionEventCompletion(self, completion, traceCallback,
+                                   result=None, returnData=True):
         if returnData == False:
-            self.postEvent(Events.DatabaseEvent(completion, returnData=False))
+            self.postEvent(
+                Events.DatabaseEvent(completion, traceCallback,
+                                     returnData=False))
         else:
-            self.postEvent(Events.DatabaseEvent(completion, result=result))
+            self.postEvent(
+                Events.DatabaseEvent(completion, traceCallback,
+                                     result=result))
 
-    def complete(self, completion, priority=None, trace=[]):
+    def complete(self, completion, priority=None, traceCallback=None):
         if priority == None:
             priority = self._priority
-        trace = extractTraceStack(trace)
-        self._dbThread.complete(self._completionEvent(completion,
-                                                      returnData=False),
-                                priority, trace=trace)
+        self._dbThread.complete(
+            self._completionEvent(completion, returnData=False), priority,
+            traceCallback=traceCallback)
         
-    def _execute(self, stmt, args, completion, priority=None, trace=[]):
+    def _execute(self, stmt, args, completion, priority=None,
+                 traceCallback=None):
         if priority == None:
             priority = self._priority
-        trace = extractTraceStack(trace)
-        self._dbThread.execute(stmt, args, self._completionEvent(
-                                    completion, returnData=False), priority,
-                               trace=trace)
+        self._dbThread.execute(
+            stmt, args, self._completionEvent(completion, returnData=False),
+            priority, traceCallback=traceCallback)
     
-    def _executeMany(self, stmts, args, completion, priority=None, trace=[]):
+    def _executeMany(self, stmts, args, completion, priority=None,
+                     traceCallback=None):
         if priority == None:
             priority = self._priority
-        trace = extractTraceStack(trace)
-        self._dbThread.executeMany(stmts, args,
-                                   self._completionEvent(completion,
-                                                         returnData=False),
-                                   priority, trace=trace)
+        self._dbThread.executeMany(
+            stmts, args, self._completionEvent(completion, returnData=False),
+            priority, traceCallback=traceCallback)
     
     def _executeAndFetchOne(self, stmt, args, completion, priority=None,
-                            returnTuple=False, trace=[], errcompletion=None):
+                            returnTuple=False, traceCallback=None,
+                            errcompletion=None):
         if priority == None:
             priority = self._priority
-        trace = extractTraceStack(trace)
-        self._dbThread.executeAndFetchOne(stmt, args,
-                                          self._completionEvent(completion),
-                                          priority, returnTuple, trace=trace,
-                                          errcompletion=errcompletion)
+        self._dbThread.executeAndFetchOne(
+            stmt, args, self._completionEvent(completion), priority,
+            returnTuple, traceCallback=traceCallback,
+            errcompletion=errcompletion)
         
     def _executeAndFetchOneOrNull(self, stmt, args, completion, priority=None,
-                                  returnTuple=False, trace=[]):
+                                  returnTuple=False, traceCallback=None):
         if priority == None:
             priority = self._priority
-        trace = extractTraceStack(trace)
-        self._dbThread.executeAndFetchOneOrNull(stmt, args,
-                                                self._completionEvent(
-                                                    completion), priority,
-                                                returnTuple, trace=trace)
+        self._dbThread.executeAndFetchOneOrNull(
+            stmt, args, self._completionEvent(completion), priority,
+            returnTuple, traceCallback=traceCallback)
         
     def _executeAndFetchAll(self, stmt, args, completion, priority=None,
-                            throwException=True, trace=[], errcompletion=None):
+                            throwException=True, traceCallback=None,
+                            errcompletion=None):
         if priority == None:
             priority = self._priority
-        trace = extractTraceStack(trace)
-        self._dbThread.executeAndFetchAll(stmt, args,
-                                          self._completionEvent(completion),
-                                          priority, throwException, trace=trace,
-                                          errcompletion=errcompletion)
+        self._dbThread.executeAndFetchAll(
+            stmt, args, self._completionEvent(completion), priority,
+            throwException, traceCallback=traceCallback,
+            errcompletion=errcompletion)
         
     def _executeAndFetchLastRowID(self, stmt, args, completion, priority=None,
-                                  trace=[], errcompletion=None):
+                                  traceCallback=None, errcompletion=None):
         if priority == None:
             priority = self._priority
-        trace = extractTraceStack(trace)
-        self._dbThread.executeAndFetchLastRowID(stmt, args,
-                                                self._completionEvent(
-                                                    completion), priority,
-                                                trace=trace,
-                                                errcompletion=errcompletion)
+        self._dbThread.executeAndFetchLastRowID(
+            stmt, args, self._completionEvent(completion), priority,
+            traceCallback=traceCallback,
+            errcompletion=errcompletion)
         
-    def getTrackID(self, track, completion, priority=None):
-        mycompletion = lambda trackID, track=track, completion=completion,\
-            priority=priority: self._getTrackIDCompletion(track, trackID,
-                                                          completion,
-                                                          priority=priority)
-        self._getTrackID(track, mycompletion, priority=priority)
+    def getTrackID(self, track, completion, priority=None,
+                   traceCallback=None):
+        mycompletion = lambda thisCallback, trackID, track=track,\
+            completion=completion, priority=priority:\
+                self._getTrackIDCompletion(track, trackID, completion,
+                                           thisCallback, priority=priority)
+        self._getTrackID(track, mycompletion, priority=priority,
+                         traceCallback=traceCallback)
 
-    def _getTrackID(self, track, completion, priority=None):
+    def _getTrackID(self, track, completion, priority=None,
+                    traceCallback=None):
         path = track.getPath()
         self._executeAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ), completion,
-            priority=priority)
+            priority=priority, traceCallback=traceCallback)
 
-    def _getDirectoryID(self, directory, completion):
+    def _getDirectoryID(self, directory, completion, traceCallback=None):
         directory = os.path.realpath(directory)
-        mycompletion = lambda directoryID, directory=directory,\
+        mycompletion = lambda thisCallback, directoryID, directory=directory,\
             completion=completion: self._getDirectoryIDCompletion(directory,
                                                                   directoryID,
-                                                                  completion)
+                                                                  completion,
+                                                                  thisCallback)
         self._executeAndFetchOneOrNull(
             "select directoryid from directories where path = ?", (directory, ),
-            mycompletion)
+            mycompletion, traceCallback=traceCallback)
         
-    def _getDirectoryIDCompletion(self, directory, directoryID, completion):
+    def _getDirectoryIDCompletion(self, directory, directoryID, completion,
+                                  traceCallback=None):
         self.postDebugLog("Retrieving directory ID for \'"+directory+"\'.")
         if directoryID == None:
             self.postDebugLog("\'"+directory+"\' is not in the watch list.")
-        completion(directoryID)
+        completion(traceCallback, directoryID)
             
-    def _updateTrackDetails(self, track, infoLogging=True):
-        mycompletion = lambda trackID, track=track, infoLogging=infoLogging:\
-            self._updateTrackDetailsCompletion(track, trackID, infoLogging)
-        self._getTrackID(track, mycompletion)
+    def _updateTrackDetails(self, track, infoLogging=True,
+                            traceCallback=None):
+        mycompletion = lambda thisCallback, trackID, track=track,\
+            infoLogging=infoLogging: self._updateTrackDetailsCompletion(
+                track, trackID, infoLogging, thisCallback)
+        self._getTrackID(track, mycompletion,
+                         traceCallback=traceCallback)
 
-    def _updateTrackDetailsCompletion(self, track, trackID, infoLogging=True):
+    def _updateTrackDetailsCompletion(self, track, trackID, infoLogging=True,
+                                      traceCallback=None):
         path = track.getPath()
         self.postDebugLog("Updating \'"+path+"\' in the library.")
         if trackID != None:
             if infoLogging == True:
-                mycompletion = lambda path=path: self._logger.info(
-                    "\'"+path+"\' has been updated in the library.")
+                mycompletion = lambda thisCallback, path=path:\
+                    self._logger.info("\'"+path\
+                                      +"\' has been updated in the library.")
             else:
-                mycompletion = lambda path=path: self._logger.debug(
-                    "\'"+path+"\' has been updated in the library.")
+                mycompletion = lambda thisCallback, path=path:\
+                    self._logger.debug("\'"+path\
+                                       +"\' has been updated in the library.")
             self._execute(
                 """update tracks set path = ?, artist = ?, album = ?, title = ?,
                    tracknumber = ?, length = ?, bpm = ? where trackid = ?""",
                 (path, track.getArtist(), track.getAlbum(), track.getTitle(),
                  track.getTrackNumber(), track.getLength(), track.getBPM(),
-                 trackID), mycompletion)
+                 trackID), mycompletion,
+                traceCallback=traceCallback)
         else:
             self.postDebugLog("\'"+path+"\' is not in the library.")
             
-    def setHistorical(self, historical, trackID):
+    def setHistorical(self, historical, trackID, traceCallback=None):
         if historical == True:
-            mycompletion = lambda: self._logger.debug(
+            mycompletion = lambda thisCallback: self._logger.debug(
                 "Making track non-current.")
             historical = 1
         elif historical == False:
-            mycompletion = lambda: self._logger.debug("Making track current.")
+            mycompletion = lambda thisCallback: self._logger.debug(
+                "Making track current.")
             historical = 0
         self._execute("update tracks set historical = ? where trackID = ?",
-                      (historical, trackID), mycompletion)
+                      (historical, trackID), mycompletion,
+                      traceCallback=traceCallback)
         
 class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def __init__(self, db, lock, path, logger, trackFactory, dbThread):
@@ -230,7 +239,8 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         errcallback = ErrorCompletion(EmptyQueueError,
                                       lambda: self._onEmptyQueueError())
         Thread.__init__(self, db, path, "Directory Walk", logger,
-                        lambda err: errcallback(err), lock, dbThread)
+                        lambda err: errcallback(err), lock, dbThread,
+                        raiseEmpty=True)
         DatabaseEventHandler.__init__(self, db, dbThread, logger, lock, 3)
         self._logger = logger
         self._trackFactory = trackFactory
@@ -243,23 +253,24 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
     def getWorking(self):
         return self._working
         
-    def _getTrackIDCompletion(self, track, trackID, completion, priority=None):
+    def _getTrackIDCompletion(self, track, trackID, completion, traceCallback,
+                              priority=None):
         path = track.getPath()
         self.postDebugLog("Retrieving track ID for \'"+path+"\'.")
         if trackID == None:
             self.postDebugLog("\'"+path+"\' is not in the library.")
-        track.setID(self._trackFactory, trackID)
-        completion(trackID)
+        track.setID(self._trackFactory, trackID, traceCallback=traceCallback)
+        completion(traceCallback, trackID)
 
-    def _addTrack(self, path, trace=[]):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, path=path:\
-                        thread._doAddTrack(path, traceBack), trace)
+    def _addTrack(self, path, traceCallback=None):
+        self.queue(
+            lambda thisCallback, cursor, path=path: self._doAddTrack(
+                path, thisCallback), traceCallback)
         
-    def _doAddTrack(self, path, trace):
+    def _doAddTrack(self, path, traceCallback):
         try:
-            track = self._trackFactory.getTrackFromPathNoID(self, path,
-                                                            useCache=False)
+            track = self._trackFactory.getTrackFromPathNoID(
+                self, path, useCache=False, traceCallback=traceCallback)
         except NoTrackError:
 #            track = None
             self.postDebugLog("\'"+path+"\' is an invalid file.")
@@ -269,11 +280,11 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
 #            return None
 #        trackID = None
 #        if hasTrackID == True:
-        mycompletion = lambda trackID, path=path, track=track:\
-            self._doAddTrackCompletion(path, track, trackID)
-        track.getID(mycompletion)
+        mycompletion = lambda thisCallback, trackID, path=path, track=track:\
+            self._doAddTrackCompletion(path, track, trackID, thisCallback)
+        track.getID(mycompletion, traceCallback)
 
-    def _doAddTrackCompletion(self, path, track, trackID):
+    def _doAddTrackCompletion(self, path, track, trackID, traceCallback):
         self.postDebugLog("Adding \'"+path+"\' to the library.")
 #        if hasTrackID == False or trackID == None:
         if trackID == None:
@@ -283,227 +294,224 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
                    values (?, ?, ?, ?, ?, 1, ?, ?, 0)""",
                 (path, track.getArtist(), track.getAlbum(), track.getTitle(),
                  track.getTrackNumber(), track.getLength(), track.getBPM()),
-                lambda path=path: self._logger.info(
-                    "\'"+path+"\' has been added to the library."))
+                lambda thisCallback, path=path: self._logger.info(
+                    "\'"+path+"\' has been added to the library."),
+                traceCallback=traceCallback)
 #            trackID = cursor.lastrowid
 #            self._logger.info("\'"+path+"\' has been added to the library.")
         else:
             self.postDebugLog("\'"+path+"\' is already in the library.")
-        track.setID(self._trackFactory, trackID)
+        track.setID(self._trackFactory, trackID, traceCallback=traceCallback)
 #        return trackID
 
-    def addDirectory(self, directory):
-        mycallback = lambda path: self._addTrack(path)
-        self.walkDirectory(directory, mycallback)
+    def addDirectory(self, directory, traceCallback=None):
+        mycallback = lambda thisCallback, path: self._addTrack(path,
+                                                               thisCallback)
+        self.walkDirectory(directory, mycallback, traceCallback=traceCallback)
 
-    def walkDirectory(self, directory, callback, trace=[]):
+    def walkDirectory(self, directory, callback, traceCallback=None):
         self._working = True
         directory = os.path.realpath(directory)
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, directory=directory:\
-                        thread.doWalkDirectory(directory, callback, traceBack),
-                   trace)
+        self.queue(
+            lambda thisCallback, cursor, directory=directory:\
+                self.doWalkDirectory(directory, callback, thisCallback),
+                    traceCallback=traceCallback)
 
-    def doWalkDirectory(self, directory, callback, trace):
+    def doWalkDirectory(self, directory, callback, traceCallback):
         self.postDebugLog("Adding \'"+directory+"\' to the watch list.")
-        mycompletion = lambda directoryID, directory=directory:\
-            self.maybeAddToWatch(directory, directoryID)
-        self.getDirectoryID(directory, mycompletion)
-        self.walkDirectoryNoWatch(directory, callback)
+        mycompletion = lambda thisCallback, directoryID, directory=directory:\
+            self.maybeAddToWatch(directory, directoryID, thisCallback)
+        self.getDirectoryID(directory, mycompletion,
+                            traceCallback=traceCallback)
+        self.walkDirectoryNoWatch(directory, callback,
+                                  traceCallback=traceCallback)
 
-    def maybeAddToWatch(self, directory, directoryID):
+    def maybeAddToWatch(self, directory, directoryID, traceCallback=None):
         self._working = True
         if directoryID == None:
-            mycompletion = lambda directory=directory: self._logger.info(
-                "\'"+directory+"\' has been added to the watch list.")
+            mycompletion = lambda thisCallback, directory=directory:\
+                self._logger.info("\'"+directory\
+                                  +"\' has been added to the watch list.")
             self._execute("insert into directories (path) values (?)",
-                          (directory, ), mycompletion)
+                          (directory, ), mycompletion,
+                          traceCallback=traceCallback)
         else:
             self.postDebugLog("\'"+directory+"\' is already in the watch list.")
 
-    def addDirectoryNoWatch(self, directory):
-        mycallback = lambda path: self._addTrack(path)
-        self.walkDirectoryNoWatch(directory, mycallback)
+    def addDirectoryNoWatch(self, directory, traceCallback=None):
+        mycallback = lambda thisCallback, path: self._addTrack(path,
+                                                               thisCallback)
+        self.walkDirectoryNoWatch(directory, mycallback,
+                                  traceCallback=traceCallback)
 
-    def walkDirectoryNoWatch(self, directory, callback, trace=[]):
+    def walkDirectoryNoWatch(self, directory, callback, traceCallback=None):
         self._working = True
         directory = os.path.realpath(directory)
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, directory=directory,\
-                        callback=callback: thread.doWalkDirectoryNoWatch(
-                            directory, callback, traceBack), trace)
+        self.queue(
+            lambda thisCallback, cursor, directory=directory,\
+                callback=callback: self.doWalkDirectoryNoWatch(
+                    directory, callback, thisCallback), traceCallback)
             
-    def doWalkDirectoryNoWatch(self, directory, callback, trace):
+    def doWalkDirectoryNoWatch(self, directory, callback, traceCallback):
         self.postDebugLog("Finding files from \'"+directory+"\'.")
         contents = os.listdir(directory)
         for n in range(len(contents)):
             path = os.path.realpath(directory+'/'+contents[n])
             if os.path.isdir(path):
-                self.walkDirectoryNoWatch(path, callback)
+                self.walkDirectoryNoWatch(path, callback, traceCallback)
             else:
-                callback(path)
+                callback(traceCallback, path)
     
-    def getDirectoryID(self, directory, completion, trace=[]):
+    def getDirectoryID(self, directory, completion, traceCallback=None):
         directory = os.path.realpath(directory)
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, directory=directory,\
-                        completion=completion: thread.doGetDirectoryID(
-                            directory, completion, traceBack), trace)
+        self.queue(
+            lambda thisCallback, cursor, directory=directory,\
+                completion=completion: self.doGetDirectoryID(
+                    directory, completion, thisCallback), traceCallback)
 
-    def doGetDirectoryID(self, directory, completion, trace):
-        self._getDirectoryID(directory, completion)
+    def doGetDirectoryID(self, directory, completion, traceCallback):
+        self._getDirectoryID(directory, completion, traceCallback=traceCallback)
 
-    def rescanDirectories(self, trace=[]):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack:
-                   thread.doRescanDirectories(traceBack), trace)
+    def rescanDirectories(self, traceCallback=None):
+        self.queue(
+            lambda thisCallback, cursor: self.doRescanDirectories(thisCallback),
+            traceCallback)
         
-    def doRescanDirectories(self, trace):
+    def doRescanDirectories(self, traceCallback=None):
         self.postInfoLog("Rescanning the watch list for new files.")
         errcompletion = ErrorCompletion(
             NoResultError,
             lambda: self._logger.info("The watch list is empty."))
-        mycompletion = lambda paths: self._doRescanDirectoriesCompletion(paths)
+        mycompletion = lambda thisCallback, paths:\
+            self._doRescanDirectoriesCompletion(paths, thisCallback)
         self._executeAndFetchAll("select path from directories", (),
-                                 mycompletion, errcompletion=errcompletion)
+                                 mycompletion, errcompletion=errcompletion,
+                                 traceCallback=traceCallback)
 
-    def _doRescanDirectoriesCompletion(self, paths):
+    def _doRescanDirectoriesCompletion(self, paths, traceCallback):
         for (directory, ) in paths:
-            self.addDirectoryNoWatch(directory)
+            self.addDirectoryNoWatch(directory, traceCallback=traceCallback)
 
-    def maybeUpdateTrackDetails(self, track):
-        self._updateTrackDetails(track, infoLogging=False)
+    def maybeUpdateTrackDetails(self, track, traceCallback=None):
+        self._updateTrackDetails(track, infoLogging=False,
+                                 traceCallback=traceCallback)
 
 class DatabaseThread(Thread):
     def __init__(self, db, lock, path, logger):
-        errcallback = ErrorCompletion(EmptyQueueError, lambda: doNothing())
-        Thread.__init__(self, db, path, "Database", logger,
-                        lambda err: errcallback(err), lock)
+        Thread.__init__(self, db, path, "Database", logger, None, lock)
         
-    def complete(self, completion, priority=2, trace=[]):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, completion=completion:\
-                        thread.doComplete(completion, traceBack), trace,
-                   priority)
+    def complete(self, completion, priority=2, traceCallback=None):
+        self.queue(lambda thisCallback, cursor, completion=completion:\
+                       completion(thisCallback), traceCallback, priority)
 
-    def doComplete(self, completion, trace):
-        completion()
+    def execute(self, stmt, args, completion, priority=2,
+                traceCallback=None):
+        self.queue(lambda thisCallback, cursor, stmt=stmt, args=args,\
+                       completion=completion: self.doExecute(cursor, stmt, args,
+                                                             completion,
+                                                             thisCallback),
+                   traceCallback, priority)
 
-    def execute(self, stmt, args, completion, priority=2, trace=[]):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
-                        completion=completion: thread.doExecute(cursor, stmt,
-                                                                args,
-                                                                completion,
-                                                                traceBack),
-                   trace, priority)
-
-    def doExecute(self, cursor, stmt, args, completion, trace):
+    def doExecute(self, cursor, stmt, args, completion, thisCallback):
         cursor.execute(stmt, args)
-        completion()
+        completion(thisCallback)
 
-    def executeMany(self, stmts, args, completion, priority=2, trace=[]):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, stmts=stmts, args=args,\
-                        completion=completion: thread.doExecuteMany(
-                            cursor, stmts, args, completion, traceBack),
-                   trace, priority)
+    def executeMany(self, stmts, args, completion, priority=2,
+                    traceCallback=None):
+        self.queue(lambda thisCallback, cursor, stmts=stmts, args=args,\
+                       completion=completion: self.doExecuteMany(
+                           cursor, stmts, args, completion, thisCallback),
+                   traceCallback, priority)
 
-    def doExecuteMany(self, cursor, stmts, args, completion, trace):
+    def doExecuteMany(self, cursor, stmts, args, completion, thisCallback):
         for index in range(len(stmts)):
             cursor.execute(stmts[index], args[index])
-        completion()
+        completion(thisCallback)
 
     def executeAndFetchOne(self, stmt, args, completion, priority=2,
-                           returnTuple=False, trace=[], errcompletion=None):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
-                        completion=completion, returnTuple=returnTuple,\
-                        errcompletion=errcompletion:\
-                            thread.doExecuteAndFetchOne(cursor, stmt, args,
-                                                        completion, traceBack,
-                                                        returnTuple,
-                                                        errcompletion), trace,
-                    priority)
+                           returnTuple=False, traceCallback=None,
+                           errcompletion=None):
+        self.queue(lambda thisCallback, cursor, stmt=stmt, args=args,\
+                       completion=completion, returnTuple=returnTuple,\
+                       errcompletion=errcompletion: self.doExecuteAndFetchOne(
+                           cursor, stmt, args, completion, thisCallback,
+                           returnTuple, errcompletion), traceCallback,
+                   priority)
 
-    def doExecuteAndFetchOne(self, cursor, stmt, args, completion, trace,
+    def doExecuteAndFetchOne(self, cursor, stmt, args, completion, thisCallback,
                              returnTuple=False, errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         if result is None:
-            err = NoResultError(trace=trace)
+            err = NoResultError(trace=thisCallback.getTrace())
             self._raise(err, errcompletion)
             return
         if returnTuple == True:
-            completion(result)
+            completion(thisCallback, result)
             return
-        completion(result[0])
+        completion(thisCallback, result[0])
 
     def executeAndFetchLastRowID(self, stmt, args, completion, priority=2,
-                                 trace=[], errcompletion=None):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
-                        completion=completion, errcompletion=errcompletion:\
-                            thread.doExecuteAndFetchLastRowID(cursor, stmt,
-                                                              args, completion,
-                                                              traceBack,
-                                                              errcompletion),
-                   trace, priority)
+                                 traceCallback=None, errcompletion=None):
+        self.queue(lambda thisCallback, cursor, stmt=stmt, args=args,\
+                       completion=completion, errcompletion=errcompletion:\
+                           self.doExecuteAndFetchLastRowID(cursor, stmt, args,
+                                                           completion,
+                                                           thisCallback,
+                                                           errcompletion),
+                   traceCallback, priority)
 
-    def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion, trace,
-                                   errcompletion=None):
+    def doExecuteAndFetchLastRowID(self, cursor, stmt, args, completion,
+                                   thisCallback, errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.lastrowid
         if result is None:
-            err = NoResultError(trace=trace)
+            err = NoResultError(trace=thisCallback.getTrace())
             self._raise(err, errcompletion)
             return
-        completion(result)
+        completion(thisCallback, result)
 
     def executeAndFetchOneOrNull(self, stmt, args, completion, priority=2,
-                                 returnTuple=False, trace=[]):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
-                        completion=completion, returnTuple=returnTuple:\
-                            thread.doExecuteAndFetchOneOrNull(cursor, stmt,
-                                                              args, completion,
-                                                              traceBack,
-                                                              returnTuple),
-                    trace, priority)
+                                 returnTuple=False, traceCallback=None):
+        self.queue(lambda thisCallback, cursor, stmt=stmt, args=args,\
+                       completion=completion, returnTuple=returnTuple:\
+                           self.doExecuteAndFetchOneOrNull(cursor, stmt, args,
+                                                           completion,
+                                                           thisCallback,
+                                                           returnTuple),
+                   traceCallback, priority)
 
-    def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion, trace,
-                                   returnTuple=False):
+    def doExecuteAndFetchOneOrNull(self, cursor, stmt, args, completion,
+                                   thisCallback, returnTuple=False):
         cursor.execute(stmt, args)
         result = cursor.fetchone()
         if result is None:
-            completion(None)
+            completion(thisCallback, None)
             return
         if returnTuple == True:
-            completion(result)
+            completion(thisCallback, result)
             return
-        completion(result[0])
+        completion(thisCallback, result[0])
 
     def executeAndFetchAll(self, stmt, args, completion, priority=2,
-                           throwException=True, trace=[], errcompletion=None):
-        trace = extractTraceStack(trace)
-        self.queue(lambda thread, cursor, traceBack, stmt=stmt, args=args,\
-                        completion=completion, throwException=throwException,\
-                        errcompletion=errcompletion:\
-                            thread.doExecuteAndFetchAll(cursor, stmt, args,
-                                                        completion, traceBack,
-                                                        throwException,
-                                                        errcompletion),
-                   trace, priority)
+                           throwException=True, traceCallback=None,
+                           errcompletion=None):
+        self.queue(lambda thisCallback, cursor, stmt=stmt, args=args,\
+                       completion=completion, throwException=throwException,\
+                       errcompletion=errcompletion: self.doExecuteAndFetchAll(
+                           cursor, stmt, args, completion, thisCallback,
+                           throwException, errcompletion), traceCallback,
+                   priority)
 
-    def doExecuteAndFetchAll(self, cursor, stmt, args, completion, trace,
+    def doExecuteAndFetchAll(self, cursor, stmt, args, completion, thisCallback,
                              throwException=True, errcompletion=None):
         cursor.execute(stmt, args)
         result = cursor.fetchall()
         if result is None and throwException is True:
-            err = NoResultError(trace=trace)
+            err = NoResultError(trace=thisCallback.getTrace())
             self._raise(err, errcompletion)
             return
-        completion(result)
+        completion(thisCallback, result)
 
 class Database(DatabaseEventHandler):
     def __init__(self, threadLock, trackFactory, loggerFactory, configParser,
@@ -541,12 +549,12 @@ class Database(DatabaseEventHandler):
         
         Events.EVT_LOG(self, self._onLogEvent)
         
-        self._dbThread.start()
+        self._dbThread.start_()
         
         self._directoryWalkThread = DirectoryWalkThread(
             self, threadLock, databasePath, self._logger, self._trackFactory,
             self._dbThread)
-        self._directoryWalkThread.start()
+        self._directoryWalkThread.start_()
         
     def _onLogEvent(self, e):
         e.doLog()
@@ -727,185 +735,210 @@ class Database(DatabaseEventHandler):
     def setIgnoreNewTracks(self, status):
         self._ignoreNewTracks = status
 
-    def addTrack(self, path=None, track=None, completion=None, priority=None):
+    def addTrack(self, path=None, track=None, completion=None, priority=None,
+                 traceCallback=None):
         if path == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError
+                raise NoTrackError(trace=getTrace(traceCallback))
             path = track.getPath()
         else:
             path = os.path.realpath(path)
         self._logger.debug("Adding \'"+path+"\' to the library.")
         if track == None:
             try:
-                track = self._trackFactory.getTrackFromPathNoID(self, path)
+                track = self._trackFactory.getTrackFromPathNoID(
+                    self, path, traceCallback=traceCallback)
             except NoTrackError:
                 self._logger.debug("\'"+path+"\' is an invalid file.")
-                completion(None)
-        mycompletion = lambda trackID, track=track, completion=completion,\
-            priority=priority: self._maybeAddTrackCallback(track, trackID,
-                                                           completion,
-                                                           priority=priority)
-        self._getTrackID(track, mycompletion, priority=priority)
+                completion(traceCallback, None)
+        mycompletion = lambda thisCallback, trackID, track=track,\
+            completion=completion, priority=priority:\
+                self._maybeAddTrackCallback(track, trackID, completion,
+                                            thisCallback, priority=priority)
+        self._getTrackID(track, mycompletion, priority=priority,
+                         traceCallback=traceCallback)
         
     def _maybeAddTrackCallback(self, track, trackID, completion,
-                               wasAdded=False, priority=None):
+                               traceCallback, wasAdded=False,
+                               priority=None):
         path = track.getPath()
         if wasAdded == False and path in self._addingTracks:
-            self._addingTracks[path].append(completion)
+            self._addingTracks[path].append((completion, traceCallback))
             return
         elif wasAdded == False:
-            self._addingTracks[path] = [completion]
+            self._addingTracks[path] = [(completion, traceCallback)]
         if trackID == None and wasAdded == False:
-            mycompletion = lambda id, track=track, completion=completion:\
-                self._maybeAddTrackCallback(track, id, completion,
-                                            wasAdded=True)
+            mycompletion = lambda thisCallback, id, track=track,\
+                completion=completion: self._maybeAddTrackCallback(
+                    track, id, completion, thisCallback, wasAdded=True)
             self._executeAndFetchLastRowID(
                 """insert into tracks (path, artist, album, title, tracknumber,
                    unscored, length, bpm, historical) values (?, ?, ?, ?, ?, 1,
                    ?, ?, 0)""", (path, track.getArtist(), track.getAlbum(),
                                  track.getTitle(), track.getTrackNumber(),
                                  track.getLength(), track.getBPM()),
-                mycompletion, priority=priority)
+                mycompletion, priority=priority,
+                traceCallback=traceCallback)
             return
         if wasAdded == True:
             self._logger.info("\'"+path+"\' has been added to the library.")
         else:
             self._logger.debug("\'"+path+"\' is already in the library.")
         track.setID(self._trackFactory, trackID)
-        for comp in self._addingTracks[path]:
-            if comp != None:
-                comp(trackID)
+        for compTuple in self._addingTracks[path]:
+            if compTuple[0] != None:
+                compTuple[0](compTuple[1], trackID)
         del self._addingTracks[path]
 
     ## returns a list of tuples of the form (trackID, )
     ## FIXME: make faster by doing something like: select
-    ## tracks.trackid, score, plays.datetime from tracks left outer
-    ## join scores using (trackid) left outer join plays using
-    ## (trackid); with some select trackid, max(datetime) from plays
-    ## group by trackid; thrown in.
-    def getAllTrackIDs(self, completion):
+    ##        tracks.trackid, score, plays.datetime from tracks left outer
+    ##        join scores using (trackid) left outer join plays using
+    ##        (trackid); with some select trackid, max(datetime) from plays
+    ##        group by trackid; thrown in.
+    def getAllTrackIDs(self, completion, traceCallback=None):
         self._logger.debug("Retrieving all track IDs.")
-        self._executeAndFetchAll("select trackid from tracks", (), completion)
+        self._executeAndFetchAll("select trackid from tracks", (), completion,
+                                 traceCallback=traceCallback)
         
-    def _getTrackIDCompletion(self, track, trackID, completion, priority=None):
+    def _getTrackIDCompletion(self, track, trackID, completion,
+                              traceCallback, priority=None):
         path = track.getPath()
         self._logger.debug("Retrieving track ID for \'"+path+"\'.")
         if trackID == None:
             self._logger.debug("\'"+path+"\' is not in the library.")
             self.addTrack(path=path, track=track, completion=completion,
-                          priority=priority)
+                          priority=priority,
+                          traceCallback=traceCallback)
             return
-        completion(trackID)
+        completion(traceCallback, trackID)
         
-    def getDirectoryID(self, directory, completion):
-        self._getDirectoryID(directory, completion)
+    def getDirectoryID(self, directory, completion, traceCallback=None):
+        self._getDirectoryID(directory, completion,
+                             traceCallback=traceCallback)
         
-    def addDirectory(self, directory):
-        self._directoryWalkThread.addDirectory(directory)
+    def addDirectory(self, directory, traceCallback=None):
+        self._directoryWalkThread.addDirectory(
+            directory, traceCallback=traceCallback)
     
-    def addDirectoryNoWatch(self, directory):
-        self._directoryWalkThread.addDirectoryNoWatch(directory)
+    def addDirectoryNoWatch(self, directory, traceCallback=None):
+        self._directoryWalkThread.addDirectoryNoWatch(
+            directory, traceCallback=traceCallback)
 
-    def removeDirectory(self, directory):
-        mycompletion = lambda directoryID, directory=directory:\
-            self._removeDirectoryCompletion(directory, directoryID)
-        self.getDirectoryID(directory, mycompletion)
+    def removeDirectory(self, directory, traceCallback=None):
+        mycompletion = lambda thisCallback, directoryID, directory=directory:\
+            self._removeDirectoryCompletion(directory, directoryID,
+                                            thisCallback)
+        self.getDirectoryID(directory, mycompletion,
+                            traceCallback=traceCallback)
                 
-    def _removeDirectoryCompletion(self, directory, directoryID):
+    def _removeDirectoryCompletion(self, directory, directoryID,
+                                   traceCallback):
         directory = os.path.realpath(directory)
         self._logger.debug("Removing \'"+directory+"\' from the watch list.")
         if directoryID != None:
-            mycompletion = lambda directory=directory: self._logger.info(
-                "\'"+directory+"\' has been removed from the watch list.")
+            mycompletion = lambda thisCallback, directory=directory:\
+                self._logger.info("\'"+directory\
+                                  +"\' has been removed from the watch list.")
             self._execute("delete from directories where path = ?",
-                          (directory, ), mycompletion)
+                          (directory, ), mycompletion,
+                          traceCallback=traceCallback)
             
         else:
             self._logger.debug("\'"+directory+"\' is not in the watch list.")
 
-    def rescanDirectories(self):
-        self._directoryWalkThread.rescanDirectories()
+    def rescanDirectories(self, traceCallback=None):
+        self._directoryWalkThread.rescanDirectories(
+            traceCallback=traceCallback)
 
     ## FIXME: needs to deal with two links using the same first or second track
-    def addLink(self, firstTrack, secondTrack):
-        mycompletion = lambda firstTrackID, firstTrackPath, secondTrackID,\
-            secondTrackPath, linkID: self._addLinkCompletion(firstTrackID,
-                                                             firstTrackPath,
-                                                             secondTrackID,
-                                                             secondTrackPath,
-                                                             linkID)
+    def addLink(self, firstTrack, secondTrack, traceCallback=None):
         self.getLinkID(
             firstTrack, secondTrack,
-            lambda firstTrackID, secondTrackID, linkID,\
-                mycompletion=mycompletion:\
-                    self._getTrackPathsCompletion(firstTrackID, secondTrackID,
-                                                  linkID, mycompletion),
-            completeTrackIDs=True)
+            lambda thisCallback, firstTrackID, secondTrackID, linkID:\
+                self._getTrackPathsCompletion(firstTrackID, secondTrackID,
+                                              linkID, self._addLinkCompletion,
+                                              thisCallback),
+            completeTrackIDs=True, traceCallback=traceCallback)
         
-    def _addLinkCompletion(self, firstTrackID, firstTrackPath, secondTrackID, 
-                           secondTrackPath, linkID):
+    def _addLinkCompletion(self, traceCallback, firstTrackID,
+                           firstTrackPath, secondTrackID,  secondTrackPath,
+                           linkID):
         if linkID == None:
-            mycompletion = lambda firstTrackPath=firstTrackPath,\
+            mycompletion = lambda thisCallback, firstTrackPath=firstTrackPath,\
                 secondTrackPath=secondTrackPath: self._logger.info(
                     "\'"+firstTrackPath+"\' has been linked to \'"\
                     +secondTrackPath+"\'.")
             self._execute(
                 "insert into links (firsttrackid, secondtrackid) values (?, ?)",
-                (firstTrackID, secondTrackID), mycompletion)
+                (firstTrackID, secondTrackID), mycompletion,
+                traceCallback=traceCallback)
         else:
             self._logger.debug("\'"+firstTrackPath+"\' is already linked to \'"\
                                +secondTrackPath+"\'.")
 
     def _getTrackPathsCompletion(self, firstTrackID, secondTrackID, linkID,
-                                 completion):
+                                 completion, traceCallback):
         multicompletion = MultiCompletion(
-            2, lambda firstPath, secondPath, firstTrackID=firstTrackID,\
+            2,
+            lambda firstPath, secondPath, firstTrackID=firstTrackID,\
                 secondTrackID=secondTrackID, linkID=linkID:\
                     completion(firstTrackID, firstPath, secondTrackID,
-                               secondPath, linkID))
+                               secondPath, linkID), traceCallback)
         self.getPathFromIDNoDebug(
-            firstTrackID, lambda firstPath, multicompletion=multicompletion:\
-                multicompletion(0, firstPath))
+            firstTrackID,
+            lambda thisCallback, firstPath, multicompletion=multicompletion:\
+                multicompletion(0, firstPath), traceCallback)
         self.getPathFromIDNoDebug(
-            secondTrackID, lambda secondPath, multicompletion=multicompletion:\
-                multicompletion(1, secondPath))
+            secondTrackID,
+            lambda thisCallback, secondPath, multicompletion=multicompletion:\
+                multicompletion(1, secondPath), traceCallback)
         
     def getLinkID(self, firstTrack, secondTrack, completion,
-                  completeTrackIDs=False):
+                  completeTrackIDs=False, traceCallback=None):
         multicompletion = MultiCompletion(
-            2, lambda firstTrackID, secondTrackID, completion=completion,\
-                completeTrackIDs=completeTrackIDs:\
+            2,
+            lambda firstTrackID, secondTrackID, completion=completion,\
+                completeTrackIDs=completeTrackIDs,\
+                traceCallback=traceCallback:\
                     self._getLinkIDCompletion(firstTrackID, secondTrackID,
-                                              completion, completeTrackIDs))
+                                              completion, traceCallback,
+                                              completeTrackIDs),
+            traceCallback)
         firstTrack.getID(
-            lambda firstTrackID, multicompletion=multicompletion:\
-                multicompletion(0, firstTrackID))
+            lambda thisCallback, firstTrackID, multicompletion=multicompletion:\
+                multicompletion(0, firstTrackID),
+            traceCallback=traceCallback)
         secondTrack.getID(
-            lambda secondTrackID, multicompletion=multicompletion:\
-                multicompletion(1, secondTrackID))
+            lambda thisCallback, secondTrackID,\
+                multicompletion=multicompletion: multicompletion(1,
+                                                                 secondTrackID),
+            traceCallback=traceCallback)
             
     def _getLinkIDCompletion(self, firstTrackID, secondTrackID, completion,
-                             completeTrackIDs=False):
-        mycompletion = lambda linkID, firstTrackID=firstTrackID,\
+                             traceCallback, completeTrackIDs):
+        mycompletion = lambda thisCallback, linkID, firstTrackID=firstTrackID,\
             secondTrackID=secondTrackID, completion=completion,\
             completeTrackIDs=completeTrackIDs:\
                 self._getLinkIDCompletion2(firstTrackID, secondTrackID, linkID,
-                                           completion, completeTrackIDs)
+                                           completion, thisCallback,
+                                           completeTrackIDs)
         self._executeAndFetchOneOrNull(
             """select linkid from links where firsttrackid = ? and
                secondtrackid = ?""", (firstTrackID, secondTrackID),
-            mycompletion)
+            mycompletion, traceCallback=traceCallback)
 
     def _getLinkIDCompletion2(self, firstTrackID, secondTrackID, linkID,
-                              completion, completeTrackIDs=False):
+                              completion, traceCallback,
+                              completeTrackIDs):
         self._logger.debug("Retrieving link ID.")
         if linkID == None:
             self._logger.debug("The tracks are not linked.")
         if completeTrackIDs == True:
-            completion(firstTrackID, secondTrackID, linkID)
+            completion(traceCallback, firstTrackID, secondTrackID, linkID)
         else:
-            completion(linkID)
+            completion(traceCallback, linkID)
     
 #    def _returnTracksCompletion(self, callback):
 #        for track in self._trackQueue:
@@ -986,200 +1019,231 @@ class Database(DatabaseEventHandler):
 
     ## if there are two links for a track, returns the link with track as second
     ## track first for queueing ease
-    def getLinkIDs(self, track, completion):
-        track.getID(lambda trackID, completion=completion:\
-                        self._getLinkIDsCompletion(trackID, completion))
+    def getLinkIDs(self, track, completion, traceCallback=None):
+        track.getID(
+            lambda thisCallback, trackID, completion=completion:\
+                self._getLinkIDsCompletion(trackID, completion, thisCallback),
+            traceCallback=traceCallback)
         
-    def _getLinkIDsCompletion(self, trackID, completion):
+    def _getLinkIDsCompletion(self, trackID, completion, traceCallback):
         multicompletion = MultiCompletion(
             2, lambda firstLinkID, secondLinkID, trackID=trackID,\
-                completion=completion:\
+                completion=completion, traceCallback=traceCallback:\
                     self._getLinkIDsCompletion2(trackID, firstLinkID,
-                                                secondLinkID, completion))
+                                                secondLinkID, completion,
+                                                traceCallback))
         self._executeAndFetchOneOrNull(
             "select linkid from links where secondtrackid = ?", (trackID, ),
-            lambda firstLinkID, multicompletion=multicompletion:\
-                multicompletion(0, firstLinkID))
+            lambda thisCallback, firstLinkID, multicompletion=multicompletion:\
+                multicompletion(0, firstLinkID),
+            traceCallback=traceCallback)
         self._executeAndFetchOneOrNull(
             "select linkid from links where firsttrackid = ?", (trackID, ),
-            lambda secondLinkID, multicompletion=multicompletion:\
-                multicompletion(1, secondLinkID))
+            lambda thisCallback, secondLinkID, multicompletion=multicompletion:\
+                multicompletion(1, secondLinkID),
+            traceCallback=traceCallback)
 
     def _getLinkIDsCompletion2(self, trackID, firstLinkID, secondLinkID,
-                               completion):
+                               completion, traceCallback):
         self._logger.debug("Retrieving link IDs.")
         if firstLinkID == None and secondLinkID == None:
             self.getPathFromIDNoDebug(
-                trackID, lambda path: self._logger.debug(
-                    "\'"+path+"\' is not linked to another track."))
-        completion(firstLinkID, secondLinkID)
+                trackID,
+                lambda thisCallback, path: self._logger.debug(
+                    "\'"+path+"\' is not linked to another track."),
+                traceCallback)
+        completion(traceCallback, firstLinkID, secondLinkID)
             
-    def getLinkedTrackIDs(self, linkID, completion):
-        mycompletion = lambda trackIDs, completion=completion:\
-            self._getLinkedTrackIDsCompletion(trackIDs, completion)
+    def getLinkedTrackIDs(self, linkID, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, trackIDs, completion=completion:\
+            self._getLinkedTrackIDsCompletion(trackIDs, completion,
+                                              thisCallback)
         self._executeAndFetchOneOrNull(
             "select firsttrackid, secondtrackid from links where linkid = ?",
-            (linkID, ), mycompletion, returnTuple=True)
+            (linkID, ), mycompletion, returnTuple=True,
+            traceCallback=traceCallback)
 
-    def _getLinkedTrackIDsCompletion(self, trackIDs, completion):
+    def _getLinkedTrackIDsCompletion(self, trackIDs, completion,
+                                     traceCallback):
         self._logger.debug("Retrieving track IDs for linked tracks.")
         if trackIDs == None:
             self._logger.debug("No such link exists.")
-        completion(trackIDs)
+        completion(traceCallback, trackIDs)
 
-    def removeLink(self, firstTrack, secondTrack):
-        mycompletion = lambda linkID, firstTrack=firstTrack,\
+    def removeLink(self, firstTrack, secondTrack, traceCallback=None):
+        mycompletion = lambda thisCallback, linkID, firstTrack=firstTrack,\
             secondTrack=secondTrack: self._removeLinkCompletion(firstTrack,
                                                                 secondTrack,
-                                                                linkID)
-        self.getLinkID(firstTrack, secondTrack, mycompletion)
+                                                                linkID,
+                                                                thisCallback)
+        self.getLinkID(firstTrack, secondTrack, mycompletion,
+                       traceCallback=traceCallback)
 
-    def _removeLinkCompletion(self, firstTrack, secondTrack, linkID):
+    def _removeLinkCompletion(self, firstTrack, secondTrack, linkID,
+                              traceCallback):
         self._logger.debug("Removing link.")
         firstTrackPath = firstTrack.getPath()
         secondTrackPath = secondTrack.getPath()
         if linkID != None:
-            mycompletion = lambda firstTrackPath=firstTrackPath,\
+            mycompletion = lambda thisCallback, firstTrackPath=firstTrackPath,\
                 secondTrackPath=secondTrackPath: self._logger.info(
                     "\'"+firstTrackPath+"\' is no longer linked to \'"\
                     +secondTrackPath+"\'.")
             self._execute("delete from links where linkid = ?", (linkID, ),
-                          mycompletion)
+                          mycompletion, traceCallback=traceCallback)
         else:
             self._logger.debug("\'"+firstTrackPath+"\' is not linked to \'"\
                                +secondTrackPath+"\'.")
 
-    def addPlay(self, track, msDelay=0, completion=None, priority=None):
-        mycompletion = lambda trackID, track=track, msDelay=msDelay,\
-            completion=completion: self._addPlayCompletion(track, trackID,
-                                                           msDelay, completion,
-                                                           priority)
-        track.getID(mycompletion, priority=priority)
+    def addPlay(self, track, msDelay=0, completion=None, priority=None,
+                traceCallback=None):
+        mycompletion = lambda thisCallback, trackID, track=track,\
+            msDelay=msDelay, completion=completion: self._addPlayCompletion(
+                track, trackID, thisCallback, msDelay, completion, priority)
+        track.getID(mycompletion, priority=priority,
+                    traceCallback=traceCallback)
 
-    def _addPlayCompletion(self, track, trackID, msDelay=0, completion=None,
-                           priority=None):
+    def _addPlayCompletion(self, track, trackID, traceCallback, msDelay=0,
+                           completion=None, priority=None):
         self._logger.debug("Adding play.")
         now = datetime.datetime.now()
         delay = datetime.timedelta(0, 0, 0, msDelay)
         playTime = now - delay
         self.getLastPlayedInSeconds(
-            track, lambda previousPlay, track=track: track.setPreviousPlay(
-                previousPlay))
+            track,
+            lambda thisCallback, previousPlay, track=track:\
+                track.setPreviousPlay(previousPlay), traceCallback)
         if completion == None:
-            mycompletion = lambda: doNothing()
+            mycompletion = lambda thisCallback: doNothing()
         else:
-            mycompletion = lambda: completion()
+            mycompletion = lambda thisCallback: completion(thisCallback)
         self._executeMany(["""insert into plays (trackid, datetime) values
                               (?, datetime(?))""",
                            """update tracks set lastplayed = datetime(?) where
-                              trackid = ?"""], [(trackID, playTime),
-                                                (playTime, trackID)],
-                            mycompletion, priority=priority)
+                              trackid = ?"""],
+                          [(trackID, playTime), (playTime, trackID)],
+                          mycompletion, priority=priority,
+                          traceCallback=traceCallback)
              
-    def getLastPlayedTrackID(self, completion, errcompletion, priority=None):
-        mycompletion = lambda trackID, completion=completion,\
+    def getLastPlayedTrackID(self, completion, errcompletion, priority=None,
+                             traceCallback=None):
+        mycompletion = lambda thisCallback, trackID, completion=completion,\
             errcompletion=errcompletion: self._getLastPlayedTrackIDCompletion(
-                trackID, completion, errcompletion)
+                trackID, completion, errcompletion, thisCallback)
         self._executeAndFetchOneOrNull(
             "select trackid from plays order by playid desc", (), mycompletion,
-            priority=priority)
+            priority=priority, traceCallback=traceCallback)
         
     def _getLastPlayedTrackIDCompletion(self, trackID, completion,
-                                        errcompletion):
+                                        errcompletion, traceCallback):
         if trackID != None:
-            completion(trackID)
+            completion(traceCallback, trackID)
         else:
             self._logger.error("No plays recorded.")
             errcompletion(EmptyDatabaseError)
 
     def _getLastPlayed(self, completion, track=None, trackID=None, debug=True,
-                       priority=None):
+                       priority=None, traceCallback=None):
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError # FIXME: cannot be handled
-            mycompletion = lambda newTrackID, completion=completion,\
+                # FIXME: cannot be handled
+                raise NoTrackError(trace=getTrace(traceCallback))
+            mycompletion = lambda thisCallback, newTrackID, completion=completion,\
                 priority=priority: self._getLastPlayedCompletion(
-                    newTrackID, completion, priority=priority)
-            track.getID(mycompletion, priority=priority)
+                    newTrackID, completion, thisCallback, priority=priority)
+            track.getID(mycompletion, priority=priority,
+                        traceCallback=traceCallback)
             return
-        self._getLastPlayedCompletion(trackID, completion, debug=debug,
-                                      priority=priority)
+        self._getLastPlayedCompletion(trackID, completion, traceCallback,
+                                      debug=debug, priority=priority)
         
-    def _getLastPlayedCompletion(self, trackID, completion, debug=True,
-                                 priority=None):
+    def _getLastPlayedCompletion(self, trackID, completion, traceCallback,
+                                 debug=True, priority=None):
         (self._basicLastPlayedIndex, self._localLastPlayedIndex,
          self._secondsSinceLastPlayedIndex,
          self._lastPlayedInSecondsIndex) = range(4)
-        mycompletion = lambda playDetails, trackID=trackID,\
+        mycompletion = lambda thisCallback, playDetails, trackID=trackID,\
             completion=completion, debug=debug: self._getLastPlayedCompletion2(
-                trackID, playDetails, completion, debug=debug)
+                trackID, playDetails, completion, thisCallback, debug=debug)
         self._executeAndFetchOneOrNull(
             """select datetime, datetime(datetime, 'localtime'),
                strftime('%s', 'now') - strftime('%s', datetime),
                strftime('%s', datetime) from plays where trackid = ? order by
                playid desc""", (trackID, ), mycompletion, returnTuple=True,
-            priority=priority)
+            priority=priority, traceCallback=traceCallback)
         
     def _getLastPlayedCompletion2(self, trackID, playDetails, completion,
-                                  debug=True):
+                                  traceCallback, debug=True):
         if playDetails == None and self._debugMode == True and debug == True:
             self.getPathFromIDNoDebug(
-                trackID, lambda path: self._logger.debug(
-                    "\'"+path+"\' has never been played."))
-        completion(playDetails)
+                trackID,
+                lambda thisCallback, path: self._logger.debug(
+                    "\'"+path+"\' has never been played."), traceCallback)
+        completion(traceCallback, playDetails)
 
-    def getLastPlayed(self, track, completion):
-        mycompletion = lambda details, completion=completion:\
+    def getLastPlayed(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
             self._getDetailCompletion(details, self._basicLastPlayedIndex,
-                                      completion,
+                                      completion, thisCallback,
                                       "Retrieving time of last play.")
-        self._getLastPlayed(mycompletion, track=track)
+        self._getLastPlayed(traceCallback, mycompletion, track=track,
+                            traceCallback=traceCallback)
     
-    def getLastPlayedLocalTime(self, track, completion, priority=None):
-        mycompletion = lambda details, completion=completion:\
-            self._getDetailCompletion(details, self._localLastPlayedIndex,
-                                      completion,
-                                      "Retrieving time of last play in localtime.")
-        self._getLastPlayed(mycompletion, track=track, priority=priority)
+    def getLastPlayedLocalTime(self, track, completion, priority=None,
+                               traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
+            self._getDetailCompletion(
+                details, self._localLastPlayedIndex, completion, thisCallback,
+                "Retrieving time of last play in localtime.")
+        self._getLastPlayed(mycompletion, track=track, priority=priority,
+                            traceCallback=traceCallback)
             
-    def getLastPlayedInSeconds(self, track, completion, priority=None):
-        mycompletion = lambda details, completion=completion:\
+    def getLastPlayedInSeconds(self, track, completion, priority=None,
+                               traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
             self._getDetailCompletion(
                 details, self._lastPlayedInSecondsIndex,
-                lambda lastPlayed, completion=completion:\
+                lambda callback, lastPlayed, completion=completion:\
                     self._getLastPlayedInSecondsCompletion(lastPlayed,
-                                                           completion))
-        self._getLastPlayed(mycompletion, track=track, priority=priority)
+                                                           completion,
+                                                           callback),
+                thisCallback)
+        self._getLastPlayed(mycompletion, track=track, priority=priority,
+                            traceCallback=traceCallback)
 
-    def _getLastPlayedInSecondsCompletion(self, lastPlayed, completion):
+    def _getLastPlayedInSecondsCompletion(self, lastPlayed, completion,
+                                          traceCallback):
         if lastPlayed != None:
             lastPlayed = int(lastPlayed)
-        completion(lastPlayed)
+        completion(traceCallback, lastPlayed)
     
-    def getSecondsSinceLastPlayedFromID(self, trackID, completion, debug=True):
+    def getSecondsSinceLastPlayedFromID(self, trackID, completion, debug=True,
+                                        traceCallback=None):
         if self._debugMode == True and debug == True:
             debugMessage = "Calculating time since last played."
         else:
             debugMessage = None
-        mycompletion = lambda details, completion=completion,\
+        mycompletion = lambda thisCallback, details, completion=completion,\
             debugMessage=debugMessage: self._getDetailCompletion(
                 details, self._secondsSinceLastPlayedIndex, completion,
-                debugMessage)
-        self._getLastPlayed(mycompletion, trackID=trackID, debug=debug)
+                thisCallback, debugMessage)
+        self._getLastPlayed(mycompletion, trackID=trackID, debug=debug,
+                            traceCallback=traceCallback)
 
-    def getRandomizerList(self, completion):
+    def getRandomizerList(self, completion, traceCallback=None):
         self._executeAndFetchAll("""select trackid, strftime('%s', 'now') - 
                                     strftime('%s', lastplayed), score, unscored
                                     from tracks""", (),
-                                 completion)
+                                 completion, traceCallback=traceCallback)
 
     # FIXME: as soon as a file is deleted or moved, so it can't get
     #        played again, this will get stuck. We need to keep track of
     #        whether entries are current or historical. Partially fixed: 
     #        currently bad tracks rely on being chosen by randomizer to update 
     #        historical status.
-    def getOldestLastPlayed(self, completion, priority=None):
+    def getOldestLastPlayed(self, completion, priority=None,
+                            traceCallback=None):
         self._executeAndFetchOneOrNull(
             """select strftime('%s', 'now') - strftime('%s', min(datetime))
                from (select max(playid) as id, trackid from plays,
@@ -1188,36 +1252,42 @@ class Database(DatabaseEventHandler):
                      plays.trackid = historicaltracks.historicalid group by
                      trackid) as maxplays, plays where maxplays.id =
                plays.playid""", (),
-            lambda oldest, completion=completion:\
-                self._getOldestLastPlayedCompletion(oldest, completion),
-            priority=priority)
+            lambda thisCallback, oldest, completion=completion:\
+                self._getOldestLastPlayedCompletion(oldest, completion,
+                                                    thisCallback),
+            priority=priority, traceCallback=traceCallback)
 
-    def _getOldestLastPlayedCompletion(self, oldest, completion):
+    def _getOldestLastPlayedCompletion(self, oldest, completion, traceCallback):
         if oldest == None:
             oldest = 0
-        completion(oldest)
+        completion(traceCallback, oldest)
         
-    def getPlayCount(self, completion, track=None, trackID=None, priority=None):
+    def getPlayCount(self, completion, track=None, trackID=None, priority=None,
+                     traceCallback=None):
         self._logger.debug("Retrieving play count.")
-        mycompletion = lambda plays, completion=completion:\
-            self._getPlayCountCompletion(plays, completion)
-        mycompletion2 = lambda trackID, mycompletion=mycompletion,\
-            priority=priority: self._executeAndFetchAll(
-                """select datetime from plays where trackid = ? order by playid
-                   desc""", (trackID, ), mycompletion, priority=priority)
+        mycompletion = lambda thisCallback, plays, completion=completion:\
+            self._getPlayCountCompletion(plays, completion, thisCallback)
+        mycompletion2 = lambda thisCallback, trackID,\
+            mycompletion=mycompletion, priority=priority:\
+                self._executeAndFetchAll(
+                    """select datetime from plays where trackid = ? order by
+                       playid desc""", (trackID, ), mycompletion,
+                    priority=priority, traceCallback=thisCallback)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError # FIXME: probably broken
-            trackID = track.getID(mycompletion2, priority=priority)
+                # FIXME: probably broken
+                raise NoTrackError(trace=getTrace(traceCallback))
+            trackID = track.getID(mycompletion2, priority=priority,
+                                  traceCallback=traceCallback)
             return
-        mycompletion2(trackID)
+        mycompletion2(traceCallback, trackID)
 
-    def _getPlayCountCompletion(self, plays, completion):
+    def _getPlayCountCompletion(self, plays, completion, traceCallback):
         if plays == None:
-            completion(0)
+            completion(traceCallback, 0)
             return
-        completion(len(plays))
+        completion(traceCallback, len(plays))
     
 #    def updateAllTrackDetails(self):
 #        trackIDs = self.getAllTrackIDs()
@@ -1229,39 +1299,44 @@ class Database(DatabaseEventHandler):
 #                self.setHistorical(True, trackID)
 
     def _getTrackDetails(self, completion, track=None, trackID=None,
-                         priority=None):
+                         priority=None, traceCallback=None):
         self._numberIndices = 9
         (self._pathIndex, self._artistIndex, self._albumIndex, self._titleIndex,
          self._trackNumberIndex, self._unscoredIndex, self._lengthIndex,
          self._bpmIndex, self._historicalIndex) = range(self._numberIndices)
-        mycompletion = lambda trackID, completion=completion,\
+        mycompletion = lambda thisCallback, trackID, completion=completion,\
             priority=priority: self._executeAndFetchOne(
                 """select path, artist, album, title, tracknumber, unscored,
                    length, bpm, historical from tracks where trackid = ?""",
-                (trackID, ), completion, returnTuple=True, priority=priority)
+                (trackID, ), completion, returnTuple=True, priority=priority,
+                traceCallback=thisCallback)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError
-            track.getID(mycompletion, priority=priority)
+                raise NoTrackError(trace=getTrace(traceCallback))
+            track.getID(mycompletion, priority=priority,
+                        traceCallback=traceCallback)
         else:
-            mycompletion(trackID)
+            mycompletion(traceCallback, trackID)
 
-    def maybeUpdateTrackDetails(self, track):
-        mycompletion = lambda change, track=track:\
-            self._maybeUpdateTrackDetailsCompletion(track, change)
-        self._getTrackDetailsChange(track, mycompletion)
+    def maybeUpdateTrackDetails(self, track, traceCallback=None):
+        mycompletion = lambda thisCallback, change, track=track:\
+            self._maybeUpdateTrackDetailsCompletion(track, change, thisCallback)
+        self._getTrackDetailsChange(track, mycompletion, traceCallback)
         
-    def _maybeUpdateTrackDetailsCompletion(self, track, change):
+    def _maybeUpdateTrackDetailsCompletion(self, track, change, traceCallback):
         if change == True:
-            self._updateTrackDetails(track)
+            self._updateTrackDetails(track, traceCallback=traceCallback)
 
-    def _getTrackDetailsChange(self, track, completion):
-        mycompletion = lambda details, track=track, completion=completion:\
-            self._getTrackDetailsChangeCompletion(track, details, completion)
-        self._getTrackDetails(mycompletion, track=track)
+    def _getTrackDetailsChange(self, track, completion, traceCallback):
+        mycompletion = lambda thisCallback, details, track=track,\
+            completion=completion: self._getTrackDetailsChangeCompletion(
+                track, details, completion, thisCallback)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
         
-    def _getTrackDetailsChangeCompletion(self, track, details, completion):
+    def _getTrackDetailsChangeCompletion(self, track, details, completion,
+                                         traceCallback):
         self._logger.debug("Checking whether track details have changed.")
         newDetails = {}
         newDetails[self._pathIndex] = track.getPath()
@@ -1274,193 +1349,219 @@ class Database(DatabaseEventHandler):
         for n in range(self._numberIndices):
             try:
                 if details[n] != newDetails[n]:
-                    completion(True)
+                    completion(traceCallback, True)
                     return
             except KeyError:
                 continue
-        completion(False)
+        completion(traceCallback, False)
     
-    def getPath(self, track, completion):
-        mycompletion = lambda path, completion=completion:\
-            self._getPathCompletion(path, completion)
-        self.getPathNoDebug(track, mycompletion)
+    def getPath(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, path, completion=completion:\
+            self._getPathCompletion(path, completion, thisCallback)
+        self.getPathNoDebug(track, mycompletion, traceCallback=traceCallback)
 
-    def _getPathCompletion(self, path, completion):
+    def _getPathCompletion(self, path, completion, traceCallback):
         self._logger.debug("Retrieving track's path.")
-        completion(path)
+        completion(traceCallback, path)
         
-    def _getDetailCompletion(self, details, index, completion,
+    def _getDetailCompletion(self, details, index, completion, traceCallback,
                              debugMessage=None):
         if debugMessage != None:
             self._logger.debug(debugMessage)
         if details == None:
-            completion(None)
+            completion(traceCallback, None)
             return
-        completion(details[index])
+        completion(traceCallback, details[index])
     
-    def getPathNoDebug(self, track, completion):
-        mycompletion = lambda details, completion=completion:\
-            self._getDetailCompletion(details, self._pathIndex, completion)
-        self._getTrackDetails(mycompletion, track=track)
+    def getPathNoDebug(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
+            self._getDetailCompletion(details, self._pathIndex, completion,
+                                      thisCallback)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
             
-    def getPathFromID(self, trackID, completion, priority=None):
-        mycompletion = lambda path, completion=completion:\
-            self._getPathFromIDCompletion(path, completion)
-        self.getPathFromIDNoDebug(trackID, mycompletion, priority=priority)
+    def getPathFromID(self, trackID, completion, priority=None,
+                      traceCallback=None):
+        mycompletion = lambda thisCallback, path, completion=completion:\
+            self._getPathFromIDCompletion(path, completion, thisCallback)
+        self.getPathFromIDNoDebug(trackID, mycompletion, priority=priority,
+                                  traceCallback=traceCallback)
 
-    def _getPathFromIDCompletion(self, path, completion):
+    def _getPathFromIDCompletion(self, path, completion, traceCallback):
         self._logger.debug("Retrieving track's path.")
-        completion(path)
+        completion(traceCallback, path)
     
-    def getPathFromIDNoDebug(self, trackID, completion, priority=None):
-        mycompletion = lambda details, completion=completion:\
-            self._getDetailCompletion(details, self._pathIndex, completion)
-        self._getTrackDetails(mycompletion, trackID=trackID, priority=priority)
+    def getPathFromIDNoDebug(self, trackID, completion, priority=None,
+                             traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
+            self._getDetailCompletion(details, self._pathIndex, completion,
+                                      thisCallback)
+        self._getTrackDetails(mycompletion, trackID=trackID, priority=priority,
+                              traceCallback=traceCallback)
     
-    def getArtist(self, track, completion):
-        mycompletion = lambda details, completion=completion:\
+    def getArtist(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
             self._getDetailCompletion(details, self._artistIndex, completion,
+                                      thisCallback,
                                       debugMessage="Retrieving track's artist.")
-        self._getTrackDetails(mycompletion, track=track)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
     
-    def getAlbum(self, track, completion):
-        mycompletion = lambda details, completion=completion:\
+    def getAlbum(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
             self._getDetailCompletion(details, self._albumIndex, completion,
+                                      thisCallback,
                                       debugMessage="Retrieving track's album.")
-        self._getTrackDetails(mycompletion, track=track)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
     
-    def getTitle(self, track, completion):
-        mycompletion = lambda details, completion=completion:\
+    def getTitle(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
             self._getDetailCompletion(details, self._titleIndex, completion,
+                                      thisCallback,
                                       debugMessage="Retrieving track's title.")
-        self._getTrackDetails(mycompletion, track=track)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
     
-    def getTrackNumber(self, track, completion):
-        mycompletion = lambda details, completion=completion:\
+    def getTrackNumber(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
             self._getDetailCompletion(details, self._trackNumberIndex,
-                                      completion,
+                                      completion, thisCallback,
                                       debugMessage="Retrieving track's number.")
-        self._getTrackDetails(mycompletion, track=track)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
     
-    def getBPM(self, track, completion):
-        mycompletion = lambda details, track=track, completion=completion:\
-            self._getBPMCompletion(track, details, completion)
-        self._getTrackDetails(mycompletion, track=track)
+    def getBPM(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, track=track,\
+            completion=completion: self._getBPMCompletion(track, details,
+                                                          completion,
+                                                          thisCallback)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
 
-    def _getBPMCompletion(self, track, details, completion):
+    def _getBPMCompletion(self, track, details, completion, traceCallback):
         self._logger.debug("Retrieving track's bpm.")
         if details == None:
-            completion(None)
+            completion(traceCallback, None)
             return
         bpm = details[self._bpmIndex]
         if bpm == None:
             bpm = track.getBPM()
-            self.setBPM(bpm, track)
-        completion(bpm)
+            self.setBPM(bpm, track, traceCallback=traceCallback)
+        completion(traceCallback, bpm)
     
-    def setBPM(self, bpm, track):
-        mycompletion = lambda trackID, bpm=bpm: self._setBPMCompletion(bpm,
-                                                                       trackID)
-        track.getID(mycompletion)
+    def setBPM(self, bpm, track, traceCallback=None):
+        mycompletion = lambda thisCallback, trackID, bpm=bpm:\
+            self._setBPMCompletion(bpm, trackID, thisCallback)
+        track.getID(mycompletion, traceCallback=traceCallback)
             
-    def _setBPMCompletion(self, bpm, trackID):
-        mycompletion = lambda: self._logger.debug("Adding bpm to track.")
+    def _setBPMCompletion(self, bpm, trackID, traceCallback):
+        mycompletion = lambda thisCallback: self._logger.debug(
+            "Adding bpm to track.")
         self._execute("update tracks set bpm = ? where trackID = ?",
-                      (bpm, trackID), mycompletion)
+                      (bpm, trackID), mycompletion, traceCallback=traceCallback)
     
-    def getHistorical(self, track, completion):
-        mycompletion = lambda details, completion=completion:\
+    def getHistorical(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, completion=completion:\
             self._getDetailCompletion(
-                details, self._historicalIndex, completion,
+                details, self._historicalIndex, completion, thisCallback,
                 debugMessage="Retrieving track's currency.")
-        self._getTrackDetails(mycompletion, track=track)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
     
-    def getLengthString(self, track, completion):
-        mycompletion = lambda rawLength, completion=completion:\
-            completion(formatLength(rawLength))
-        self.getLength(track, mycompletion)
+    def getLengthString(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, rawLength, completion=completion:\
+            completion(thisCallback, formatLength(rawLength))
+        self.getLength(track, mycompletion, traceCallback=traceCallback)
         
-    def getLength(self, track, completion):
-        mycompletion = lambda details, track=track, completion=completion:\
-            self._getLengthCompletion(track, details, completion)
-        self._getTrackDetails(mycompletion, track=track)
+    def getLength(self, track, completion, traceCallback=None):
+        mycompletion = lambda thisCallback, details, track=track,\
+            completion=completion: self._getLengthCompletion(track, details,
+                                                             completion,
+                                                             thisCallback)
+        self._getTrackDetails(mycompletion, track=track,
+                              traceCallback=traceCallback)
     
-    def _getLengthCompletion(self, track, details, completion):
+    def _getLengthCompletion(self, track, details, completion, traceCallback):
         self._logger.debug("Retrieving track's length.")
         if details == None:
-            completion(None)
+            completion(traceCallback, None)
             return
         length = details[self._lengthIndex]
         if length == None:
             length = track.getLength()
-            self.setLength(length, track)
-        completion(length)
+            self.setLength(length, track, traceCallback=traceCallback)
+        completion(traceCallback, length)
         
-    def setLength(self, length, track):
-        mycompletion = lambda trackID, length=length:\
-            self._setLengthCompletion(length, trackID)
-        track.getID(mycompletion)
+    def setLength(self, length, track, traceCallback=None):
+        mycompletion = lambda thisCallback, trackID, length=length:\
+            self._setLengthCompletion(length, trackID, thisCallback)
+        track.getID(mycompletion, traceCallback=traceCallback)
 
-    def _setLengthCompletion(self, length, trackID):
-        mycompletion = lambda: self._logger.debug("Adding length to track.")
+    def _setLengthCompletion(self, length, trackID, traceCallback=None):
+        mycompletion = lambda thisCallback: self._logger.debug(
+            "Adding length to track.")
         self._execute("update tracks set length = ? where trackID = ?",
-                      (length, trackID), mycompletion)
+                      (length, trackID), mycompletion,
+                      traceCallback=traceCallback)
         
-    def addTagName(self, tagName):
-        mycompletion = lambda: self._logger.debug("Adding tag name.")
+    def addTagName(self, tagName, traceCallback=None):
+        mycompletion = lambda thisCallback: self._logger.debug(
+            "Adding tag name.")
         self._execute("insert into tagnames (name) values (?)", (tagName, ),
-                      mycompletion)
+                      mycompletion, traceCallback=traceCallback)
             
-    def getAllTagNames(self, completion, priority=None):
-        mycompletion = lambda names, completion=completion:\
-            self._getAllTagNamesCompletion(names, completion)
+    def getAllTagNames(self, completion, priority=None, traceCallback=None):
+        mycompletion = lambda thisCallback, names, completion=completion:\
+            self._getAllTagNamesCompletion(names, completion, thisCallback)
         self._executeAndFetchAll("select name from tagnames", (), mycompletion,
-                                 priority=priority)
+                                 priority=priority, traceCallback=traceCallback)
         
-    def _getAllTagNamesCompletion(self, names, completion):
+    def _getAllTagNamesCompletion(self, names, completion, traceCallback):
         self._logger.debug("Retrieving all tag names.")
         if names == None:
-            completion([])
+            completion(traceCallback, [])
             return
         tagNames = []
         for (name, ) in names:
             tagNames.append(name)
-        completion(tagNames)
+        completion(traceCallback, tagNames)
         
-    def getTagNameID(self, tagName, completion):
+    def getTagNameID(self, tagName, completion, traceCallback=None):
         self._executeAndFetchOne(
             "select tagnameid from tagnames where name = ?", (tagName, ),
-            completion)
+            completion, traceCallback=traceCallback)
             
-    def setTag(self, track, tagName):
-        multicompletion =\
-            MultiCompletion(3, lambda trackID, tagNames, tagNameID,\
-                                tagName=tagName:\
-                                    self._setTagCompletion(trackID, tagName,
-                                                           tagNameID, tagNames))
+    def setTag(self, track, tagName, traceCallback=None):
+        multicompletion = MultiCompletion(
+            3,
+            lambda trackID, tagNames, tagNameID, tagName=tagName,
+                traceCallback=traceCallback: self._setTagCompletion(
+                    trackID, tagName, tagNameID, tagNames, traceCallback),
+            traceCallback)
         track.getID(
-            lambda trackID, multicompletion=multicompletion: multicompletion(
-                0, trackID))
+            lambda thisCallback, trackID, multicompletion=multicompletion:\
+                multicompletion(0, trackID), traceCallback=traceCallback)
         self.getTags(
             track,
-            lambda tagNames, multicompletion=multicompletion: multicompletion(
-                1, tagNames))
+            lambda thisCallback, tagNames, multicompletion=multicompletion:\
+                multicompletion(1, tagNames), traceCallback=traceCallback)
         self.getTagNameID(
             tagName,
-            lambda tagNameID, multicompletion=multicompletion: multicompletion(
-                2, tagNameID))
+            lambda thisCallback, tagNameID, multicompletion=multicompletion:\
+                multicompletion(2, tagNameID), traceCallback=traceCallback)
             
-    def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames):
+    def _setTagCompletion(self, trackID, tagName, tagNameID, tagNames,
+                          traceCallback):
         if tagName not in tagNames:
-            mycompletion = lambda tagName=tagName: self._logger.info(
-                "Tagging track with '"+tagName+"'.")
+            mycompletion = lambda thisCallback, tagName=tagName:\
+                self._logger.info("Tagging track with '"+tagName+"'.")
             self._execute("insert into tags (trackid, tagnameid) values (?, ?)",
-                          (trackID, tagNameID), mycompletion)
+                          (trackID, tagNameID), mycompletion,
+                          traceCallback=traceCallback)
         
-    def unsetTag(self, track, tagName):
-        multicompletion =\
-            MultiCompletion(2, lambda trackID, tagNameID:\
-                            self._unsetTagCompletion(trackID, tagNameID))
+    def unsetTag(self, track, tagName, traceCallback=None):
+        multicompletion = MultiCompletion(3, self._unsetTagCompletion)
         track.getID(
             lambda trackID, multicompletion=multicompletion: multicompletion(
                 0, trackID))
@@ -1468,184 +1569,216 @@ class Database(DatabaseEventHandler):
             tagName,
             lambda tagNameID, multicompletion=multicompletion: multicompletion(
                 1, tagNameID))
+        multicompletion(2, traceCallback)
         
-    def _unsetTagCompletion(self, trackID, tagNameID):
+    def _unsetTagCompletion(self, trackID, tagNameID, traceCallback):
         self._execute("delete from tags where tagnameid = ? and trackid = ?",
-                      (tagNameID, trackID), lambda: doNothing())
+                      (tagNameID, trackID), lambda thisCallback: doNothing(),
+                      traceCallback)
         
-    def getTagNameFromID(self, tagNameID, completion, priority=None):
+    def getTagNameFromID(self, tagNameID, completion, priority=None,
+                         traceCallback=None):
         self._executeAndFetchOne(
             "select name from tagnames where tagnameid = ?", (tagNameID, ),
-            completion, priority=priority)
+            completion, priority=priority, traceCallback=traceCallback)
 
-    def getTags(self, track, completion, priority=None):
-        mycompletion = lambda trackID, completion=completion,\
-            priority=priority: self.getTagsFromTrackID(trackID, completion,
-                                                       priority=priority)
-        track.getID(mycompletion)
+    def getTags(self, track, completion, priority=None, traceCallback=None):
+        mycompletion = lambda thisCallback, trackID, completion=completion,\
+            priority=priority: self.getTagsFromTrackID(
+                trackID, completion, priority=priority,
+                traceCallback=thisCallback)
+        track.getID(mycompletion, traceCallback=traceCallback)
 
-    def getTagsFromTrackID(self, trackID, completion, priority=None):
-        mycompletion = lambda tagNameIDs, completion=completion,\
+    def getTagsFromTrackID(self, trackID, completion, priority=None,
+                           traceCallback=None):
+        mycompletion = lambda thisCallback, tagNameIDs, completion=completion,\
             priority=priority: self._getTagsFromTrackIDCompletion(
-                tagNameIDs, completion, priority=priority)
+                tagNameIDs, completion, thisCallback, priority=priority)
         self._executeAndFetchAll(
             "select tagnameid from tags where trackid = ?", (trackID, ),
-            mycompletion, priority=priority, throwException=False)
+            mycompletion, priority=priority, throwException=False,
+            traceCallback=traceCallback)
         
     def _getTagsFromTrackIDCompletion(self, tagNameIDs, completion,
-                                      priority=None):
+                                      traceCallback, priority=None):
         self._logger.debug("Retrieving track tags.")
         if tagNameIDs == None:
-            completion([])
+            completion(traceCallback, [])
             return
         self._tagNames = []
         for (tagNameID, ) in tagNameIDs:
-            mycompletion = lambda tagName: self._tagNames.append(tagName)
-            self.getTagNameFromID(tagNameID, mycompletion, priority=priority)
-        self.complete(lambda: completion(self._tagNames), priority=priority)
+            mycompletion = lambda thisCallback, tagName: self._tagNames.append(
+                tagName)
+            self.getTagNameFromID(tagNameID, mycompletion, priority=priority,
+                                  traceCallback=traceCallback)
+        self.complete(
+            lambda thisCallback: completion(thisCallback, self._tagNames),
+            priority=priority, traceCallback=traceCallback)
 
-    def getIsScored(self, track, completion, priority=None):
-        self._getIsScored(completion, track=track, priority=priority)
+    def getIsScored(self, track, completion, priority=None, traceCallback=None):
+        self._getIsScored(completion, track=track, priority=priority,
+                          traceCallback=None)
 
-    def getIsScoredFromID(self, trackID, completion, debug=True):
-        self._getIsScored(completion, trackID=trackID, debug=debug)
+    def getIsScoredFromID(self, trackID, completion, debug=True,
+                          traceCallback=None):
+        self._getIsScored(completion, trackID=trackID, debug=debug,
+                          traceCallback=None)
         
     ## determines whether user has changed score for this track
     def _getIsScored(self, completion, track=None, trackID=None, debug=True,
-                     priority=None):
+                     priority=None, traceCallback=None):
         if self._debugMode == True and debug == True:
             debugMessage = "Retrieving track's unscored status."
         else:
             debugMessage = None
-        mycompletion = lambda details, completion=completion,\
+        mycompletion = lambda thisCallback, details, completion=completion,\
             debugMessage=debugMessage: self._getDetailCompletion(
-                details, self._unscoredIndex, lambda unscored,\
+                details, self._unscoredIndex, lambda callback, unscored,\
                     completion=completion: self._getIsScoredCompletion(
-                        unscored, completion), debugMessage=debugMessage)
+                        unscored, completion, callback), thisCallback,
+                debugMessage=debugMessage)
         if trackID != None:
             self._getTrackDetails(mycompletion, trackID=trackID,
-                                  priority=priority)
+                                  priority=priority,
+                                  traceCallback=traceCallback)
         else:
-            self._getTrackDetails(mycompletion, track=track, priority=priority)
+            self._getTrackDetails(mycompletion, track=track, priority=priority,
+                                  traceCallback=traceCallback)
         
-    def _getIsScoredCompletion(self, unscored, completion):
+    def _getIsScoredCompletion(self, unscored, completion, traceCallback):
         if unscored == None:
-            completion(None)
+            completion(traceCallback, None)
         elif unscored == 1:
-            completion(False)
+            completion(traceCallback, False)
         elif unscored == 0:
-            completion(True)
+            completion(traceCallback, True)
     
     ## poss should add a record to scores table
-    def setUnscored(self, track):
+    def setUnscored(self, track, traceCallback=None):
         track.getID(
-            lambda trackID: self._execute(
+            lambda thisCallback, trackID: self._execute(
                 "update tracks set unscored = 1 where trackid = ?", (trackID, ),
-                lambda: self._logger.debug("Setting track as unscored.")))
+                lambda thisCallback: self._logger.debug(
+                    "Setting track as unscored."), traceCallback=thisCallback),
+            traceCallback)
         
     ## poss add track if track not in library
-    def setScore(self, track, score):
-        track.getID(lambda trackID, score=score: self._setScoreCompletion(
-                        trackID, score))
+    def setScore(self, track, score, traceCallback=None):
+        track.getID(
+            lambda thisCallback, trackID, score=score: self._setScoreCompletion(
+                trackID, score, thisCallback), traceCallback)
 
-    def _setScoreCompletion(self, trackID, score):
+    def _setScoreCompletion(self, trackID, score, traceCallback):
         self._executeMany(
             ["update tracks set unscored = 0, score = ? where trackid = ?",
              """insert into scores (trackid, score, datetime) values
                 (?, ?, datetime('now'))"""],
             [(score, trackID), (trackID, score)],
-            lambda: self._logger.debug("Setting track's score."))
+            lambda thisCallback: self._logger.debug("Setting track's score."),
+            traceCallback=traceCallback)
 
     def _getScore(self, completion, track=None, trackID=None, debug=True,
-                  priority=None):
-        mycompletion = lambda trackID, completion=completion, debug=debug,\
-            priority=priority: self._executeAndFetchOneOrNull(
+                  priority=None, traceCallback=None):
+        mycompletion = lambda thisCallback, trackID, completion=completion,\
+            debug=debug, priority=priority: self._executeAndFetchOneOrNull(
                 """select score from scores where trackid = ? order by scoreid
                    desc""", (trackID, ),
-                lambda score, completion=completion, debug=debug:\
+                lambda callback, score, completion=completion, debug=debug:\
                     self._internalGetScoreCompletion(score, completion,
-                                                     debug=debug),
-                priority=priority)
+                                                     callback, debug=debug),
+                priority=priority, traceCallback=thisCallback)
         if trackID == None:
             if track == None:
                 self._logger.error("No track has been identified.")
-                raise NoTrackError # FIXME: probably doesn't work
-            track.getID(mycompletion, priority=priority)
+                # FIXME: probably doesn't work
+                raise NoTrackError(trace=getTrace(traceCallback))
+            track.getID(mycompletion, priority=priority,
+                        traceCallback=traceCallback)
             return
-        mycompletion(trackID)
+        mycompletion(traceCallback, trackID)
         
-    def _internalGetScoreCompletion(self, score, completion, debug=True):
+    def _internalGetScoreCompletion(self, score, completion, traceCallback,
+                                    debug=True):
         if debug == True:
             self._logger.debug("Retrieving track's score.")
-        completion(score)
+        completion(traceCallback, score)
             
-    def getScore(self, track, completion):
+    def getScore(self, track, completion, traceCallback=None):
         self.getIsScored(
-            track, lambda isScored, completion=completion, track=track:\
-                self._getScoreCompletion(isScored, completion,
-                                         completeWithDash=True, track=track))
+            track,
+            lambda thisCallback, isScored, completion=completion, track=track:\
+                self._getScoreCompletion(isScored, completion, thisCallback,
+                                         completeWithDash=True, track=track),
+            traceCallback=traceCallback)
     
     def _getScoreCompletion(self, isScored, completion, completeWithDash=False,
                             track=None, trackID=None, debug=True,
-                            priority=None):
+                            priority=None, traceCallback=None):
         if isScored == False:
             if completeWithDash == True:
-                completion("-")
+                completion(traceCallback, "-")
             else:
-                completion(self._defaultScore)
+                completion(traceCallback, self._defaultScore)
         else:
             self._getScore(completion, track=track, trackID=trackID,
-                           debug=debug, priority=priority)
+                           debug=debug, priority=priority,
+                           traceCallback=traceCallback)
     
-    def getScoreValue(self, track, completion, priority=None):
+    def getScoreValue(self, track, completion, priority=None,
+                      traceCallback=None):
         self.getIsScored(
-            track, lambda isScored, completion=completion, track=track,\
-                priority=priority: self._getScoreCompletion(isScored,
-                                                            completion,
-                                                            track=track,
-                                                            priority=priority),
-            priority=priority)
+            track,
+            lambda thisCallback, isScored, completion=completion, track=track,\
+                priority=priority: self._getScoreCompletion(
+                    isScored, completion, track=track, priority=priority,
+                    traceCallback=thisCallback),
+            priority=priority, traceCallback=traceCallback)
     
-    def getScoreValueFromID(self, trackID, completion, debug=True):
+    def getScoreValueFromID(self, trackID, completion, debug=True,
+                            traceCallback=None):
         self.getIsScoredFromID(
-            trackID, lambda isScored, completion=completion, trackID=trackID,\
-                debug=debug: self._getScoreCompletion(isScored, completion,
-                                                      trackID=trackID,
-                                                      debug=debug),
-            debug=debug)
+            trackID,
+            lambda thisCallback, isScored, completion=completion,\
+                trackID=trackID, debug=debug: self._getScoreCompletion(
+                    isScored, completion, trackID=trackID, debug=debug,
+                    traceCallback=thisCallback),
+            debug=debug, traceCallback=traceCallback)
 
-    def maybeGetIDFromPath(self, path, completion):
+    def maybeGetIDFromPath(self, path, completion, traceCallback=None):
         path = os.path.realpath(path)
         self._executeAndFetchOneOrNull(
-            "select trackid from tracks where path = ?", (path, ), completion)
+            "select trackid from tracks where path = ?", (path, ), completion,
+            traceCallback=traceCallback)
 
 #    def getIDFromPath(self, path):
 #        id = self.maybeGetIDFromPath(path)
 #        if id is None:
 #            raise PathNotFoundError()
 
-    def getNumberOfTracks(self, completion, priority=None):
+    def getNumberOfTracks(self, completion, priority=None, traceCallback=None):
         self._executeAndFetchOne("select count(*) from tracks", (), completion,
-                                 priority=priority)
+                                 priority=priority, traceCallback=traceCallback)
     
     # FIXME(ben): create indexes on tracks(trackid) and plays(trackid)
     # or this is slow!
-    def getNumberOfUnplayedTracks(self, completion, priority=None):
+    def getNumberOfUnplayedTracks(self, completion, priority=None,
+                                  traceCallback=None):
         self._executeAndFetchOne(
             """select count(*) from tracks left outer join plays using(trackid)
                where plays.trackid is null""", (), completion,
-            priority=priority)
+            priority=priority, traceCallback=traceCallback)
         
     # returns an array of [ score, count ]
-    def getScoreTotals(self, completion, priority=None):
+    def getScoreTotals(self, completion, priority=None, traceCallback=None):
         self._executeAndFetchAll(
             """select score, count(score)
                from (select max(scoreid), x.trackid, score
                      from scores, (select distinct trackid from scores) as x
                      where scores.trackid = x.trackid group by scores.trackid)
-               group by score;""", (), completion, priority=priority)
+               group by score;""", (), completion, priority=priority,
+            traceCallback=traceCallback)
 
-    def abort(self, interruptWalk=False):
+    def abort(self, interruptWalk=False, traceCallback=None):
         self._directoryWalkThread.setAbortInterrupt(interruptWalk)
         self._directoryWalkThread.abort()
     

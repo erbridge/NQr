@@ -74,7 +74,7 @@ class Main(wx.App):
                     line for line in traceback.format_exception(type, value,
                                                                 traceBack)]))
         except AttributeError as err:
-            if "object has no attribute \'trace\'" not in str(err):
+            if "object has no attribute \'getTrace\'" not in str(err):
                 raise err
             self._logger.critical("Uncaught exception:\n\n"+"".join([
                 line for line in traceback.format_exception(type, value,

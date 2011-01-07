@@ -8,7 +8,7 @@ import ConfigParser
 from Errors import EmptyDatabaseError, UnsafeInputError, NoTrackError
 import random
 from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage,\
-    validateNumeric, roughAge, wx
+    validateNumeric, roughAge, getTrace, wx
 
 ## tracks with a score >= scoreThreshold get played
 ## by default, -10s are not played
@@ -87,39 +87,45 @@ class Randomizer:
                 return False
         return True
 
-    def chooseTracks(self, number, exclude, completion, tags=None):
+    def chooseTracks(self, number, exclude, completion, traceCallback=None,
+                     tags=None):
         self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
-        mycompletion = lambda trackIDs, completion=completion:\
-            self._chooseTracksCompletion(trackIDs, completion)
-        self._chooseTrackIDs(number, exclude, mycompletion, tags)
+        mycompletion = lambda thisCallback, trackIDs, completion=completion:\
+            self._chooseTracksCompletion(trackIDs, completion, thisCallback)
+        self._chooseTrackIDs(number, exclude, mycompletion, traceCallback, tags)
 
-    def _chooseTracksCompletion(self, trackIDs, completion):
+    def _chooseTracksCompletion(self, trackIDs, completion, traceCallback):
         self._tracks = [] # FIXME: possibly clears list before posting it
         for [trackID, weight] in trackIDs:
-            errcompletion = ErrorCompletion(NoTrackError,
-                                            lambda trackID=trackID:\
-                                                self._db.setHistorical(True,
-                                                                       trackID))
+            errcompletion = ErrorCompletion(
+                NoTrackError,
+                lambda thisCallback, trackID=trackID: self._db.setHistorical(
+                    True, trackID, traceCallback=thisCallback), traceCallback)
             self._trackFactory.getTrackFromID(
                 self._db, trackID,
-                lambda track, weight=weight: self._addTrackToListCallback(
-                    track, weight), errcompletion=errcompletion)
+                lambda thisCallback, track, weight=weight:\
+                    self._addTrackToListCallback(track, weight),
+                errcompletion=errcompletion, traceCallback=traceCallback)
         self._db.complete(
-            lambda completion=completion: completion(self._tracks))
+            lambda thisCallback, completion=completion: completion(
+                thisCallback, self._tracks), traceCallback=traceCallback)
         
     def _addTrackToListCallback(self, track, weight):
         track.setWeight(weight)
         self._tracks.append(track)
     
     ## will throw exception if database is empty?
-    def _chooseTrackIDs(self, number, exclude, completion, tags=None):
-        mycompletion = lambda trackWeightList, totalWeight, number=number,\
-            completion=completion: self._chooseTrackIDsCompletion(
-                number, trackWeightList, totalWeight, completion)
-        self._createLists(exclude, mycompletion, tags)
+    def _chooseTrackIDs(self, number, exclude, completion, traceCallback,
+                        tags=None):
+        mycompletion = lambda thisCallback, trackWeightList, totalWeight,\
+            number=number, completion=completion:\
+                self._chooseTrackIDsCompletion(number, trackWeightList,
+                                               totalWeight, completion,
+                                               thisCallback)
+        self._createLists(exclude, mycompletion, traceCallback, tags)
 
     def _chooseTrackIDsCompletion(self, number, trackWeightList, totalWeight,
-                                  completion):
+                                  completion, traceCallback):
         trackIDs = []
         for n in range(number):
             trackID, weight = self._selectTrackID(trackWeightList, totalWeight,
@@ -130,7 +136,7 @@ class Randomizer:
                                +str(totalWeight)+" (norm "+str(norm)\
                                +").")
             trackIDs.append([trackID, norm])
-        completion(trackIDs)
+        completion(traceCallback, trackIDs)
         
     def _selectTrackID(self, trackWeightList, totalWeight, trackIDs):
         selector = random.random() * totalWeight
@@ -143,18 +149,21 @@ class Randomizer:
                 return trackID, weight
         
         
-    def _createLists(self, exclude, completion, tags=None):
+    def _createLists(self, exclude, completion, traceCallback, tags=None):
         multicompletion = MultiCompletion(
-            2,
-            lambda oldest, list, exclude=exclude, completion=completion:\
-                self._createListsCompletion(exclude, oldest, list, completion))
+            3,
+            lambda oldest, list, thisCallback, exclude=exclude,\
+                completion=completion: self._createListsCompletion(
+                    exclude, oldest, list, completion, thisCallback),
+            traceCallback)
         self._db.getOldestLastPlayed(
-            lambda oldest, multicompletion=multicompletion: multicompletion(
-                0, oldest))
+            lambda thisCallback, oldest, multicompletion=multicompletion:\
+                multicompletion(0, oldest), traceCallback=traceCallback)
+        multicompletion(2, traceCallback)
         if tags == None:
             self._db.getRandomizerList(
-                lambda list, multicompletion=multicompletion: multicompletion(
-                    1, list))
+                lambda thisCallback, list, multicompletion=multicompletion:\
+                    multicompletion(1, list), traceCallback=traceCallback)
         else:
             # FIXME: support tags
 #            self._db.getRandomizerListFromTags(
@@ -164,11 +173,12 @@ class Randomizer:
             pass
 
     # FIXME: EmptyDatabaseError needs to be caught
-    def _createListsCompletion(self, exclude, oldest, list, completion):
+    def _createListsCompletion(self, exclude, oldest, list, completion,
+                               traceCallback):
         self._logger.debug("Creating weighted list of tracks.")
         if list == []:
             self._logger.error("No tracks in database.")
-            raise EmptyDatabaseError
+            raise EmptyDatabaseError(trace=getTrace(traceCallback))
         self._logger.debug("Oldest track was played "+str(oldest)\
                            +" seconds ago ("+roughAge(oldest)+" ago).")
         trackWeightList = []
@@ -189,7 +199,7 @@ class Randomizer:
             weight = self.getWeight(score, time)
             trackWeightList.append([trackID, weight])
             totalWeight += weight
-        completion(trackWeightList, totalWeight)
+        completion(traceCallback, trackWeightList, totalWeight)
         
     def _setWeightAlgorithm(self, rawWeightAlgorithm):
         self._weightAlgorithm = eval("lambda score, time: "+rawWeightAlgorithm)

@@ -49,3 +49,6 @@ class PlayerNotRunningError(Error):
 
 class NoEventHandlerError(Error):
     pass
+
+class InvalidIDError(Error):
+    pass

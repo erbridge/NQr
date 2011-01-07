@@ -50,9 +50,7 @@ def convertToUnicode(string, warningCompletion, logging=True):
                 hexStr = ""
                 for i in range(startIndex, endIndex):
                     hexStr += errStr[i]
-                
                 unicodeString += unichr(int(hexStr, 16))
-        
         if logging == True:
             warningCompletion("Bad characters resolved.")
     return unicodeString
@@ -68,6 +66,14 @@ def extractTraceStack(trace):
         if trace[index] != newTrace[index]:
             return trace + newTrace[index:]
     return trace
+
+def getTrace(maybeTraceCallback):
+    if isinstance(maybeTraceCallback, BaseCallback):
+        return maybeTraceCallback.getTrace()[:-1]
+    elif isinstance(maybeTraceCallback, list):
+        return extractTraceStack(maybeTraceCallback)[:-1]
+    else:
+        return extractTraceStack(maybeTraceCallback)[:-1]
 
 def validateNumeric(textCtrl):
     text = textCtrl.GetValue()
@@ -222,24 +228,26 @@ class RedirectOut(RedirectText):
         RedirectText.__init__(self, textCtrl, stdout)
         
 class BaseCallback:
-    def __init__(self, completion, child=None):
+    def __init__(self, completion, traceCallbackOrList=None):
         self._completion = completion
-        self._child = child
-        
-    def getTrace(self):
-        if self._child:
-            trace = self._child.getTrace()
+        if isinstance(traceCallbackOrList, BaseCallback):
+            trace = traceCallbackOrList.getTrace()
+        elif isinstance(traceCallbackOrList, list):
+            trace = traceCallbackOrList
         else:
             trace = None
-        return extractTraceStack(trace)
+        self._trace = extractTraceStack(trace)[:-1]
+        
+    def getTrace(self):
+        return extractTraceStack(self._trace)[:-1]
         
 class Callback(BaseCallback):
     def __call__(self, *args, **kwargs):
-        self._completion(*args, **kwargs)
+        self._completion(self, *args, **kwargs)
         
 class MultiCompletion(BaseCallback):
-    def __init__(self, number, completion, child=None):
-        BaseCallback.__init__(self, completion, child)
+    def __init__(self, number, completion, traceCallbackOrList=None):
+        BaseCallback.__init__(self, completion, traceCallbackOrList)
         self._slots = [None] * number
         self._puts = [False] * number
     
@@ -252,8 +260,8 @@ class MultiCompletion(BaseCallback):
             self._completion(*self._slots)        
         
 class ErrorCompletion(BaseCallback):
-    def __init__(self, exceptions, completion, child=None):
-        BaseCallback.__init__(self, completion, child)
+    def __init__(self, exceptions, completion, traceCallbackOrList=None):
+        BaseCallback.__init__(self, completion, traceCallbackOrList)
         if isinstance(exceptions, list):
             self._exceptions = exceptions
         else:
@@ -297,7 +305,8 @@ class BasePrefsPage(wx.Panel):
         pass
 
 class BaseThread(threading.Thread, EventPoster):
-    def __init__(self, parent, name, logger, errcallback, lock):
+    def __init__(self, parent, name, logger, errcallback, lock,
+                 raiseEmpty=False):
         threading.Thread.__init__(self, name=name)
         EventPoster.__init__(self, parent, logger, lock)
         self._name = name
@@ -306,15 +315,20 @@ class BaseThread(threading.Thread, EventPoster):
         self._eventCount = 0
         self._abortCount = 0
         self._emptyCount = 0
-        self._raisedEmpty = True
+        self._raisedEmpty = raiseEmpty
         self._interrupt = False
         
-    def queue(self, thing, trace, priority=2):
+    def queue(self, thing, traceCallbackOrList=None, priority=2):
+        thing = Callback(thing, traceCallbackOrList)
         self._eventCount += 1
-        self._queue.put((priority, self._eventCount, thing, trace))
+        self._queue.put((priority, self._eventCount, thing))
         if self._raisedEmpty:
             self._raisedEmpty = False
             self._queueEmptyQueueCallback()
+            
+    def start_(self, trace=None):
+        self._trace = extractTraceStack(trace)[:-1]
+        self.start()
 
     def run(self):
         self.postDebugLog("Starting \'"+self._name+"\' thread.")
@@ -322,14 +336,14 @@ class BaseThread(threading.Thread, EventPoster):
         while True:
             try:
                 got = self._queue.get()
-                self._queueCallback(got[2], got[3])
+                self._queueCallback(got[2])
                 self._abortCount = 0
                 self._emptyCount = 0
             except AbortThreadError:
                 if self._abortCount > 20: # FIXME: make more deterministic
                     self._abort()
                     break
-                self.abort(got[3])
+                self.abort()
                 self._abortCount += 1
             except EmptyQueueError as err:
                 if self._emptyCount > 20: # FIXME: make more deterministic
@@ -340,6 +354,15 @@ class BaseThread(threading.Thread, EventPoster):
                     self._emptyCount += 1
                     self._queueEmptyQueueCallback()
         self.postInfoLog("\'"+self._name+"\' thread stopped.")
+
+    def _run(self):
+        pass
+
+    def _abort(self):
+        pass
+
+    def _queueCallback(self, completion, *args, **kwargs):
+        completion(*args, **kwargs)
         
     def _raise(self, err, errcompletion=None):
         try:
@@ -348,18 +371,24 @@ class BaseThread(threading.Thread, EventPoster):
             self.postEvent(Events.ExceptionEvent(err))
         
     def _queueEmptyQueueCallback(self):
-        self.queue(self._emptyQueueCallback, extractTraceStack([]), 999)
+        self.queue(self._emptyQueueCallback, priority=999)
+            
+    def _emptyQueueCallback(self, thisCallback, *args, **kwargs):
+        raise EmptyQueueError(trace=thisCallback.getTrace())
         
     def setAbortInterrupt(self, interrupt):
         self._interrupt = interrupt
             
-    def abort(self, trace=[], abortMainThread=True):
+    def abort(self, abortMainThread=True):
         self._abortMainThread = abortMainThread
         if self._interrupt:
             priority = 0
         else:
             priority = 1000
-        self.queue(self._abortCallback, extractTraceStack(trace), priority)
+        self.queue(self._abortCallback, priority=priority)
+        
+    def _abortCallback(self, thisCallback, *args, **kwargs):
+        raise AbortThreadError(trace=thisCallback.getTrace())
         
     def dumpQueue(self, filename):
         dump = copy.copy(self._queue.queue)
@@ -371,18 +400,3 @@ class BaseThread(threading.Thread, EventPoster):
                 +str(item[3])+"\n"
             file.write(string)
         file.close()
-
-    def _run(self): # override me
-        pass
-            
-    def _emptyQueueCallback(self, trace, *args): # override me
-        raise EmptyQueueError(trace=trace)
-
-    def _abort(self): # override me
-        pass
-
-    def _abortCallback(self, trace, *args): # override me
-        raise AbortThreadError(trace=trace)
-
-    def _queueCallback(self, completion, trace): # override me
-        pass
