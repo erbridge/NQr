@@ -249,8 +249,8 @@ class Callback(BaseCallback):
         self._completion(self, *args, **kwargs)
         
 class MultiCompletion(BaseCallback):
-    def __init__(self, number, completion, traceCallbackOrList=None):
-        BaseCallback.__init__(self, completion, traceCallbackOrList)
+    def __init__(self, number, completion, traceCallback=None):
+        BaseCallback.__init__(self, completion, traceCallback)
         self._slots = [None] * number
         self._puts = [False] * number
     
