@@ -8,7 +8,6 @@
 ##       to create other tables (poss corruption)
 ## TODO: finish asyncing track links
 ##
-## FIXME: make tracebacks work properly for all completions
 ## FIXME: make tracks that were historical which are added again non-historical
 
 import ConfigParser

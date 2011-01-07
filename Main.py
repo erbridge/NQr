@@ -9,6 +9,7 @@
 ##	     database converter)?
 ## TODO: make refocussing on window reselect current track?
 ## TODO: build HTTP server for remote control
+## TODO: add undo function
 ##
 ## FIXME: queues wrong track if track changes at time of start up
 ## FIXME: has problems if library is small, poss due to problems with multiple

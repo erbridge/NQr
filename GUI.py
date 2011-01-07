@@ -21,6 +21,7 @@
 ## FIXME: reduce processing - e.g. check tracks less often (if doing this
 ##        change delay in _onNext() etc.)
 ## FIXME: old track details should update if track is in track list twice
+## FIXME: change indicies when possible to finditemdata calls?
 
 #from collections import deque
 import ConfigParser
@@ -1447,8 +1448,6 @@ class MainWindow(wx.Frame, EventPoster):
 ##                                                                      thirdTrackID)
 ##                        self.enqueueTrack(thirdTrack)
 
-## FIXME: seems to give an outlined focus on track 2 (poss does nothing except
-##        look confusing) - seems to have stopped...
     def refreshSelectedTrack(self, traceCallback=None):
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track, traceCallback=traceCallback)
@@ -1529,7 +1528,8 @@ class MainWindow(wx.Frame, EventPoster):
     def selectTrack(self, index):
         self._logger.debug("Selecting track in position "+str(index)+".")
         try:
-            self._trackList.SetItemState(index, wx.LIST_STATE_SELECTED, -1)
+            self._trackList.SetItemState(
+                index, wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED, -1)
             self._trackList.EnsureVisible(index)
         except wx.PyAssertionError as err:
             if "invalid list ctrl item index in SetItem" not in str(err):
