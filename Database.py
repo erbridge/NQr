@@ -1781,8 +1781,8 @@ class Database(DatabaseEventHandler):
         self._directoryWalkThread.abort()
     
     def dumpQueues(self, path):
-        self._directoryWalkThread.dumpQueue(path+"DirectoryWalkerQueue.dump")
-        self._dbThread.dumpQueue(path+"DatabaseQueue.dump") 
+        self._directoryWalkThread.dumpQueue(path+"DirectoryWalkerQueue.dump", 1)
+        self._dbThread.dumpQueue(path+"DatabaseQueue.dump", 1) 
     
     def getDirectoryWalking(self):
         return self._directoryWalkThread.getWorking()

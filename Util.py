@@ -233,16 +233,10 @@ class RedirectOut(RedirectText):
 class BaseCallback:
     def __init__(self, completion, traceCallbackOrList=None):
         self._completion = completion
-        if isinstance(traceCallbackOrList, BaseCallback):
-            trace = traceCallbackOrList.getTrace()
-        elif isinstance(traceCallbackOrList, list):
-            trace = traceCallbackOrList
-        else:
-            trace = None
-        self._trace = extractTraceStack(trace)[:-1]
+        self._trace = getTrace(traceCallbackOrList)[:-1]
         
     def getTrace(self):
-        return extractTraceStack(self._trace)[:-1]
+        return getTrace(self._trace)[:-1]
         
 class Callback(BaseCallback):
     def __call__(self, *args, **kwargs):
@@ -398,33 +392,36 @@ class BaseThread(threading.Thread, EventPoster):
     def _abortCallback(self, thisCallback, *args, **kwargs):
         raise AbortThreadError(trace=thisCallback.getTrace())
         
-    def dumpQueue(self, filename):
+    def dumpQueue(self, filename, extraLines=0):
         dump = copy.copy(self._queue.queue)
         file = open(filename, "w")
-        for item in self._doneQueue:
+        for item, time in self._doneQueue:
             if item:
-                file.write(self._dumpQueueFormatter(item))
+                file.write(self._dumpQueueFormatter(item, extraLines, time))
         file.write(("-"*100+"\n\n\n")*2)
         for item in dump:
-            file.write(self._dumpQueueFormatter(item))
+            file.write(self._dumpQueueFormatter(item, extraLines))
         file.close()
         
-    def _dumpQueueFormatter(self, item):
+    def _dumpQueueFormatter(self, item, extraLines=0, time=None):
         trace = "\tTraceback (most recent call last):\n"+"".join([
                     line for line in traceback.format_list(
-                        getTrace(item[2])[:-4])])
-        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")\
-            +"   Priority - "+str(item[0])+"   Event Number - "\
-            +str(item[1])+"   Object - "+str(item[2])+"\n\n"\
-            +trace+"\n\n\n"
+                        getTrace(item[2])[:-(3+extraLines)])])
+        traceHash = str(hash(trace))
+        if time == None:
+            time = datetime.datetime.now()
+        return time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]\
+            +"   Priority: "+str(item[0])+"   Event Number: "\
+            +str(item[1])+"   Object: "+str(item[2])+"   Trace Hash: "\
+            +traceHash+"\n\n"+trace+"\n\n\n"
             
 class CircularQueue:
     def __init__(self, size):
-        self._queue = [None]*size
+        self._queue = [(None, None)]*size
 
     def append(self, item):
         self._queue.pop(0)
-        self._queue.append(item)
+        self._queue.append((item, datetime.datetime.now()))
         
     def __getitem__(self, index):
-        return self._queue[index]
+        return self._queue[index][0], self._queue[index][1]
