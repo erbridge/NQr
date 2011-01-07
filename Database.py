@@ -20,8 +20,7 @@ import os.path
 import sqlite3
 import time
 from Util import MultiCompletion, ErrorCompletion, doNothing, formatLength,\
-    extractTraceStack, BasePrefsPage, validateNumeric, EventPoster, BaseThread,\
-    getTrace, wx
+    BasePrefsPage, validateNumeric, EventPoster, BaseThread, getTrace, wx
 
 class Thread(BaseThread):
     def __init__(self, db, path, name, logger, errcallback, lock,

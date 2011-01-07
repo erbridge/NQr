@@ -315,6 +315,7 @@ class BaseThread(threading.Thread, EventPoster):
         self._name = name
         self._errcallback = errcallback
         self._queue = Queue.PriorityQueue()
+        self._doneQueue = CircularQueue(50)
         self._eventCount = 0
         self._abortCount = 0
         self._emptyCount = 0
@@ -338,10 +339,7 @@ class BaseThread(threading.Thread, EventPoster):
         self._run()
         while True:
             try:
-                got = self._queue.get()
-                self._queueCallback(got[2])
-                self._abortCount = 0
-                self._emptyCount = 0
+                self._pop()
             except AbortThreadError:
                 if self._abortCount > 20: # FIXME: make more deterministic
                     self._abort()
@@ -360,6 +358,13 @@ class BaseThread(threading.Thread, EventPoster):
 
     def _run(self):
         pass
+    
+    def _pop(self):
+        got = self._queue.get()
+        self._doneQueue.append(got)
+        self._queueCallback(got[2])
+        self._abortCount = 0
+        self._emptyCount = 0
 
     def _abort(self):
         pass
@@ -396,14 +401,30 @@ class BaseThread(threading.Thread, EventPoster):
     def dumpQueue(self, filename):
         dump = copy.copy(self._queue.queue)
         file = open(filename, "w")
+        for item in self._doneQueue:
+            if item:
+                file.write(self._dumpQueueFormatter(item))
+        file.write(("-"*100+"\n\n\n")*2)
         for item in dump:
-            trace = "\tTraceback (most recent call last):"\
-                    +"\n"+"".join([
-                        line for line in traceback.format_list(
-                            getTrace(item[2]))])
-            string = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")\
-                +"   Priority - "+str(item[0])+"   Event Number - "\
-                +str(item[1])+"   Object - "+str(item[2])+"\n\n"\
-                +trace+"\n\n\n"
-            file.write(string)
+            file.write(self._dumpQueueFormatter(item))
         file.close()
+        
+    def _dumpQueueFormatter(self, item):
+        trace = "\tTraceback (most recent call last):\n"+"".join([
+                    line for line in traceback.format_list(
+                        getTrace(item[2])[:-4])])
+        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")\
+            +"   Priority - "+str(item[0])+"   Event Number - "\
+            +str(item[1])+"   Object - "+str(item[2])+"\n\n"\
+            +trace+"\n\n\n"
+            
+class CircularQueue:
+    def __init__(self, size):
+        self._queue = [None]*size
+
+    def append(self, item):
+        self._queue.pop(0)
+        self._queue.append(item)
+        
+    def __getitem__(self, index):
+        return self._queue[index]
