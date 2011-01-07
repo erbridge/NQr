@@ -394,9 +394,13 @@ class BaseThread(threading.Thread, EventPoster):
         dump = copy.copy(self._queue.queue)
         file = open(filename, "w")
         for item in dump:
+            trace = "\tTraceback (most recent call last):"\
+                    +"\n"+"".join([
+                        line for line in traceback.format_list(
+                            getTrace(item[2]))])
             string = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")\
-                +"   Priority - "+str(item[0])+";   Event Number - "\
-                +str(item[1])+";   Object - "+str(item[2])+";   Trace - "\
-                +str(item[3])+"\n"
+                +"   Priority - "+str(item[0])+"   Event Number - "\
+                +str(item[1])+"   Object - "+str(item[2])+"\n\n"\
+                +trace+"\n\n\n"
             file.write(string)
         file.close()
