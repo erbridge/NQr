@@ -1490,7 +1490,7 @@ class MainWindow(wx.Frame, EventPoster):
     def refreshScore(self, index, track, traceCallback=None):
         multicompletion = MultiCompletion(
             3,
-            lambda thisCallback, isScored, scoreValue, score, index=index:\
+            lambda isScored, scoreValue, score, index=index:\
                 self._refreshScoreCompletion(index, isScored, scoreValue,
                                              score),
             traceCallback=traceCallback)
