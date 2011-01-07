@@ -22,10 +22,11 @@ class XMMS(MediaPlayer):
     def getPlaylistLength(self):
         return xmms.control.get_playlist_length()
 
-    def _getTrackPathAtPos(self, trackPosition, logging=True):
+    def _getTrackPathAtPos(self, trackPosition, traceCallback=None,
+                           logging=True):
         return xmms.control.get_playlist_file(trackPosition)
 
-    def getCurrentTrackPos(self):
+    def getCurrentTrackPos(self, traceCallback=None):
         return xmms.control.get_playlist_pos()
 
     def _addTrack(self, filepath):
