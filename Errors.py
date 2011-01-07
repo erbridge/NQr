@@ -3,7 +3,10 @@
 class Error(Exception):
     def __init__(self, trace=None):
         Exception.__init__(self)
-        self.trace = trace
+        self._trace = trace
+        
+    def getTrace(self):
+        return self._trace
 
 class EmptyDatabaseError(Error):
     pass

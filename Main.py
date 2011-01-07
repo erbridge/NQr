@@ -62,11 +62,12 @@ class Main(wx.App):
 
     def _exceptHook(self, type, value, traceBack):
         try:
-            if value.trace != None:
+            trace = value.getTrace()
+            if trace != None:
                 self._logger.critical(
                     "Uncaught exception:\n\nTraceback (most recent call last):"\
                     +"\n"+"".join([
-                        line for line in traceback.format_list(value.trace)\
+                        line for line in traceback.format_list(trace)\
                         +traceback.format_exception_only(type, value)]))
             else:
                 self._logger.critical("Uncaught exception:\n\n"+"".join([
@@ -74,7 +75,7 @@ class Main(wx.App):
                                                                 traceBack)]))
         except AttributeError as err:
             if "object has no attribute \'trace\'" not in str(err):
-                raise
+                raise err
             self._logger.critical("Uncaught exception:\n\n"+"".join([
                 line for line in traceback.format_exception(type, value,
                                                             traceBack)]))
