@@ -59,16 +59,16 @@ def convertToUnicode(string, warningCompletion, logging=True):
 def doNothing():
     pass
 
-def extractTraceStack(trace):
+def extractTraceStack(trace=None):
     newTrace = traceback.extract_stack()[:-1]
     if trace == None:
         return newTrace
-    for index in range(len(trace)):
-        if trace[index] != newTrace[index]:
-            return trace + newTrace[index:]
-    return trace
+#    for index in range(len(trace)):
+#        if trace[index] != newTrace[index]:
+#            return trace + newTrace[index:]
+    return trace + newTrace
 
-def getTrace(maybeTraceCallback):
+def getTrace(maybeTraceCallback=None):
     if isinstance(maybeTraceCallback, BaseCallback):
         return maybeTraceCallback.getTrace()[:-1]
     elif isinstance(maybeTraceCallback, list):
@@ -406,7 +406,7 @@ class BaseThread(threading.Thread, EventPoster):
     def _dumpQueueFormatter(self, item, extraLines=0, time=None):
         trace = "\tTraceback (most recent call last):\n"+"".join([
                     line for line in traceback.format_list(
-                        getTrace(item[2])[:-(3+extraLines)])])
+                        getTrace(item[2])[:-(8+extraLines)])])
         traceHash = str(hash(trace))
         if time == None:
             time = datetime.datetime.now()
