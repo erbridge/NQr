@@ -221,7 +221,8 @@ class RedirectText:
         self._out.write(string)
         start, end = self._out2.GetSelection()
         self._out2.AppendText(string)
-        self._out2.SetSelection(start, end)
+        if start != end:
+            self._out2.SetSelection(start, end)
     
 class RedirectErr(RedirectText):
     def __init__(self, textCtrl, stderr):
