@@ -22,6 +22,10 @@
 ##        change delay in _onNext() etc.)
 ## FIXME: old track details should update if track is in track list twice
 ## FIXME: change indicies when possible to finditemdata calls?
+## FIXME: last played should consistently be the time since the previous play 
+##        (if there is one) and poss shouldn't update
+## FIXME: make clicking a position on the slider move it there (and holding the
+##        click drag it)
 
 #from collections import deque
 import ConfigParser

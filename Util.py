@@ -59,23 +59,24 @@ def convertToUnicode(string, warningCompletion, logging=True):
 def doNothing():
     pass
 
-def extractTraceStack(trace=None):
-    newTrace = traceback.extract_stack()[:-1]
-    if trace == None:
-        return newTrace
-#    for index in range(len(trace)):
-#        if trace[index] != newTrace[index]:
-#            return trace + newTrace[index:]
-#    return newTrace
-    return trace + newTrace
+#def extractTraceStack(trace=None):
+#    newTrace = traceback.extract_stack()[:-1]
+#    if trace == None:
+#        return newTrace
+##    for index in range(len(trace)):
+##        if trace[index] != newTrace[index]:
+##            return trace + newTrace[index:]
+##    return newTrace
+#    return trace + newTrace
 
-def getTrace(maybeTraceCallback=None):
-    if isinstance(maybeTraceCallback, BaseCallback):
-        return maybeTraceCallback.getTrace()[:-1]
-    elif isinstance(maybeTraceCallback, list):
-        return extractTraceStack(maybeTraceCallback)[:-1]
+def getTrace(maybeTraceCallbackOrList=None):
+    if isinstance(maybeTraceCallbackOrList, BaseCallback):
+        return maybeTraceCallbackOrList.getTrace()[:-1]
     else:
-        return extractTraceStack(maybeTraceCallback)[:-1]
+        trace = traceback.extract_stack()[:-1]
+        if maybeTraceCallbackOrList:
+            return maybeTraceCallbackOrList+trace
+        return trace
 
 def validateNumeric(textCtrl):
     text = textCtrl.GetValue()
@@ -327,7 +328,7 @@ class BaseThread(threading.Thread, EventPoster):
             self._queueEmptyQueueCallback()
             
     def start_(self, trace=None):
-        self._trace = extractTraceStack(trace)[:-1]
+        self._trace = getTrace(trace)
         self.start()
 
     def run(self):
