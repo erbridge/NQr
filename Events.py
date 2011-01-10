@@ -1,4 +1,6 @@
 ## GUI Events
+##
+## FIXME: fix ids (to wx.NewId()s)
 
 #from Util import wx
 import wxversion

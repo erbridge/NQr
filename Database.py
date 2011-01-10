@@ -1821,12 +1821,12 @@ class PrefsPage(BasePrefsPage):
     def _initCreateDefaultScoreSizer(self):
         self._defaultScoreSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        defaultScoreLabel = wx.StaticText(self, -1, "Default Score: ")
+        defaultScoreLabel = wx.StaticText(self, wx.NewId(), "Default Score: ")
         self._defaultScoreSizer.Add(defaultScoreLabel, 0,
                                     wx.LEFT|wx.TOP|wx.BOTTOM, 3)
 
         self._defaultScoreControl = wx.TextCtrl(
-            self, -1, str(self._settings["defaultScore"]), size=(35,-1))
+            self, wx.NewId(), str(self._settings["defaultScore"]), size=(35,-1))
         self._defaultScoreSizer.Add(self._defaultScoreControl, 0)
 
         self.Bind(wx.EVT_TEXT, self._onDefaultScoreChange,

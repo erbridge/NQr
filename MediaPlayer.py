@@ -182,7 +182,7 @@ class PrefsPage(BasePrefsPage):
         
         self._playerSizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        label = wx.StaticText(self, -1, "Player:  \t")
+        label = wx.StaticText(self, wx.NewId(), "Player:  \t")
         self._playerSizer.Add(label, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
         
         if self._system == "Windows":

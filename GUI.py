@@ -253,14 +253,14 @@ class MainWindow(wx.Frame, EventPoster):
         self._initCreateMainPanel()
 
         self._logger.debug("Creating play delay timer.")
-        self._playTimer = wx.Timer(self, -1)
+        self._playTimer = wx.Timer(self, wx.NewId())
 
         self._logger.debug("Creating and starting inactivity timer.")
-        self._inactivityTimer = wx.Timer(self, -1)
+        self._inactivityTimer = wx.Timer(self, wx.NewId())
         self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
 
         self._logger.debug("Creating and starting track list refresh timer.")
-        self._refreshTimer = wx.Timer(self, -1)
+        self._refreshTimer = wx.Timer(self, wx.NewId())
         self._refreshTimer.Start(1000, oneShot=False)
         
         self._logger.debug("Starting track monitor.")
@@ -419,7 +419,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._addMenuItem(self._playerMenu, "Rate &Down\tCtrl+PgDn",
                           " Decrease the score of the selected track by one",
                           self._onRateDown, hotkey=("ctrl", wx.WXK_PAGEDOWN))
-        self._playerMenu.AppendMenu(-1, "&Rate", self._rateMenu)
+        self._playerMenu.AppendMenu(wx.NewId(), "&Rate", self._rateMenu)
         self._playerMenu.AppendSeparator()
         self._addMenuItem(self._playerMenu, "&Select Current Track\tCtrl+\\",
                           " Selects the currently playing track",
@@ -495,7 +495,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._addMenuItem(self._trackRightClickMenu, "Rate &Down",
                           " Decrease the score of the current track by one",
                           self._onRateDown)
-        self._trackRightClickMenu.AppendMenu(-1, "&Rate",
+        self._trackRightClickMenu.AppendMenu(wx.NewId(), "&Rate",
                                              self._rightClickRateMenu)
         self._trackRightClickMenu.AppendSeparator()
         self._addMenuItem(self._trackRightClickMenu, "Re&queue Track",
@@ -558,9 +558,9 @@ class MainWindow(wx.Frame, EventPoster):
 
     def _initCreateDetails(self):
         self._logger.debug("Creating details panel.")
-        self._details = wx.TextCtrl(self._panel, -1, style=wx.TE_READONLY|
-                                    wx.TE_MULTILINE|wx.TE_DONTWRAP,
-                                    size=(-1,140))
+        self._details = wx.TextCtrl(
+            self._panel, wx.NewId(),
+            style=wx.TE_READONLY|wx.TE_MULTILINE|wx.TE_DONTWRAP, size=(-1,140))
 
     def _initCreateTrackSizer(self):
         self._logger.debug("Creating track panel.")
@@ -574,9 +574,9 @@ class MainWindow(wx.Frame, EventPoster):
     ## first column for displaying "Now Playing" or a "+"
     def _initCreateTrackList(self):
         self._logger.debug("Creating track playlist.")
-        self._trackList = wx.ListCtrl(self._panel, -1, style=wx.LC_REPORT|
-                                      wx.LC_VRULES|wx.LC_SINGLE_SEL,
-                                      size=(656,-1))
+        self._trackList = wx.ListCtrl(
+            self._panel, wx.NewId(),
+            style=wx.LC_REPORT|wx.LC_VRULES|wx.LC_SINGLE_SEL, size=(656,-1))
         # for some reason setting column 0 forces left justification
         self._trackList.InsertColumn(1, "Artist", format=wx.LIST_FORMAT_CENTER,
                                      width=100)
@@ -638,14 +638,13 @@ class MainWindow(wx.Frame, EventPoster):
 
     def _initCreateScoreSlider(self):
         self._logger.debug("Creating score slider.")
+        options = wx.SL_LABELS|wx.SL_INVERSE
         if self._system == 'FreeBSD':
-            self._scoreSlider = wx.Slider(self._panel, -1, 0, -10, 10,
-                                          style=wx.SL_VERTICAL|wx.SL_LABELS|
-                                          wx.SL_INVERSE)
+            options = wx.SL_VERTICAL|options
         else:
-            self._scoreSlider = wx.Slider(self._panel, -1, 0, -10, 10,
-                                          style=wx.SL_RIGHT|wx.SL_LABELS|
-                                          wx.SL_INVERSE)
+            options=wx.SL_RIGHT|options
+        self._scoreSlider = wx.Slider(self._panel, wx.NewId(), 0, -10, 10,
+                                      style=options)
 
         self.Bind(wx.EVT_SCROLL_CHANGED, self._onScoreSliderMove,
                   self._scoreSlider)
@@ -654,9 +653,9 @@ class MainWindow(wx.Frame, EventPoster):
 
     def _initCreateLogPanel(self):
         self._logger.debug("Creating log panel.")
-        self._logPanel = wx.TextCtrl(self._panel, -1, style=wx.TE_READONLY|
-                                     wx.TE_MULTILINE|wx.TE_DONTWRAP,
-                                     size=(-1,100))
+        self._logPanel = wx.TextCtrl(
+            self._panel, wx.NewId(),
+            style=wx.TE_READONLY|wx.TE_MULTILINE|wx.TE_DONTWRAP, size=(-1,100))
 
         font = wx.Font(9, wx.MODERN, wx.NORMAL, wx.NORMAL)
         self._logPanel.SetFont(font)
@@ -691,7 +690,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _populateRateMenu(self, menu):
         scores = range(10, -11, -1)
         for score in scores:
-            menuItem = menu.Append(-1, "Rate as "+str(score),
+            menuItem = menu.Append(wx.NewId(), "Rate as "+str(score),
                                    " Set the score of the selected track to "\
                                    +str(score))
 
@@ -1770,11 +1769,12 @@ class PrefsPage(BasePrefsPage):
     def _initCreateDirectorySizer(self): # FIXME: make a "choose" dialog
         self._directorySizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        directoryLabel = wx.StaticText(self, -1, "Default Dialog Directory: ")
+        directoryLabel = wx.StaticText(self, wx.NewId(),
+                                       "Default Dialog Directory: ")
         self._directorySizer.Add(directoryLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
 
         self._directoryControl = wx.TextCtrl(
-            self, -1, str(self._settings["defaultDirectory"]))
+            self, wx.NewId(), str(self._settings["defaultDirectory"]))
         self._directorySizer.Add(self._directoryControl, 0)
 
         self._directoryControl.Bind(wx.EVT_KILL_FOCUS, self._onDirectoryChange)
@@ -1782,14 +1782,14 @@ class PrefsPage(BasePrefsPage):
     def _initCreatePlayDelaySizer(self):
         self._playDelaySizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        playDelayLabel = wx.StaticText(self, -1, "Play Record Delay: ")
+        playDelayLabel = wx.StaticText(self, wx.NewId(), "Play Record Delay: ")
         self._playDelaySizer.Add(playDelayLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
         
         self._playDelayControl = wx.TextCtrl(
-            self, -1, str(self._settings["playDelay"]), size=(40,-1))
+            self, wx.NewId(), str(self._settings["playDelay"]), size=(40,-1))
         self._playDelaySizer.Add(self._playDelayControl, 0)
 
-        playDelayUnits = wx.StaticText(self, -1, " milliseconds")
+        playDelayUnits = wx.StaticText(self, wx.NewId(), " milliseconds")
         self._playDelaySizer.Add(playDelayUnits, 0,
                                  wx.RIGHT|wx.TOP|wx.BOTTOM, 3)
 
@@ -1799,15 +1799,16 @@ class PrefsPage(BasePrefsPage):
     def _initCreateInactivityTimeSizer(self):
         self._inactivityTimeSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        inactivityTimeLabel = wx.StaticText(self, -1, "Idle Time: ")
+        inactivityTimeLabel = wx.StaticText(self, wx.NewId(), "Idle Time: ")
         self._inactivityTimeSizer.Add(inactivityTimeLabel, 0,
                                       wx.LEFT|wx.TOP|wx.BOTTOM, 3)
 
         self._inactivityTimeControl = wx.TextCtrl(
-            self, -1, str(self._settings["inactivityTime"]), size=(50,-1))
+            self, wx.NewId(), str(self._settings["inactivityTime"]),
+            size=(50,-1))
         self._inactivityTimeSizer.Add(self._inactivityTimeControl, 0)
 
-        inactivityTimeUnits = wx.StaticText(self, -1, " milliseconds")
+        inactivityTimeUnits = wx.StaticText(self, wx.NewId(), " milliseconds")
         self._inactivityTimeSizer.Add(inactivityTimeUnits, 0,
                                       wx.RIGHT|wx.TOP|wx.BOTTOM, 3)
 
@@ -1817,17 +1818,17 @@ class PrefsPage(BasePrefsPage):
     def _initCreateTrackCheckDelaySizer(self):
         self._trackCheckSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        trackCheckLabel = wx.StaticText(self, -1,
+        trackCheckLabel = wx.StaticText(self, wx.NewId(),
                                         "Check player for track change every ")
         self._trackCheckSizer.Add(trackCheckLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM,
                                   3)
 
         self._trackCheckControl = wx.TextCtrl(
-            self, -1, str(int(self._settings["trackCheckDelay"]*1000)),
+            self, wx.NewId(), str(int(self._settings["trackCheckDelay"]*1000)),
             size=(40,-1))
         self._trackCheckSizer.Add(self._trackCheckControl, 0)
 
-        trackCheckUnits = wx.StaticText(self, -1, " milliseconds")
+        trackCheckUnits = wx.StaticText(self, wx.NewId(), " milliseconds")
         self._trackCheckSizer.Add(trackCheckUnits, 0, wx.RIGHT|wx.TOP|wx.BOTTOM,
                                   3)
 
@@ -1835,7 +1836,7 @@ class PrefsPage(BasePrefsPage):
                   self._trackCheckControl)
 
     def _initCreateIgnoreCheckBox(self):
-        self._ignoreCheckBox = wx.CheckBox(self, -1,
+        self._ignoreCheckBox = wx.CheckBox(self, wx.NewId(),
                                            "Ignore Tracks not in Database")
         if self._settings["ignoreNewTracks"] == True:
             self._ignoreCheckBox.SetValue(True)
@@ -1845,7 +1846,7 @@ class PrefsPage(BasePrefsPage):
         self.Bind(wx.EVT_CHECKBOX, self._onIgnoreChange, self._ignoreCheckBox)
         
     def _initCreateRescanCheckBox(self):
-        self._rescanCheckBox = wx.CheckBox(self, -1,
+        self._rescanCheckBox = wx.CheckBox(self, wx.NewId(),
                                            "Rescan Library on Startup")
         if self._settings["rescanOnStartup"] == True:
             self._rescanCheckBox.SetValue(True)
@@ -1855,7 +1856,7 @@ class PrefsPage(BasePrefsPage):
         self.Bind(wx.EVT_CHECKBOX, self._onRescanChange, self._rescanCheckBox)
         
     def _initCreateLogCheckBox(self):
-        self._logCheckBox = wx.CheckBox(self, -1, "Show Log Panel")
+        self._logCheckBox = wx.CheckBox(self, wx.NewId(), "Show Log Panel")
         if self._settings["haveLogPanel"] == True:
             self._logCheckBox.SetValue(True)
         else:

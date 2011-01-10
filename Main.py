@@ -257,7 +257,7 @@ class PrefsPage(BasePrefsPage):
         self.SetSizer(mainSizer)
         
     def _initCreateDebugCheckBox(self):
-        self._debugCheckBox = wx.CheckBox(self, -1, "Debug Mode")
+        self._debugCheckBox = wx.CheckBox(self, wx.NewId(), "Debug Mode")
         if self._settings["debugMode"] == True:
             self._debugCheckBox.SetValue(True)
         else:
@@ -266,7 +266,7 @@ class PrefsPage(BasePrefsPage):
         self.Bind(wx.EVT_CHECKBOX, self._onDebugChange, self._debugCheckBox)
         
     def _initCreateQueueCheckBox(self):
-        self._queueCheckBox = wx.CheckBox(self, -1, "No Queue Mode")
+        self._queueCheckBox = wx.CheckBox(self, wx.NewId(), "No Queue Mode")
         if self._settings["noQueue"] == True:
             self._queueCheckBox.SetValue(True)
         else:
@@ -277,14 +277,14 @@ class PrefsPage(BasePrefsPage):
     def _initCreateLogAgeSizer(self):
         self._logAgeSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        logAgeLabel = wx.StaticText(self, -1, "Keep old logs for ")
+        logAgeLabel = wx.StaticText(self, wx.NewId(), "Keep old logs for ")
         self._logAgeSizer.Add(logAgeLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
         
         self._logAgeControl = wx.TextCtrl(
-            self, -1, str(self._settings["logAge"]), size=(40,-1))
+            self, wx.NewId(), str(self._settings["logAge"]), size=(40,-1))
         self._logAgeSizer.Add(self._logAgeControl, 0)
 
-        logAgeUnits = wx.StaticText(self, -1, " days")
+        logAgeUnits = wx.StaticText(self, wx.NewId(), " days")
         self._logAgeSizer.Add(logAgeUnits, 0, wx.RIGHT|wx.TOP|wx.BOTTOM, 3)
 
         self.Bind(wx.EVT_TEXT, self._onLogAgeChange,

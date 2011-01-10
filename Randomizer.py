@@ -231,34 +231,35 @@ class PrefsPage(BasePrefsPage):
 
         weightAlgorithmSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        weightLabel = wx.StaticText(self, -1, "Weight Algorithm: ")
+        weightLabel = wx.StaticText(self, wx.NewId(), "Weight Algorithm: ")
         weightAlgorithmSizer.Add(weightLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM
                                  |wx.ALIGN_CENTER_VERTICAL, 3)
 
         self._weightControl = wx.TextCtrl(
-            self, -1, self._settings["weightAlgorithm"], size=(-1, -1))
+            self, wx.NewId(), self._settings["weightAlgorithm"], size=(-1, -1))
         # TODO(ben): make this expand to fill the space (doesn't on at
         # least FreeBSD)
         weightAlgorithmSizer.Add(self._weightControl, 1)
 
         self._weightSizer.Add(weightAlgorithmSizer, 0)
 
-        weightHelpBox = wx.StaticBox(self, -1,
+        weightHelpBox = wx.StaticBox(self, wx.NewId(),
                                      "Acceptable Input:")
         weightHelpSizer = wx.StaticBoxSizer(weightHelpBox, wx.HORIZONTAL)
         weightHelpFont = wx.Font(8, wx.MODERN, wx.NORMAL, wx.NORMAL)
 
-        weightHelpVariablesBox = wx.StaticBox(self, -1, "Variables:")
+        weightHelpVariablesBox = wx.StaticBox(self, wx.NewId(), "Variables:")
         weightHelpVariablesSizer = wx.StaticBoxSizer(weightHelpVariablesBox)
 
         weightHelpVariablesText = "score = track score + 11        \n"\
             +"time  = seconds since last play "
-        weightHelpVariables = wx.StaticText(self, -1, weightHelpVariablesText)
+        weightHelpVariables = wx.StaticText(self, wx.NewId(),
+                                            weightHelpVariablesText)
         weightHelpVariables.SetFont(weightHelpFont)
         weightHelpVariablesSizer.Add(weightHelpVariables, 0)
         weightHelpSizer.Add(weightHelpVariablesSizer, 0, wx.RIGHT, 1)
 
-        weightHelpOperatorsBox = wx.StaticBox(self, -1, "Operators:")
+        weightHelpOperatorsBox = wx.StaticBox(self, wx.NewId(), "Operators:")
         weightHelpOperatorsSizer = wx.StaticBoxSizer(weightHelpOperatorsBox)
 
         weightHelpOperatorsText = "** = to the power of \n"\
@@ -266,7 +267,8 @@ class PrefsPage(BasePrefsPage):
             +"/  = divided by      \n"\
             +"+  = plus            \n"\
             +"-  = minus           "
-        weightHelpOperators = wx.StaticText(self, -1, weightHelpOperatorsText)
+        weightHelpOperators = wx.StaticText(self, wx.NewId(),
+                                            weightHelpOperatorsText)
         weightHelpOperators.SetFont(weightHelpFont)
         weightHelpOperatorsSizer.Add(weightHelpOperators, 0)
         weightHelpSizer.Add(weightHelpOperatorsSizer, 0)
@@ -278,11 +280,12 @@ class PrefsPage(BasePrefsPage):
     def _initCreateThresholdSizer(self):
         self._thresholdSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        thresholdLabel = wx.StaticText(self, -1, "Minimum Play Score: ")
+        thresholdLabel = wx.StaticText(self, wx.NewId(), "Minimum Play Score: ")
         self._thresholdSizer.Add(thresholdLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
 
         self._thresholdControl = wx.TextCtrl(
-            self, -1, str(self._settings["scoreThreshold"]), size=(25,-1))
+            self, wx.NewId(), str(self._settings["scoreThreshold"]),
+            size=(25,-1))
         self._thresholdSizer.Add(self._thresholdControl, 0)
 
         self.Bind(wx.EVT_TEXT, self._onThresholdChange,
