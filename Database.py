@@ -56,11 +56,12 @@ class Thread(BaseThread):
             self._commit()
         
 class DatabaseEventHandler(wx.EvtHandler, EventPoster):
-    def __init__(self, db, dbThread, logger, threadLock, priority):
+    def __init__(self, db, dbThread, logger, threadLock, priority, eventLogger):
         wx.EvtHandler.__init__(self)
         EventPoster.__init__(self, db, logger, threadLock)
         self._dbThread = dbThread
         self._priority = priority
+        self._eventLogger = eventLogger
         
         Events.EVT_DATABASE(self, self._onDatabaseEvent)
         Events.EVT_EXCEPTION(self, self._onExceptionEvent)
@@ -68,8 +69,10 @@ class DatabaseEventHandler(wx.EvtHandler, EventPoster):
     def _onDatabaseEvent(self, e):
         self.postDebugLog("Got event.")
         e.complete()
+        self._eventLogger("Database Complete", e)
         
     def _onExceptionEvent(self, e):
+        self._eventLogger("Database Exception", e)
         raise e.getException()
     
     def _completionEvent(self, completion, returnData=True):
@@ -231,7 +234,8 @@ class DatabaseEventHandler(wx.EvtHandler, EventPoster):
                       traceCallback=traceCallback)
         
 class DirectoryWalkThread(Thread, DatabaseEventHandler):
-    def __init__(self, db, lock, path, logger, trackFactory, dbThread):
+    def __init__(self, db, lock, path, logger, trackFactory, dbThread,
+                 eventLogger):
         self._working = False
         self._errorCount = 0
         errcallback = ErrorCompletion(EmptyQueueError,
@@ -239,7 +243,8 @@ class DirectoryWalkThread(Thread, DatabaseEventHandler):
         Thread.__init__(self, db, path, "Directory Walk", logger,
                         lambda err: errcallback(err), lock, dbThread,
                         raiseEmpty=True)
-        DatabaseEventHandler.__init__(self, db, dbThread, logger, lock, 3)
+        DatabaseEventHandler.__init__(self, db, dbThread, logger, lock, 3, 
+                                      eventLogger)
         self._logger = logger
         self._trackFactory = trackFactory
         
@@ -513,12 +518,12 @@ class DatabaseThread(Thread):
 
 class Database(DatabaseEventHandler):
     def __init__(self, threadLock, trackFactory, loggerFactory, configParser,
-                 debugMode, databasePath, defaultDefaultScore):
+                 debugMode, databasePath, defaultDefaultScore, eventLogger):
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         DatabaseEventHandler.__init__(
             self, self,
             DatabaseThread(self, threadLock, databasePath, self._logger),
-            self._logger, threadLock, 2)
+            self._logger, threadLock, 2, eventLogger)
         self._db = self
         self._trackFactory = trackFactory
         self._configParser = configParser
@@ -551,11 +556,12 @@ class Database(DatabaseEventHandler):
         
         self._directoryWalkThread = DirectoryWalkThread(
             self, threadLock, databasePath, self._logger, self._trackFactory,
-            self._dbThread)
+            self._dbThread, eventLogger)
         self._directoryWalkThread.start_()
         
     def _onLogEvent(self, e):
         e.doLog()
+        self._eventLogger("Database Log", e)
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")

@@ -29,7 +29,7 @@ import sys
 import threading
 import traceback
 import Track
-from Util import BasePrefsPage, validateNumeric, wx
+from Util import BasePrefsPage, validateNumeric, EventLogger, wx
 
 class Main(wx.App):
     def __init__(self):
@@ -127,12 +127,16 @@ class Main(wx.App):
                                                  self._defaultPlayer,
                                                  self._safePlayers,
                                                  trackFactory)
+            
+        eventLogger = EventLogger()
+        eventLogger("---INIT---", None)
 
         self._logger.debug("Initializing database.")
         threadLock = threading.Lock()
         db = Database.Database(threadLock, trackFactory, self._loggerFactory,
                                self._configParser, self._debugMode,
-                               self._databaseFile, self._defaultDefaultScore)
+                               self._databaseFile, self._defaultDefaultScore,
+                               eventLogger)
 
         self._logger.debug("Initializing randomizer.")
         randomizer = Randomizer.Randomizer(db, trackFactory,
@@ -159,7 +163,7 @@ class Main(wx.App):
                              self._defaultPlayDelay,
                              self._defaultIgnoreNewTracks,
                              self._defaultTrackCheckDelay,
-                             self._defaultDumpPath)
+                             self._defaultDumpPath, eventLogger)
         gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
@@ -168,6 +172,7 @@ class Main(wx.App):
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
         self._logger.info("Main loop stopped.")
+        eventLogger("---DONE---", None)
         
     def criticalLog(self, message):
         self._logger.critical(message)

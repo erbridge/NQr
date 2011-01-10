@@ -427,3 +427,23 @@ class CircularQueue:
         
     def __getitem__(self, index):
         return self._queue[index][0], self._queue[index][1]
+    
+class EventLogger:
+    def __init__(self):
+        self._queue = CircularQueue(100)
+        
+    def __call__(self, eventString, event):
+        self._queue.append((eventString, event))
+        
+    def dump(self, filename):
+        file = open(filename, "w")
+        for item, time in self._queue:
+            if item:
+                file.write(self._dumpFormatter(item, time))
+        file.close()
+        
+    def _dumpFormatter(self, item, time=None):
+        if time == None:
+            time = datetime.datetime.now()
+        return time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]+"   Event: "+item[0]\
+            +"\n"
