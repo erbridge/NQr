@@ -66,6 +66,7 @@ def extractTraceStack(trace=None):
 #    for index in range(len(trace)):
 #        if trace[index] != newTrace[index]:
 #            return trace + newTrace[index:]
+#    return newTrace
     return trace + newTrace
 
 def getTrace(maybeTraceCallback=None):
