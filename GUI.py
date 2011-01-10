@@ -323,12 +323,14 @@ class MainWindow(wx.Frame, EventPoster):
         self._initCreatePlayerMenu()
         self._initCreateTagMenu()
         self._initCreateOptionsMenu()
+        self._initCreateAdvancedMenu()
 
         menuBar = wx.MenuBar()
         menuBar.Append(self._fileMenu, "&File")
         menuBar.Append(self._playerMenu, "&Player")
         menuBar.Append(self._tagMenu, "&Tags")
         menuBar.Append(self._optionsMenu, "&Options")
+        menuBar.Append(self._advMenu, "&Advanced")
 
         self.SetMenuBar(menuBar)
         
@@ -373,6 +375,10 @@ class MainWindow(wx.Frame, EventPoster):
         self._addMenuItem(self._fileMenu, "Remo&ve Link...",
                           " Remove the link between two tracks",
                           self._onRemoveLink)
+        self._fileMenu.AppendSeparator()
+        self._addMenuItem(self._fileMenu, "&Rescan Library",
+                          " Search previously added directories for new files",
+                          self._onRescan)
         self._fileMenu.AppendSeparator()
         self._addMenuItem(self._fileMenu, "E&xit\tCtrl+Q", " Terminate NQr",
                           self._onExit, id=wx.ID_EXIT, hotkey=("ctrl", "Q"))
@@ -456,16 +462,16 @@ class MainWindow(wx.Frame, EventPoster):
         self._addMenuItem(self._optionsMenu, "&Preferences...\tCtrl+P",
                           " Change NQr's settings", self._onPrefs,
                           hotkey=("ctrl", "P"))
-        self._addMenuItem(self._optionsMenu, "&Rescan Library",
-                          " Search previously added directories for new files",
-                          self._onRescan)
         self._optionsMenu.AppendSeparator()
         self._addMenuItem(self._optionsMenu, "En&queue with NQr\tCtrl+E",
                           " Use NQr to enqueue tracks", self._onToggleNQr,
                           id=self._ID_TOGGLENQR, hotkey=("ctrl", "E"),
                           checkItem=True)
-        self._optionsMenu.AppendSeparator()
-        self._addMenuItem(self._optionsMenu, "&Dump Queues",
+        
+    def _initCreateAdvancedMenu(self):
+        self._logger.debug("Creating advanced menu.")
+        self._advMenu = wx.Menu()
+        self._addMenuItem(self._advMenu, "&Dump Queues",
                           " Dump thread queues to file", self._onDump)
 
     def _initCreateRightClickRateMenu(self):
