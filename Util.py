@@ -39,12 +39,12 @@ def formatLength(rawLength):
         length = str(int(minutes))+":0"+str(int(seconds))
     return length
 
-def convertToUnicode(string, warningCompletion, logging=True):
+def convertToUnicode(string, debugCompletion, logging=True):
     try:
         unicodeString = unicode(string)
     except UnicodeDecodeError:
         if logging == True:
-            warningCompletion("Found bad characters. Attempting to resolve.")
+            debugCompletion("Found bad characters. Attempting to resolve.")
         unicodeString = u""
         for char in string:
             try:
@@ -58,7 +58,7 @@ def convertToUnicode(string, warningCompletion, logging=True):
                     hexStr += errStr[i]
                 unicodeString += unichr(int(hexStr, 16))
         if logging == True:
-            warningCompletion("Bad characters resolved.")
+            debugCompletion("Bad characters resolved.")
     return unicodeString
         
 def doNothing():

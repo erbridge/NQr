@@ -207,4 +207,4 @@ class WinampWindows(MediaPlayer):
             raise NoTrackError(trace=getTrace(traceCallback))
         if logging == True:
             self._sendDebug("Converting path into unicode.")
-        return convertToUnicode(rawPath, self._sendWarning, logging)
+        return convertToUnicode(rawPath, self._sendDebug, logging)

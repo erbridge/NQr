@@ -15,6 +15,7 @@
 ## FIXME: has problems if library is small, poss due to problems with multiple
 ##        track addition - poss fixed
 ## FIXME: iTunes only sees tracks in NQr playlist
+## FIXME: maybe use locks to prevent NQr exiting before all threads have closed
 
 import ConfigParser
 import Database
