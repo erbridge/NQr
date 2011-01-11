@@ -35,8 +35,6 @@ IPC_GETWND = 260
 ## returns the HWND of the window specified.
 IPC_GETWND_PE = 1
 
-# FIXME: make class hold on to handle for winamp and recreate it if error
-#        (poss already does this...)
 class WinampWindows(MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):

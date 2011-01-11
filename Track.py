@@ -1,6 +1,6 @@
 ## Track information
 ##
-## TODO: create clearCache function for when user has changed metadata?
+## TODO: create clearCache function for when user has changed metadata (done)?
 ##       * I would actually make tracks update themselves and the
 ##       database when you spot a metadata change. (Ben)
 ##       * but how would you get them to find out that their metadata
@@ -116,6 +116,13 @@ class TrackFactory:
             lambda thisCallback, id, track=track:\
                 self._addTrackToCacheCompletion(track, id),
             traceCallback=traceCallback)
+        
+    def clearCache(self):
+        self._logger.debug("Clearing track cache.")
+        self._trackCache = {}
+        self._trackIDList = []
+        self._trackPathCache = {}
+        self._trackPathList = []
 
 class Track:
     def __init__(self, db, path, logger, useCache=True):

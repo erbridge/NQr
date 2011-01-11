@@ -483,6 +483,8 @@ class MainWindow(wx.Frame, EventPoster):
     def _initCreateAdvancedMenu(self):
         self._logger.debug("Creating advanced menu.")
         self._advMenu = wx.Menu()
+        self._addMenuItem(self._advMenu, "&Clear Cache",
+                          " Clears the track cache", self._onClearCache)
         self._addMenuItem(self._advMenu, "&Dump Queues",
                           " Dump thread queues to file", self._onDump)
 
@@ -1218,6 +1220,10 @@ class MainWindow(wx.Frame, EventPoster):
         self._eventLogger.dump(self._dumpPath+"GUIEvents.dump")
         self._trackMonitor.dumpQueue(self._dumpPath+"TrackMonitorQueue.dump")
         self._db.dumpQueues(self._dumpPath)
+        
+    def _onClearCache(self, e): # TODO: should also refresh tracks?
+        self._eventLogger("GUI Clear Track Cache", e)
+        self._trackFactory.clearCache()
                 
     def _onTrackChangeCompletion(self, track, previousPlay, traceCallback):
         track.setPreviousPlay(previousPlay)
