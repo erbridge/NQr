@@ -8,6 +8,7 @@ from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError,\
 import Events
 import logging
 import os.path
+import platform
 import Queue
 import threading
 import traceback
@@ -19,6 +20,10 @@ import traceback
 
 wx = Events.wx
 versionNumber = "0.1"
+systemName = platform.system()
+macNames = ["Mac OS X", "Darwin"]
+windowsNames = ["Windows"]
+freebsdNames = ["FreeBSD"]
 
 def plural(count):
     if count == 1:
@@ -131,10 +136,8 @@ def roughAge(time):
     # yes, this measure of a year is fairly crap :-)
     return _doRough(time, 52, "year", 7*24*60*60, "week")
 
-# FIXME: implement for other systems (maybe see:
-#        www.cyberciti.biz/faq/howto-display-list-of-all-installed-software/)
-def getIsInstalled(system, softwareName):
-    if system == "Windows":
+def getIsInstalled(softwareName):
+    if systemName in windowsNames:
         import wmi
         import _winreg
         
@@ -144,6 +147,8 @@ def getIsInstalled(system, softwareName):
         if softwareName in names:
             return True
         return False
+# FIXME: implement for other systems (maybe see:
+#        www.cyberciti.biz/faq/howto-display-list-of-all-installed-software/)
     return True
 
 # FIXME: implement updating
@@ -275,10 +280,9 @@ class ErrorCompletion(BaseCallback):
         raise err
     
 class BasePrefsPage(wx.Panel):
-    def __init__(self, parent, system, configParser, logger, sectionName, *args,
+    def __init__(self, parent, configParser, logger, sectionName, *args,
                  **kwargs):
         wx.Panel.__init__(self, parent)
-        self._system = system
         self._configParser = configParser
         self._logger = logger
         self._sectionName = sectionName
@@ -432,9 +436,13 @@ class CircularQueue:
 class EventLogger:
     def __init__(self):
         self._queue = CircularQueue(100)
+        self("---INIT---", None)
         
     def __call__(self, eventString, event):
         self._queue.append((eventString, event))
+        
+    def done(self):
+        self("---DONE---", None)
         
     def dump(self, filename):
         file = open(filename, "w")

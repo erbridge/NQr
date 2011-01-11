@@ -1793,8 +1793,8 @@ class Database(DatabaseEventHandler):
     def getDirectoryWalking(self):
         return self._directoryWalkThread.getWorking()
 
-    def getPrefsPage(self, parent, logger, system):
-        return PrefsPage(parent, system, self._configParser, logger,
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger,
                          self._defaultDefaultScore), "Database"
 
     def loadSettings(self):
@@ -1809,9 +1809,9 @@ class Database(DatabaseEventHandler):
             self._defaultScore = self._defaultDefaultScore
 
 class PrefsPage(BasePrefsPage):
-    def __init__(self, parent, system, configParser, logger,
+    def __init__(self, parent, configParser, logger,
                  defaultDefaultScore):
-        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+        BasePrefsPage.__init__(self, parent, configParser, logger,
                                "Database", defaultDefaultScore)
         
         self._initCreateDefaultScoreSizer()

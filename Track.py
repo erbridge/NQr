@@ -24,8 +24,8 @@ class TrackFactory:
         self._trackPathCache = {}
         self._trackPathList = []
 
-    def getPrefsPage(self, parent, logger, system):
-        return PrefsPage(parent, system, self._configParser, logger), "Track"
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger), "Track"
 
     def loadSettings(self):
         pass
@@ -355,9 +355,8 @@ class AudioTrack(Track):
         return self._lengthString
 
 class PrefsPage(BasePrefsPage):
-    def __init__(self, parent, system, configParser, logger):
-        BasePrefsPage.__init__(self, parent, system, configParser, logger,
-                               "Track")
+    def __init__(self, parent, configParser, logger):
+        BasePrefsPage.__init__(self, parent, configParser, logger, "Track")
 
 if __name__ == '__main__':
     from mutagen.easyid3 import EasyID3

@@ -14,7 +14,12 @@
 ## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
-## TODO: give scores a drop down menu in the track list.
+## TODO: give scores a drop down menu in the track list
+## TODO: add requeue next
+## TODO: add keyboard commands for (user defined) common ratings: like, love,
+##       neutral, dislike, hate?
+## TODO: swap some menu ids for stock items:
+##       http://docs.wxwidgets.org/2.9/page_stockitems.html
 ##
 ## FIXME: track refreshes should only refresh things that will change - poss no
 ##        longer necessary?
@@ -38,7 +43,8 @@ import threading
 import time
 from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
     BasePrefsPage, validateDirectory, validateNumeric, roughAge, EventPoster,\
-    BaseThread, versionNumber, getUpdate, doUpdate, getTrace, wx
+    BaseThread, versionNumber, getUpdate, doUpdate, getTrace, systemName,\
+    freebsdNames, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
@@ -126,9 +132,9 @@ class SocketMonitor(BaseThread):
         self._abortFlag = False
 
     def run(self):
-        self._socket.listen(5) # FIXME: how many can it listen to?
+        self._socket.listen(5) # FIXME: how many can/should it listen to?
         while not self._abortFlag:
-            # FIXME: has windows permission issues...
+            # FIXME: has windows firewall permission issues...
             (conn, address) = self._socket.accept()
             self.postDebugLog("Starting connection ("+address[0]+":"\
                               +str(address[1])+") monitor.")
@@ -199,7 +205,7 @@ class ConnectionMonitor(BaseThread):
         self._conn.close()
         
 class MainWindow(wx.Frame, EventPoster):
-    def __init__(self, parent, db, randomizer, player, trackFactory, system,
+    def __init__(self, parent, db, randomizer, player, trackFactory,
                  loggerFactory, prefsFactory, configParser, socket, address,
                  title, threadLock, defaultRestorePlaylist,
                  defaultEnqueueOnStartup, defaultRescanOnStartup,
@@ -216,7 +222,6 @@ class MainWindow(wx.Frame, EventPoster):
         self._player = player
         self._player.makeEventPoster(self, threadLock)
         self._trackFactory = trackFactory
-        self._system = system
         self._loggerFactory = loggerFactory
         self._logger = loggerFactory.getLogger("NQr.GUI", "debug")
         self._prefsFactory = prefsFactory
@@ -347,6 +352,8 @@ class MainWindow(wx.Frame, EventPoster):
             menuItem = menu.AppendCheckItem(id, label, caption)
         else:
             menuItem = menu.Append(id, label, caption)
+        # labels are sufficient:
+        # http://docs.wxwidgets.org/2.9/classwx_menu_item.html#8b0517fb35e3eada66b51568aa87f261
         if hotkey != None:
             (modifier, key) = hotkey
             self._addHotKey(modifier, key, id)
@@ -639,7 +646,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _initCreateScoreSlider(self):
         self._logger.debug("Creating score slider.")
         options = wx.SL_LABELS|wx.SL_INVERSE
-        if self._system == 'FreeBSD':
+        if systemName in freebsdNames:
             options = wx.SL_VERTICAL|options
         else:
             options=wx.SL_RIGHT|options
@@ -779,7 +786,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _onAddDirectory(self, e):
         self._eventLogger("GUI Add Directory Dialog", e)
         self._logger.debug("Opening add directory dialog.")
-        if self._system == 'FreeBSD':
+        if systemName in freebsdNames:
             dialog = wx.DirDialog(self, "Choose a directory...",
                                   self._defaultDirectory)
         else:
@@ -793,7 +800,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _onAddDirectoryOnce(self, e):
         self._eventLogger("GUI Add Directory Once Dialog", e)
         self._logger.debug("Opening add directory once dialog.")
-        if self._system == 'FreeBSD':
+        if systemName in freebsdNames:
             dialog = wx.DirDialog(self, "Choose a directory...",
                                   self._defaultDirectory)
         else:
@@ -815,7 +822,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _onRemoveDirectory(self, e):
         self._eventLogger("GUI Remove Directory Dialog", e)
         self._logger.debug("Opening remove directory dialog.")
-        if self._system == 'FreeBSD':
+        if systemName in freebsdNames:
             dialog = wx.DirDialog(self, "Choose a directory to remove...",
                                   self._defaultDirectory)
         else:
@@ -1091,6 +1098,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._socketMonitor.abort()
         
         self.Destroy()
+        # FIXME: self.ScheduleForDestruction() added in wxPython 2.9
 
     def _onLaunchPlayer(self, e):
         self._eventLogger("GUI Launch Player", e)
@@ -1253,6 +1261,8 @@ class MainWindow(wx.Frame, EventPoster):
         else:
             self.refreshLastPlayed(1, track, traceCallback=traceCallback)
             self.refreshPreviousPlay(1, track)
+        if self._track == track:
+            self.populateDetails(track, traceCallback)
 
 # FIXME: needs to ignore first track if same as last play before closing
     def _onPlayTimerDing(self, e):
@@ -1688,9 +1698,9 @@ class MainWindow(wx.Frame, EventPoster):
             if tag == tagName:
                 return tagID
 
-    def getPrefsPage(self, parent, logger, system):
+    def getPrefsPage(self, parent, logger):
         return PrefsPage(
-            parent, system, self._configParser, logger, self._defaultPlayDelay,
+            parent, self._configParser, logger, self._defaultPlayDelay,
             self._defaultInactivityTime, self._defaultIgnore,
             self._defaultHaveLogPanel, self._defaultRescanOnStartup,
             self._defaultDefaultDirectory, self._defaultTrackCheckDelay), "GUI"
@@ -1737,12 +1747,12 @@ class MainWindow(wx.Frame, EventPoster):
             self._trackCheckDelay = self._defaultTrackCheckDelay
 
 class PrefsPage(BasePrefsPage):
-    def __init__(self, parent, system, configParser, logger, defaultPlayDelay,
+    def __init__(self, parent, configParser, logger, defaultPlayDelay,
                  defaultInactivityTime, defaultIgnore, defaultHaveLogPanel,
                  defaultRescanOnStartup, defaultDefaultDirectory,
                  defaultTrackCheckDelay):
-        BasePrefsPage.__init__(self, parent, system, configParser, logger,
-                               "GUI", defaultPlayDelay, defaultInactivityTime,
+        BasePrefsPage.__init__(self, parent, configParser, logger, "GUI",
+                               defaultPlayDelay, defaultInactivityTime,
                                defaultIgnore, defaultHaveLogPanel,
                                defaultRescanOnStartup, defaultDefaultDirectory,
                                defaultTrackCheckDelay)
