@@ -69,10 +69,10 @@ class DatabaseEventHandler(wx.EvtHandler, EventPoster):
     def _onDatabaseEvent(self, e):
         self.postDebugLog("Got event.")
         e.complete()
-        self._eventLogger("Database Complete", e)
+        self._eventLogger("DB Complete", e)
         
     def _onExceptionEvent(self, e):
-        self._eventLogger("Database Exception", e)
+        self._eventLogger("DB Exception", e)
         raise e.getException()
     
     def _completionEvent(self, completion, returnData=True):
@@ -561,7 +561,7 @@ class Database(DatabaseEventHandler):
         
     def _onLogEvent(self, e):
         e.doLog()
-        self._eventLogger("Database Log", e)
+        self._eventLogger("DB Log", e)
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
