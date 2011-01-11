@@ -11,7 +11,6 @@
 ## TODO: implement ignoring of tracks played not in database
 ##       (option already created)
 ## TODO: make keyboard shortcuts make sense for Macs
-## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
 ## TODO: give scores a drop down menu in the track list
@@ -31,6 +30,9 @@
 ##        (if there is one) and poss shouldn't update
 ## FIXME: make clicking a position on the slider move it there (and holding the
 ##        click drag it)
+## FIXME: make all clicks/key presses reset inactivity timer (done,
+##        needs testing)
+## FIXME: clearCache breaks references to tracks in cache
 
 #from collections import deque
 import ConfigParser
@@ -297,6 +299,7 @@ class MainWindow(wx.Frame, EventPoster):
         Events.EVT_CHOOSE_TRACKS(self, self._onChooseTracks)
         
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
+        self._bindMouseAndKeyEvents(self)
 
         if self._restorePlaylist:
             self._oldPlaylist = None
@@ -322,6 +325,12 @@ class MainWindow(wx.Frame, EventPoster):
             self._onRescan()
         
         self.maintainPlaylist()
+        
+    # FIXME: needs testing to make sure all clicks are registered correctly
+    #        (and holds on score slider)
+    def _bindMouseAndKeyEvents(self, window):
+        window.Bind(wx.EVT_MOUSE_EVENTS, self._onMouseOrKeyPress)
+        window.Bind(wx.EVT_KEY_DOWN, self._onMouseOrKeyPress)
 
     def _trackMonitorQueue(self, completion, traceCallbackOrList=None):
         self._trackMonitor.queue(completion, traceCallbackOrList)
@@ -343,6 +352,7 @@ class MainWindow(wx.Frame, EventPoster):
         menuBar.Append(self._advMenu, "&Advanced")
 
         self.SetMenuBar(menuBar)
+        self._bindMouseAndKeyEvents(menuBar)
         
     def _addMenuItem(self, menu, label, caption, onClick, id=None, hotkey=None,
                      checkItem=False):
@@ -352,8 +362,8 @@ class MainWindow(wx.Frame, EventPoster):
             menuItem = menu.AppendCheckItem(id, label, caption)
         else:
             menuItem = menu.Append(id, label, caption)
-        # labels are sufficient:
-        # http://docs.wxwidgets.org/2.9/classwx_menu_item.html#8b0517fb35e3eada66b51568aa87f261
+# labels are sufficient:
+# http://docs.wxwidgets.org/2.9/classwx_menu_item.html#8b0517fb35e3eada66b51568aa87f261
         if hotkey != None:
             (modifier, key) = hotkey
             self._addHotKey(modifier, key, id)
@@ -394,11 +404,13 @@ class MainWindow(wx.Frame, EventPoster):
         self._fileMenu.AppendSeparator()
         self._addMenuItem(self._fileMenu, "E&xit\tCtrl+Q", " Terminate NQr",
                           self._onExit, id=wx.ID_EXIT, hotkey=("ctrl", "Q"))
+        self._bindMouseAndKeyEvents(self._fileMenu)
 
     def _initCreateRateMenu(self):
         self._logger.debug("Creating rate menu.")
         self._rateMenu = wx.Menu()
         self._populateRateMenu(self._rateMenu)
+        self._bindMouseAndKeyEvents(self._rateMenu)
 
     ## TODO: change up in "Rate Up" to an arrow
     def _initCreatePlayerMenu(self):
@@ -447,6 +459,7 @@ class MainWindow(wx.Frame, EventPoster):
                           self._onLaunchPlayer)
         self._addMenuItem(self._playerMenu, "E&xit Player",
                           " Terminate the media player", self._onExitPlayer)
+        self._bindMouseAndKeyEvents(self._playerMenu)
 
     def _getAllTagsCompletion(self, menu, tags):
         self._allTags = {}
@@ -467,6 +480,8 @@ class MainWindow(wx.Frame, EventPoster):
         self._db.getAllTagNames(
             lambda thisCallback, tags, menu=self._tagMenu:\
                 self._getAllTagsCompletion(menu, tags), priority=1)
+        
+        self._bindMouseAndKeyEvents(self._tagMenu)
 
     def _initCreateOptionsMenu(self):
         self._logger.debug("Creating options menu.")
@@ -482,6 +497,7 @@ class MainWindow(wx.Frame, EventPoster):
                           " Use NQr to enqueue tracks", self._onToggleNQr,
                           id=self._ID_TOGGLENQR, hotkey=("ctrl", "E"),
                           checkItem=True)
+        self._bindMouseAndKeyEvents(self._optionsMenu)
         
     def _initCreateAdvancedMenu(self):
         self._logger.debug("Creating advanced menu.")
@@ -490,11 +506,13 @@ class MainWindow(wx.Frame, EventPoster):
                           " Clears the track cache", self._onClearCache)
         self._addMenuItem(self._advMenu, "&Dump Queues",
                           " Dump thread queues to file", self._onDump)
+        self._bindMouseAndKeyEvents(self._advMenu)
 
     def _initCreateRightClickRateMenu(self):
         self._logger.debug("Creating rate menu.")
         self._rightClickRateMenu = wx.Menu()
         self._populateRateMenu(self._rightClickRateMenu)
+        self._bindMouseAndKeyEvents(self._rightClickRateMenu)
 
     def _initCreateTrackRightClickMenu(self):
         self._logger.debug("Creating track right click menu.")
@@ -520,6 +538,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._addMenuItem(self._trackRightClickMenu, "Reset Sc&ore",
                           " Reset the score of the current track",
                           self._onResetScore)
+        self._bindMouseAndKeyEvents(self._trackRightClickMenu)
 
     def _initCreateMainPanel(self):
         self._panel = wx.Panel(self)
@@ -541,7 +560,8 @@ class MainWindow(wx.Frame, EventPoster):
         self._panel.SetSizerAndFit(self._mainSizer)
         self._panel.SetAutoLayout(True)
         self._mainSizer.Fit(self)
-        self.SetSizeHints(430, self.GetSize().y);
+        self.SetSizeHints(430, self.GetSize().y)
+        self._bindMouseAndKeyEvents(self._panel)
 
 ## TODO: use svg or gd to create button images via wx.Bitmap and wx.BitmapButton
     def _initCreatePlayerControls(self):
@@ -567,12 +587,14 @@ class MainWindow(wx.Frame, EventPoster):
         self.Bind(wx.EVT_BUTTON, self._onPause, pauseButton)
         self.Bind(wx.EVT_BUTTON, self._onStop, stopButton)
         self.Bind(wx.EVT_BUTTON, self._onNext, nextButton)
+        self._bindMouseAndKeyEvents(self._playerControls)
 
     def _initCreateDetails(self):
         self._logger.debug("Creating details panel.")
         self._details = wx.TextCtrl(
             self._panel, wx.NewId(),
             style=wx.TE_READONLY|wx.TE_MULTILINE|wx.TE_DONTWRAP, size=(-1,140))
+        self._bindMouseAndKeyEvents(self._details)
 
     def _initCreateTrackSizer(self):
         self._logger.debug("Creating track panel.")
@@ -642,6 +664,7 @@ class MainWindow(wx.Frame, EventPoster):
                   self._trackList)
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._onTrackActivate,
                   self._trackList)
+        self._bindMouseAndKeyEvents(self._trackList)
         
     def _compareTracksCompletion(self, firstTrack, firstTrackID, secondTrackID):
         if firstTrackID != secondTrackID:
@@ -662,6 +685,7 @@ class MainWindow(wx.Frame, EventPoster):
                   self._scoreSlider)
         self.Bind(wx.EVT_SCROLL_THUMBRELEASE, self._onScoreSliderMove,
                   self._scoreSlider)
+        self._bindMouseAndKeyEvents(self._scoreSlider)
 
     def _initCreateLogPanel(self):
         self._logger.debug("Creating log panel.")
@@ -678,6 +702,8 @@ class MainWindow(wx.Frame, EventPoster):
         self._redirectErr = RedirectErr(self._logPanel, sys.stderr)
         sys.stdout = self._redirectOut
         sys.stderr = self._redirectErr
+        
+        self._bindMouseAndKeyEvents(self._logPanel)
         
     def _initCreateHotKeyTable(self):
         self._hotKeyTable = wx.AcceleratorTable(self._hotKeys)
@@ -1116,6 +1142,18 @@ class MainWindow(wx.Frame, EventPoster):
         self.Destroy()
         # FIXME: self.ScheduleForDestruction() added in wxPython 2.9
 
+    def _onMouseOrKeyPress(self, e):
+        try:
+            if e.Moving() or e.Leaving() or e.Entering():
+                e.Skip()
+                return
+        except AttributeError as err:
+            if "\'KeyEvent\' object has no attribute" not in str(err):
+                raise err
+        self._eventLogger("GUI Mouse or Key Press", e)
+        self.resetInactivityTimer()
+        e.Skip()
+        
     def _onLaunchPlayer(self, e):
         self._eventLogger("GUI Launch Player", e)
         self._trackMonitorQueue(lambda thisCallback: self._player.launch())
@@ -1241,6 +1279,7 @@ class MainWindow(wx.Frame, EventPoster):
                 
     def _onTrackChangeCompletion(self, track, previousPlay, traceCallback):
         track.setPreviousPlay(previousPlay)
+        # FIXME: needs to ignore first track if same as last play before closing
         self._playTimer.Stop()
         if self._playTimer.Start(self._playDelay, oneShot=True) == False:
             # ensures play is added for track
@@ -1284,7 +1323,6 @@ class MainWindow(wx.Frame, EventPoster):
         if self._track == track:
             self.populateDetails(track, traceCallback)
 
-# FIXME: needs to ignore first track if same as last play before closing
     def _onPlayTimerDing(self, e):
         self._eventLogger("GUI Play Timer Ding", e)
         track = self._playingTrack
@@ -1451,8 +1489,6 @@ class MainWindow(wx.Frame, EventPoster):
                                       e.getCompletion(), e.getCallback(),
                                       e.getTags())
 
-## TODO: would be better for NQr to create a queue during idle time and pop from
-##       it when enqueuing
     def enqueueRandomTracks(self, number, traceCallback=None, tags=None):
         if self._enqueueing:
             self._logger.debug("Already enqueuing")

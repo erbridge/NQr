@@ -1,6 +1,6 @@
 ## Track information
 ##
-## TODO: create clearCache function for when user has changed metadata (done)?
+## TODO: create clearCache function for when user has changed metadata? (done)
 ##       * I would actually make tracks update themselves and the
 ##       database when you spot a metadata change. (Ben)
 ##       * but how would you get them to find out that their metadata
@@ -217,6 +217,8 @@ class Track:
             return
         completion(traceCallback, self._playCount)
         
+    # FIXME: make last play get stored and add play change the store (and change
+    #        previous)
     def getLastPlay(self, completion, priority=None, traceCallback=None):
         self._db.getLastPlayedLocalTime(self, completion, priority=priority,
                                         traceCallback=traceCallback)

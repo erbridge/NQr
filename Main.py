@@ -339,7 +339,7 @@ if __name__ == '__main__':
             raise
         NQr.criticalLog("NQr is already running.")
         # TODO: maybe make running NQr focus - poss see winamp.focus for clues
-        # FIXME: has windows permission issues...
+        # FIXME: has windows firewall permission issues...
         sock.connect((host, port))
         message = "ATTEND\n"
         totalSent = 0
