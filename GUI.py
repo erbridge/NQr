@@ -474,6 +474,9 @@ class MainWindow(wx.Frame, EventPoster):
         self._addMenuItem(self._optionsMenu, "&Preferences...\tCtrl+P",
                           " Change NQr's settings", self._onPrefs,
                           hotkey=("ctrl", "P"))
+        self._addMenuItem(self._optionsMenu, "Restore &Defaults...",
+                          " Restores settings to defaults",
+                          self._onRestoreSettings)
         self._optionsMenu.AppendSeparator()
         self._addMenuItem(self._optionsMenu, "En&queue with NQr\tCtrl+E",
                           " Use NQr to enqueue tracks", self._onToggleNQr,
@@ -771,6 +774,17 @@ class MainWindow(wx.Frame, EventPoster):
         self._logger.debug("Opening preferences window.")
         self._prefsWindow = self._prefsFactory.getPrefsWindow(self)
         self._prefsWindow.Show()
+        
+    def _onRestoreSettings(self, e):
+        self._eventLogger("GUI Restore Settings", e)
+        dialog = wx.MessageDialog(
+            self,
+            "Are you sure you wish to restore default settings?\n"\
+            +"(Settings will be backed up, overwriting old backups)",
+            "NQr", wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
+        if dialog.ShowModal() == wx.ID_YES:
+            self._prefsFactory.restoreDefaults()
+        dialog.Destroy()
 
 ## TODO: change buttons to say "import" rather than "open"/"choose"
     def _onAddFile(self, e):

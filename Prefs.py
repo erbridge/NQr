@@ -1,8 +1,8 @@
 ## Preference window
 ##
 ## TODO: create validation rules for text controls
-## TODO: add a restore defaults option (which backs up the settings file?)
 
+import os
 from Util import wx
 
 class PrefsFactory:
@@ -15,6 +15,11 @@ class PrefsFactory:
     def getPrefsWindow(self, parent):
         return PrefsWindow(parent, self._logger, self._modules,
                            self._configParser, self._filename)
+            
+    def restoreDefaults(self, filename=None):
+        if not filename:
+            filename = self._filename+".backup"
+        os.rename(self._filename, filename)
 
 class PrefsWindow(wx.Frame):
     def __init__(self, parent, logger, modules, configParser, filename):

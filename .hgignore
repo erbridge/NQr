@@ -10,3 +10,5 @@ syntax: regexp
 \.tmp$
 syntax: regexp
 ^dumps$
+syntax: regexp
+\.backup$
