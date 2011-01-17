@@ -10,7 +10,6 @@
 ## TODO: make refocussing on window reselect current track?
 ## TODO: build HTTP server for remote control
 ## TODO: add undo function
-## TODO: remember size and position of window and column widths on close
 ##
 ## FIXME: queues wrong track if track changes at time of start up
 ## FIXME: has problems if library is small, poss due to problems with multiple
@@ -161,7 +160,6 @@ class Main(wx.App):
                              self._defaultIgnoreNewTracks,
                              self._defaultTrackCheckDelay,
                              self._defaultDumpPath, eventLogger)
-        gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
         ## TODO: remove command window at this point and stop logging to stream

@@ -320,6 +320,7 @@ class MainWindow(wx.Frame, EventPoster):
 
         self._initCreateHotKeyTable()
         self._logger.debug("Drawing main window.")
+        self._setPositionAndSize()
         self.Show(True)
         
         wx.CallAfter(self._onStart)
@@ -570,7 +571,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._panel.SetSizerAndFit(self._mainSizer)
         self._panel.SetAutoLayout(True)
         self._mainSizer.Fit(self)
-        self.SetSizeHints(430, self.GetSize().y)
+        self.SetSizeHints(430, 481)
         self._bindMouseAndKeyEvents(self._panel)
 
 ## TODO: use svg or gd to create button images via wx.Bitmap and wx.BitmapButton
@@ -623,17 +624,19 @@ class MainWindow(wx.Frame, EventPoster):
             style=wx.LC_REPORT|wx.LC_VRULES|wx.LC_SINGLE_SEL, size=(656,-1))
         # for some reason setting column 0 forces left justification
         self._trackList.InsertColumn(1, "Artist", format=wx.LIST_FORMAT_CENTER,
-                                     width=100)
+                                     width=self._artistWidth)
         self._trackList.InsertColumn(2, "Title", format=wx.LIST_FORMAT_CENTER,
-                                     width=170)
+                                     width=self._titleWidth)
         self._trackList.InsertColumn(3, "Score", format=wx.LIST_FORMAT_CENTER,
-                                     width=45)
+                                     width=self._scoreWidth)
         self._trackList.InsertColumn(4, "Played At",
-                                     format=wx.LIST_FORMAT_CENTER, width=120)
+                                     format=wx.LIST_FORMAT_CENTER,
+                                     width=self._playedAtWidth)
         self._trackList.InsertColumn(5, "Last Played",
-                                     format=wx.LIST_FORMAT_CENTER, width=120)
+                                     format=wx.LIST_FORMAT_CENTER,
+                                     width=self._lastPlayedWidth)
         self._trackList.InsertColumn(6, "Weight", format=wx.LIST_FORMAT_CENTER,
-                                     width=80)
+                                     width=self._weightWidth)
 
 #        try:
 #            self._logger.debug("Adding current track to track playlist.")
@@ -1154,6 +1157,7 @@ class MainWindow(wx.Frame, EventPoster):
             sys.stderr = self._stderr
             self._loggerFactory.refreshStreamHandler()
         self._socketMonitor.abort()
+        self._saveWindowAndColumnSizes()
         
         for lock in locks:
             lock.acquire()
@@ -1771,6 +1775,31 @@ class MainWindow(wx.Frame, EventPoster):
         for (tagID, tagName) in self._allTags.iteritems():
             if tag == tagName:
                 return tagID
+            
+    def _setPositionAndSize(self):
+        self.SetDimensions(self._xCoord, self._yCoord, self._width,
+                           self._height, wx.SIZE_USE_EXISTING)
+            
+    def _saveWindowAndColumnSizes(self):
+        settings = {}
+        windowRect = self.GetScreenRect()
+        settings["height"] = windowRect.GetHeight()
+        settings["width"] = windowRect.GetWidth()
+        settings["xCoord"] = windowRect.GetX()
+        settings["yCoord"] = windowRect.GetY()
+        settings["artistWidth"] = self._trackList.GetColumnWidth(0)
+        settings["titleWidth"] = self._trackList.GetColumnWidth(1)
+        settings["scoreWidth"] = self._trackList.GetColumnWidth(2)
+        settings["playedAtWidth"] = self._trackList.GetColumnWidth(3)
+        settings["lastPlayedWidth"] = self._trackList.GetColumnWidth(4)
+        settings["weightWidth"] = self._trackList.GetColumnWidth(5)
+        try:
+            self._configParser.add_section("GUI")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        for (name, value) in settings.items():
+            self._configParser.set("GUI", name, str(value))
+        self._prefsFactory.writePrefs()
 
     def getPrefsPage(self, parent, logger):
         return PrefsPage(
@@ -1819,6 +1848,48 @@ class MainWindow(wx.Frame, EventPoster):
                 "GUI", "trackCheckDelay")
         except ConfigParser.NoOptionError:
             self._trackCheckDelay = self._defaultTrackCheckDelay
+        try:
+            self._height = self._configParser.getint("GUI", "height")
+        except ConfigParser.NoOptionError:
+            self._height = 481
+        try:
+            self._width = self._configParser.getint("GUI", "width")
+        except ConfigParser.NoOptionError:
+            self._width = 730
+        try:
+            self._xCoord = self._configParser.getint("GUI", "xCoord")
+        except ConfigParser.NoOptionError:
+            self._xCoord = 475
+        try:
+            self._yCoord = self._configParser.getint("GUI", "yCoord")
+        except ConfigParser.NoOptionError:
+            self._yCoord = 284
+        try:
+            self._artistWidth = self._configParser.getint("GUI", "artistWidth")
+        except ConfigParser.NoOptionError:
+            self._artistWidth = 100
+        try:
+            self._titleWidth = self._configParser.getint("GUI", "titleWidth")
+        except ConfigParser.NoOptionError:
+            self._titleWidth = 170
+        try:
+            self._scoreWidth = self._configParser.getint("GUI", "scoreWidth")
+        except ConfigParser.NoOptionError:
+            self._scoreWidth = 45
+        try:
+            self._playedAtWidth = self._configParser.getint("GUI",
+                                                            "playedAtWidth")
+        except ConfigParser.NoOptionError:
+            self._playedAtWidth = 120
+        try:
+            self._lastPlayedWidth = self._configParser.getint("GUI",
+                                                              "lastPlayedWidth")
+        except ConfigParser.NoOptionError:
+            self._lastPlayedWidth = 120
+        try:
+            self._weightWidth = self._configParser.getint("GUI", "weightWidth")
+        except ConfigParser.NoOptionError:
+            self._weightWidth = 80
 
 class PrefsPage(BasePrefsPage):
     def __init__(self, parent, configParser, logger, defaultPlayDelay,

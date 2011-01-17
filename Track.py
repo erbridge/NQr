@@ -9,6 +9,7 @@
 from Errors import NoTrackError, UnknownTrackType, NoMetadataError,\
     DuplicateTagError, InvalidIDError
 import mutagen
+import mutagen.mp3
 import os.path
 from Util import BasePrefsPage, formatLength, getTrace
 
@@ -298,6 +299,7 @@ class AudioTrack(Track):
 #        self._path = self.getPath()
         try:
             self._logger.debug("Creating track from \'"+self._path+"\'.")
+#            print repr(self._path), repr(self._path.encode("cp1252"))
             self._track = mutagen.File(self._path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
             self._logger.debug("File has no metadata.")

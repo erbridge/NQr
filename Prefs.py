@@ -20,6 +20,10 @@ class PrefsFactory:
         if not filename:
             filename = self._filename+".backup"
         os.rename(self._filename, filename)
+        
+    def writePrefs(self):
+        with open(self._filename, 'w') as file:
+            self._configParser.write(file)
 
 class PrefsWindow(wx.Frame):
     def __init__(self, parent, logger, modules, configParser, filename):
