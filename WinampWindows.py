@@ -5,6 +5,7 @@
 import ctypes
 from Errors import NoTrackError, PlayerNotRunningError
 from MediaPlayer import MediaPlayer
+import os.path
 import subprocess
 import time
 from Util import convertToUnicode, getTrace
@@ -197,8 +198,7 @@ class WinampWindows(MediaPlayer):
         if logging == True:
             self._sendDebug("Retrieving path from memory buffer.")
         try:
-            rawPath = win32api.GetFullPathName(
-                memoryBuffer.raw.split("\x00")[0])
+            rawPath = os.path.realpath(memoryBuffer.raw.split("\x00")[0])
         except win32api.error as err:
             (winerror, funcname, strerror) = err
             if winerror != 299:

@@ -46,7 +46,7 @@ import time
 from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
     BasePrefsPage, validateDirectory, validateNumeric, roughAge, EventPoster,\
     BaseThread, versionNumber, getUpdate, doUpdate, getTrace, systemName,\
-    freebsdNames, wx
+    freebsdNames, convertToUnicode, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
@@ -1074,7 +1074,7 @@ class MainWindow(wx.Frame, EventPoster):
             self._logger.info("Creating tag.")
             dialog = wx.TextEntryDialog(self, "Tag name:", "New Tag...")
             if dialog.ShowModal() == wx.ID_OK:
-                tag = unicode(dialog.GetValue())
+                tag = convertToUnicode(dialog.GetValue(), self._logger.debug)
                 self._db.addTagName(tag)
                 tagID = wx.NewId()
                 self._allTags[tagID] = tag

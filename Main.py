@@ -1,6 +1,6 @@
 ## NQr
 ##
-## TODO: sort out ' and unicode in filenames (done?)
+## TODO: sort out unicode in filenames (has hacky solution currently)
 ## TODO: allow use of bpm for music queueing (from ID3)
 ## TODO: allow import of directories with a score
 ## TODO: ORGANIZE CODE

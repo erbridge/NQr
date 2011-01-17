@@ -40,26 +40,27 @@ def formatLength(rawLength):
     return length
 
 def convertToUnicode(string, debugCompletion, logging=True):
-    try:
-        unicodeString = unicode(string)
-    except UnicodeDecodeError:
-        if logging == True:
-            debugCompletion("Found bad characters. Attempting to resolve.")
-        unicodeString = u""
-        for char in string:
-            try:
-                unicodeString += unicode(char)
-            except UnicodeDecodeError as err:
-                errStr = str(err)
-                startIndex = errStr.index("0x")
-                endIndex = errStr.index(" ", startIndex)
-                hexStr = ""
-                for i in range(startIndex, endIndex):
-                    hexStr += errStr[i]
-                unicodeString += unichr(int(hexStr, 16))
-        if logging == True:
-            debugCompletion("Bad characters resolved.")
-    return unicodeString
+    return unicode(string, "cp1252") # the rest is now possibly unnecessary?
+#    try:
+#        unicodeString = unicode(string, "cp1252")
+#    except UnicodeDecodeError:
+#        if logging == True:
+#            debugCompletion("Found bad characters. Attempting to resolve.")
+#        unicodeString = u""
+#        for char in string:
+#            try:
+#                unicodeString += unicode(char, "cp1252")
+#            except UnicodeDecodeError as err:
+#                errStr = str(err)
+#                startIndex = errStr.index("0x")
+#                endIndex = errStr.index(" ", startIndex)
+#                hexStr = ""
+#                for i in range(startIndex, endIndex):
+#                    hexStr += errStr[i]
+#                unicodeString += unichr(int(hexStr, 16))
+#        if logging == True:
+#            debugCompletion("Bad characters resolved.")
+#    return unicodeString
         
 def doNothing():
     pass
@@ -238,6 +239,7 @@ class RedirectOut(RedirectText):
     def __init__(self, textCtrl, stdout):
         RedirectText.__init__(self, textCtrl, stdout)
         
+# FIXME: catch all errors and reraise with trace (and remove traces from others)
 class BaseCallback:
     def __init__(self, completion, traceCallbackOrList=None):
         self._completion = completion
