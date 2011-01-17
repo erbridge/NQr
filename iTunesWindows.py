@@ -2,7 +2,6 @@
 
 import subprocess
 import time
-from Util import convertToUnicode
 import win32com.universal
 import win32com.client
 
@@ -177,4 +176,4 @@ class iTunesWindows(MediaPlayer):
         rawPath = self._getTrackAtPos(trackPosition).FilePath
         if logging == True:
             self._sendDebug("Converting path into unicode.")
-        return convertToUnicode(rawPath, self._sendDebug, logging)
+        return unicode(rawPath, "mcbs")

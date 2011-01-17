@@ -8,7 +8,7 @@ from MediaPlayer import MediaPlayer
 import os.path
 import subprocess
 import time
-from Util import convertToUnicode, getTrace
+from Util import getTrace
 import win32api
 import win32con
 import win32process
@@ -207,4 +207,4 @@ class WinampWindows(MediaPlayer):
             raise NoTrackError(trace=getTrace(traceCallback))
         if logging == True:
             self._sendDebug("Converting path into unicode.")
-        return convertToUnicode(rawPath, self._sendDebug, logging)
+        return unicode(rawPath, "mbcs")

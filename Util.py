@@ -39,8 +39,8 @@ def formatLength(rawLength):
         length = str(int(minutes))+":0"+str(int(seconds))
     return length
 
-def convertToUnicode(string, debugCompletion, logging=True):
-    return unicode(string, "mbcs") # the rest is now possibly unnecessary?
+#def convertToUnicode(string, debugCompletion, logging=True):
+#    return unicode(string, "mbcs") # the rest is now possibly unnecessary?
 #    try:
 #        unicodeString = unicode(string, "cp1252")
 #    except UnicodeDecodeError:
