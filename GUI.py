@@ -134,6 +134,7 @@ class SocketMonitor(BaseThread):
         self._abortFlag = False
 
     def run(self):
+        self._runningLock.acquire()
         self._socket.listen(5) # FIXME: how many can/should it listen to?
         while not self._abortFlag:
             # FIXME: has windows firewall permission issues...
@@ -144,8 +145,9 @@ class SocketMonitor(BaseThread):
                                             address, self._logger)
             connMonitor.start_()
             self._connections.append(connMonitor)
-        self.postDebugLog("Stopping socket monitor.")
         self._socket.close()
+        self.postDebugLog("Socket monitor stopped.")
+        self._runningLock.release()
                 
     def abort(self):
         self._abortFlag = True
@@ -153,6 +155,12 @@ class SocketMonitor(BaseThread):
         sock.connect(self._address)
         sock.shutdown(2)
         sock.close()
+        
+    def getRunningLocks(self):
+        locks = [self.getRunningLock()]
+        for conn in self._connections:
+            locks.append(conn.getRunningLock())
+        return locks
         
 class ConnectionMonitor(BaseThread):
     def __init__(self, window, lock, connection, address, logger):
@@ -162,6 +170,7 @@ class ConnectionMonitor(BaseThread):
         self._conn = connection
     
     def run(self):
+        self._runningLock.acquire()
         while True:
             try:
                 message = self._recieve()
@@ -192,6 +201,7 @@ class ConnectionMonitor(BaseThread):
             else:
                 raise BadMessageError(trace=getTrace(self._trace))
         self.postDebugLog("Connection ("+self._address+") monitor stopped.")
+        self._runningLock.release()
                                
     def _recieve(self):
         byte = ""
@@ -1102,6 +1112,8 @@ class MainWindow(wx.Frame, EventPoster):
     def _onClose(self, e):
         self._eventLogger("GUI Close", e)
         interrupt = None
+        locks = [self._trackMonitor.getRunningLock()]\
+            +self._socketMonitor.getRunningLocks()
         if self._db.getDirectoryWalking():
             options = wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION
             if e.CanVeto():
@@ -1130,15 +1142,21 @@ class MainWindow(wx.Frame, EventPoster):
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
         if interrupt == None:
+            locks += self._db.getThreadRunningLocks()
             self._db.abort()
+        elif interrupt:
+            locks += self._db.getThreadRunningLocks()
+            self._db.abort(True)
         else:
-            self._db.abort(interrupt)
+            self._db.abort(False)
         if self._haveLogPanel == True:
             sys.stdout = self._stdout
             sys.stderr = self._stderr
             self._loggerFactory.refreshStreamHandler()
         self._socketMonitor.abort()
         
+        for lock in locks:
+            lock.acquire()
         self.Destroy()
         # FIXME: self.ScheduleForDestruction() added in wxPython 2.9
 

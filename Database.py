@@ -1792,7 +1792,11 @@ class Database(DatabaseEventHandler):
     
     def getDirectoryWalking(self):
         return self._directoryWalkThread.getWorking()
-
+    
+    def getThreadRunningLocks(self):
+        return [self._dbThread.getRunningLock(),
+                self._directoryWalkThread.getRunningLock()]
+    
     def getPrefsPage(self, parent, logger):
         return PrefsPage(parent, self._configParser, logger,
                          self._defaultDefaultScore), "Database"

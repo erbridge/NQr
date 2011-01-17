@@ -332,6 +332,7 @@ class BaseThread(threading.Thread, EventPoster):
         self._emptyCount = 0
         self._raisedEmpty = raiseEmpty
         self._interrupt = False
+        self._runningLock = threading.Lock()
         
     def queue(self, thing, traceCallbackOrList=None, priority=2):
         thing = Callback(thing, traceCallbackOrList)
@@ -347,6 +348,7 @@ class BaseThread(threading.Thread, EventPoster):
 
     def run(self):
         self.postDebugLog("Starting \'"+self._name+"\' thread.")
+        self._runningLock.acquire()
         self._run()
         while True:
             try:
@@ -365,7 +367,8 @@ class BaseThread(threading.Thread, EventPoster):
                 elif self._raisedEmpty == False:
                     self._emptyCount += 1
                     self._queueEmptyQueueCallback()
-        self.postInfoLog("\'"+self._name+"\' thread stopped.")
+        self.postDebugLog("\'"+self._name+"\' thread stopped.")
+        self._runningLock.release()
 
     def _run(self):
         pass
@@ -431,6 +434,9 @@ class BaseThread(threading.Thread, EventPoster):
             +"   Priority: "+str(item[0])+"   Event Number: "\
             +str(item[1])+"   Object: "+str(item[2])+"   Trace Hash: "\
             +traceHash+"\n\n"+trace+"\n\n\n"
+            
+    def getRunningLock(self):
+        return self._runningLock
             
 class CircularQueue:
     def __init__(self, size):
