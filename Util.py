@@ -40,7 +40,7 @@ def formatLength(rawLength):
     return length
 
 def convertToUnicode(string, debugCompletion, logging=True):
-    return unicode(string, "cp1252") # the rest is now possibly unnecessary?
+    return unicode(string, "mbcs") # the rest is now possibly unnecessary?
 #    try:
 #        unicodeString = unicode(string, "cp1252")
 #    except UnicodeDecodeError:
