@@ -4,7 +4,7 @@ import ConfigParser
 import copy
 import datetime
 from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError,\
-    NoEventHandlerError
+    NoEventHandlerError, Error
 import Events
 import logging
 import os.path
@@ -239,7 +239,7 @@ class RedirectOut(RedirectText):
     def __init__(self, textCtrl, stdout):
         RedirectText.__init__(self, textCtrl, stdout)
         
-# FIXME: catch all errors and reraise with trace (and remove traces from others)
+# FIXME: catch all errors and reraise with trace (poss done?)
 class BaseCallback:
     def __init__(self, completion, traceCallbackOrList=None):
         self._completion = completion
@@ -247,10 +247,18 @@ class BaseCallback:
         
     def getTrace(self):
         return getTrace(self._trace)[:-1]
+    
+    def _complete(self, *args, **kwargs):
+        try:
+            self._completion(*args, **kwargs)
+        except Error as err:
+            if err.getTrace():
+                raise err
+            raise err(trace=self.getTrace())
         
 class Callback(BaseCallback):
     def __call__(self, *args, **kwargs):
-        self._completion(self, *args, **kwargs)
+        self._complete(self, *args, **kwargs)
         
 class MultiCompletion(BaseCallback):
     def __init__(self, number, completion, traceCallback=None):
@@ -264,7 +272,7 @@ class MultiCompletion(BaseCallback):
         self._slots[slot] = value
         self._puts[slot] = True
         if False not in self._puts:
-            self._completion(*self._slots)        
+            self._complete(*self._slots)        
         
 class ErrorCompletion(BaseCallback):
     def __init__(self, exceptions, completion, traceCallbackOrList=None):
@@ -277,7 +285,7 @@ class ErrorCompletion(BaseCallback):
     def __call__(self, err, *args, **kwargs):
         for exception in self._exceptions:
             if isinstance(err, exception) or err == exception:
-                self._completion(*args, **kwargs)
+                self._complete(*args, **kwargs)
                 return
         raise err
     
