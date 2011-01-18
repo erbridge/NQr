@@ -4,14 +4,14 @@
 
 from appscript import app, k, mactypes, CommandError
 
-import MediaPlayer
+import mediaplayer
 
 
-class iTunesMacOS(MediaPlayer.MediaPlayer):
+class iTunes(mediaplayer.MediaPlayer):
     
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory, playlistName="NQr"):
-        MediaPlayer.MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes",
+        mediaplayer.MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes",
                                          noQueue, configParser, defaultPlayer,
                                          safePlayers, trackFactory)
         self._playlistName = playlistName
@@ -21,10 +21,10 @@ class iTunesMacOS(MediaPlayer.MediaPlayer):
     def _getRunning(self):
         try:
             if not self._iTunes.exists(
-                    self._iTunes.user_playlists[self._playlistName]):
-                self._playlist = self._iTunes.make(
-                    new=k.user_playlist,
-                    with_properties={k.name: self._playlistName})
+                self._iTunes.user_playlists[self._playlistName]):
+                    self._playlist = self._iTunes.make(
+                        new=k.user_playlist,
+                        with_properties={k.name: self._playlistName})
             else:
                 self._playlist = self._iTunes.user_playlists[self._playlistName]
             self._tracks = self._playlist.tracks
@@ -34,30 +34,30 @@ class iTunesMacOS(MediaPlayer.MediaPlayer):
         
     def launch(self):
         self._sendDebug("Launching iTunes.")
-        if self._getRunning() == False:
+        if not self._getRunning():
             self._iTunes.launch()
         else:
             self._sendInfo("iTunes is already running.")
             self._iTunes.Focus() # FIXME: Does this work?
 
     def launchBackground(self):
-        if self._getRunning() == False:
+        if not self._getRunning():
             self._sendDebug("Launching iTunes.")
             self._iTunes.launch()
             while True:
                 time.sleep(.25)
-                if self._getRunning() == True:
+                if self._getRunning():
                     self._sendInfo("iTunes has been launched.")
                     self._iTunes.reveal(self._playlist)
                     return
                 
     def close(self):
         self._sendDebug("Closing iTunes.")
-        if self._getRunning() == True:
+        if self._getRunning():
             self._iTunes.quit()
             while True:
                 time.sleep(.25)
-                if self._getRunning() == False:
+                if not self._getRunning():
                     self._sendInfo("iTunes has been closed.")
                     return
         else:
@@ -100,7 +100,7 @@ class iTunesMacOS(MediaPlayer.MediaPlayer):
     def play(self):
         self.launchBackground()
         self._sendDebug("Resuming playback or restarting current track.")
-        if self._iTunes.player_state() == k.playing:
+        if self._iTunes.player_state() is k.playing:
             self._iTunes.stop()
         self._iTunes.play()
         
@@ -127,10 +127,10 @@ class iTunesMacOS(MediaPlayer.MediaPlayer):
     def setShuffle(self, status):
         self.launchBackground()
         self._sendDebug("Setting shuffle status.")
-        if status == True or status == 1:
+        if status:
             self._iTunes.set(self._playlist.shuffle, to=True)
             self._sendInfo("Shuffle turned on.")
-        if status == False or status == 0:
+        if not status:
             self._iTunes.set(self._playlist.shuffle, to=False)
             self._sendInfo("Shuffle turned off.")
 
@@ -146,7 +146,7 @@ class iTunesMacOS(MediaPlayer.MediaPlayer):
         except CommandError:
             return None
         for pos in range(self.getPlaylistLength()):
-            if currentTrack == self._getTrackAtPos(pos):
+            if currentTrack is self._getTrackAtPos(pos):
                 return pos
         return None # Track is not in "NQr" playlist.
     
@@ -161,7 +161,7 @@ class iTunesMacOS(MediaPlayer.MediaPlayer):
            
            Result should always be turned into a track object.
         """
-        if logging == True:
+        if logging:
             self._sendDebug(
                 "Retrieving path of track at position " + str(trackPosition)
                 + ".")

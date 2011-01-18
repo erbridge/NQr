@@ -25,14 +25,14 @@ class LoggerFactory:
             + "%(message)s", "%Y-%m-%d %H:%M:%S")
 
         self._commandLineHandler = logging.StreamHandler()
-        if self._debugMode == True:
+        if self._debugMode:
             self._commandLineHandler.setLevel(logging.DEBUG)
         else:
             self._commandLineHandler.setLevel(logging.INFO)
         self._commandLineHandler.setFormatter(self._formatter)
         logging.getLogger("NQr").addHandler(self._commandLineHandler)
 
-        if self._debugMode == True:
+        if self._debugMode:
             debugFileHandler = logging.FileHandler(debugLogFilename, delay=True)
             debugFileHandler.setLevel(logging.DEBUG)
             debugFileHandler.setFormatter(self._formatter)
@@ -56,13 +56,13 @@ class LoggerFactory:
            
            Set |days| to -1 to save all logs.
         """
-        if days == -1:
+        if days is -1:
             return
         now = datetime.datetime.utcnow()
         limit = now - datetime.timedelta(days=days)
         for log in os.listdir("logs"):
             name, ext = os.path.splitext(log)
-            if ext != ".log":
+            if ext is not ".log":
                 continue
             time = datetime.datetime.strptime(
                     name.split("_")[1] + name.split("_")[2], '%Y%m%d%H%M%S')
@@ -72,12 +72,12 @@ class LoggerFactory:
 
     def getLogger(self, name, level):
         logger = logging.getLogger(name)
-        if level == "debug":
-            if self._debugMode == True:
+        if level is "debug":
+            if self._debugMode:
                 logger.setLevel(logging.DEBUG)
             else:
                 logger.setLevel(logging.INFO)
-        elif level == "error":
+        elif level is "error":
             logger.setLevel(logging.ERROR)
         else:
             self._logger.error(str(level) + " is an invalid level for logger.")
@@ -88,7 +88,7 @@ class LoggerFactory:
         logging.getLogger("NQr").removeHandler(self._commandLineHandler)
         
         self._commandLineHandler = logging.StreamHandler()
-        if self._debugMode == True:
+        if self._debugMode:
             self._commandLineHandler.setLevel(logging.DEBUG)
         else:
             self._commandLineHandler.setLevel(logging.INFO)

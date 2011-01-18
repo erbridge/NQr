@@ -7,10 +7,10 @@
 import ConfigParser
 import random
 
-import Errors
-import Util
+import errors
+import util
 
-wx = Util.wx
+wx = util.wx
 
 
 class Randomizer:
@@ -54,7 +54,7 @@ class Randomizer:
                     continue
                 self._logger.error("Unsafe weight algorithm imported: \'" +
                                    rawWeightAlgorithm + "\'.")
-                raise Errors.UnsafeInputError
+                raise errors.UnsafeInputError
         self._setWeightAlgorithm(rawWeightAlgorithm)
         try:
             self._scoreThreshold = self._configParser.getint("Randomizer",
@@ -89,14 +89,14 @@ class Randomizer:
                         pass
                     continue
                 newPart = ""
-            if newPart != "":
+            if newPart is not "":
                 return False
         return True
 
     def chooseTracks(self, number, exclude, completion, traceCallback=None,
                      tags=None):
         self._logger.debug("Selecting " + str(number) + " track" +
-                           Util.plural(number) + ".")
+                           util.plural(number) + ".")
         mycompletion = (lambda thisCallback, trackIDs, completion=completion:
                             self._chooseTracksCompletion(trackIDs, completion,
                                                          thisCallback))
@@ -105,8 +105,8 @@ class Randomizer:
     def _chooseTracksCompletion(self, trackIDs, completion, traceCallback):
         self._tracks = [] # FIXME: Possibly clears list before posting it.
         for [trackID, weight] in trackIDs:
-            errcompletion = Util.ErrorCompletion(
-                Errors.NoTrackError,
+            errcompletion = util.ErrorCompletion(
+                errors.NoTrackError,
                 lambda thisCallback, trackID=trackID:
                     self._db.setHistorical(True, trackID,
                                            traceCallback=thisCallback),
@@ -162,7 +162,7 @@ class Randomizer:
         
         
     def _createLists(self, exclude, completion, traceCallback, tags=None):
-        multicompletion = Util.MultiCompletion(
+        multicompletion = util.MultiCompletion(
             3,
             lambda oldest, list, thisCallback, exclude=exclude,
             completion=completion:
@@ -174,7 +174,7 @@ class Randomizer:
                 multicompletion(0, oldest),
             traceCallback=traceCallback)
         multicompletion(2, traceCallback)
-        if tags == None:
+        if tags is None:
             self._db.getRandomizerList(
                 lambda thisCallback, list, multicompletion=multicompletion:
                     multicompletion(1, list),
@@ -191,11 +191,11 @@ class Randomizer:
     def _createListsCompletion(self, exclude, oldest, list, completion,
                                traceCallback):
         self._logger.debug("Creating weighted list of tracks.")
-        if list == []:
+        if not list:
             self._logger.error("No tracks in database.")
-            raise Errors.EmptyDatabaseError(trace=Util.getTrace(traceCallback))
+            raise errors.EmptyDatabaseError(trace=util.getTrace(traceCallback))
         self._logger.debug("Oldest track was played " + str(oldest) +
-                           " seconds ago (" + Util.roughAge(oldest) + " ago).")
+                           " seconds ago (" + util.roughAge(oldest) + " ago).")
         trackWeightList = []
         totalWeight = 0
         for (trackID, time, score, unscored) in list:
@@ -203,9 +203,9 @@ class Randomizer:
             # unplayed tracks.
             if trackID in exclude:
                 continue
-            if time == None:
+            if time is None:
                 time = oldest
-            if unscored == 1:
+            if unscored:
                 score = self._defaultScore
             if score < self._scoreThreshold:
                 score = 0
@@ -227,11 +227,11 @@ class Randomizer:
         return self._weightAlgorithm(score, time)
 
 
-class PrefsPage(Util.BasePrefsPage):
+class PrefsPage(util.BasePrefsPage):
     
     def __init__(self, parent, configParser, logger,
                  defaultScoreThreshold, defaultWeight):
-        Util.BasePrefsPage.__init__(self, parent, configParser, logger,
+        util.BasePrefsPage.__init__(self, parent, configParser, logger,
                                     "Randomizer", defaultScoreThreshold,
                                     defaultWeight)
         
@@ -311,13 +311,13 @@ class PrefsPage(Util.BasePrefsPage):
 
     def _onWeightChange(self, e):
         weight = self._weightControl.GetLineText(0)
-        if weight != "":
+        if weight is not "":
             self._settings["weightAlgorithm"] = weight
 
     def _onThresholdChange(self, e):
-        if Util.validateNumeric(self._thresholdControl):
+        if util.validateNumeric(self._thresholdControl):
             threshold = self._thresholdControl.GetLineText(0)
-            if threshold != "":
+            if threshold is not "":
                 self._settings["scoreThreshold"] = int(threshold)
 
     def _setDefaults(self, defaultScoreThreshold, defaultWeight):

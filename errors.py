@@ -2,6 +2,7 @@
 
 
 class Error(Exception):
+    """Base class for errors. Has a kwarg |trace| for doing traceback."""
     
     def __init__(self, trace=None):
         Exception.__init__(self)

@@ -12,13 +12,13 @@ import traceback
 
 #import wxversion
 #wxversion.select([x for x in wxversion.getInstalled()
-#                  if x.find('unicode') != -1])
+#                  if x.find('unicode') is not -1])
 #import wx
 
-import Errors
-import Events
+import errors
+import events
 
-wx = Events.wx
+wx = events.wx
 versionNumber = "0.1"
 systemName = platform.system()
 macNames = ["Mac OS X", "Darwin"]
@@ -27,7 +27,7 @@ freebsdNames = ["FreeBSD"]
 
 
 def plural(count):
-    if count == 1:
+    if count is 1:
         return ''
     return 's'
 
@@ -47,7 +47,7 @@ def formatLength(rawLength):
 #    try:
 #        unicodeString = unicode(string, "cp1252")
 #    except UnicodeDecodeError:
-#        if logging == True:
+#        if logging:
 #            debugCompletion("Found bad characters. Attempting to resolve.")
 #        unicodeString = u""
 #        for char in string:
@@ -61,7 +61,7 @@ def formatLength(rawLength):
 #                for i in range(startIndex, endIndex):
 #                    hexStr += errStr[i]
 #                unicodeString += unichr(int(hexStr, 16))
-#        if logging == True:
+#        if logging:
 #            debugCompletion("Bad characters resolved.")
 #    return unicodeString
 
@@ -72,10 +72,10 @@ def doNothing():
 
 #def extractTraceStack(trace=None):
 #    newTrace = traceback.extract_stack()[:-1]
-#    if trace == None:
+#    if trace is None:
 #        return newTrace
 ##    for index in range(len(trace)):
-##        if trace[index] != newTrace[index]:
+##        if trace[index] is not newTrace[index]:
 ##            return trace + newTrace[index:]
 ##    return newTrace
 #    return trace + newTrace
@@ -84,17 +84,16 @@ def doNothing():
 def getTrace(maybeTraceCallbackOrList=None):
     if isinstance(maybeTraceCallbackOrList, BaseCallback):
         return maybeTraceCallbackOrList.getTrace()[:-1]
-    else:
-        trace = traceback.extract_stack()[:-1]
-        if maybeTraceCallbackOrList:
-            return maybeTraceCallbackOrList + trace
-        return trace
+    trace = traceback.extract_stack()[:-1]
+    if maybeTraceCallbackOrList is not None:
+        return maybeTraceCallbackOrList + trace
+    return trace
 
 
 def validateNumeric(textCtrl):
     text = textCtrl.GetValue()
     for char in text:
-        if char.isdigit() == False:
+        if not char.isdigit():
             wx.MessageBox("Must be numeric only!", "Error")
             textCtrl.SetBackgroundColour("pink")
             textCtrl.SetFocus()
@@ -108,7 +107,7 @@ def validateNumeric(textCtrl):
 
 def validateDirectory(textCtrl):
     text = textCtrl.GetValue()
-    if os.path.isdir(text) == False:
+    if not os.path.isdir(text):
         wx.MessageBox("Must be existing directory path!", "Error")
         textCtrl.SetBackgroundColour("pink")
         textCtrl.SetFocus()
@@ -124,10 +123,10 @@ def _doRough(time, bigDivider, bigName, littleDivider, littleName):
     big = int((time + littleDivider / 2) / littleDivider / bigDivider)
     little = int(((time + littleDivider / 2) / littleDivider) % bigDivider)
     timeString = ""
-    if big != 0:
+    if big is not 0:
         timeString = str(big) + " " + bigName + plural(big)
-    if little != 0:
-        if timeString != "":
+    if little is not 0:
+        if timeString is not "":
             timeString  += " " + str(little) + " " + littleName + plural(little)
         else:
             timeString = str(little) + " " + littleName + plural(little)
@@ -177,45 +176,45 @@ def doUpdate():
 
 def postEvent(lock, target, event):
     try:
-        if lock != None and lock.acquire():
+        if lock is not None and lock.acquire():
             wx.PostEvent(target, event)
             lock.release()
-        elif lock == None:
+        elif lock is None:
             wx.PostEvent(target, event)
     except TypeError as err:
-        if str(err) != ("in method 'PostEvent', expected argument 1 of type "
-                        + "'wxEvtHandler *'"):
+        if str(err) is not ("in method 'PostEvent', expected argument 1 of type"
+                            + " 'wxEvtHandler *'"):
             raise err
-        raise Errors.NoEventHandlerError
+        raise errors.NoEventHandlerError
 
 
 def postDebugLog(lock, target, logger, message):
     # TODO: Concurrency issue?
     if logger.isEnabledFor(logging.DEBUG):
         try:
-            postEvent(lock, target, Events.LogEvent(logger, "debug", message))
-        except Errors.NoEventHandlerError:
+            postEvent(lock, target, events.LogEvent(logger, "debug", message))
+        except errors.NoEventHandlerError:
             logger.debug("(post error)" + message)
 
 
 def postInfoLog(lock, target, logger, message):
     try:
-        postEvent(lock, target, Events.LogEvent(logger, "info", message))
-    except Errors.NoEventHandlerError:
+        postEvent(lock, target, events.LogEvent(logger, "info", message))
+    except errors.NoEventHandlerError:
         logger.info("(post error)" + message)
 
 
 def postErrorLog(lock, target, logger, message):
     try:
-        postEvent(lock, target, Events.LogEvent(logger, "error", message))
-    except Errors.NoEventHandlerError:
+        postEvent(lock, target, events.LogEvent(logger, "error", message))
+    except errors.NoEventHandlerError:
         logger.error("(post error)" + message)
 
 
 def postWarningLog(lock, target, logger, message):
     try:
-        postEvent(lock, target, Events.LogEvent(logger, "warning", message))
-    except Errors.NoEventHandlerError:
+        postEvent(lock, target, events.LogEvent(logger, "warning", message))
+    except errors.NoEventHandlerError:
         logger.warning("(post error)" + message)
 
 
@@ -252,7 +251,7 @@ class RedirectText:
         self._out.write(string)
         start, end = self._out2.GetSelection()
         self._out2.AppendText(string)
-        if start != end:
+        if start is not end:
             self._out2.SetSelection(start, end)
 
 
@@ -281,8 +280,8 @@ class BaseCallback:
     def _complete(self, *args, **kwargs):
         try:
             self._completion(*args, **kwargs)
-        except Errors.Error as err:
-            if err.getTrace():
+        except errors.Error as err:
+            if err.getTrace() is not None:
                 raise err
             raise err(trace=self.getTrace())
 
@@ -301,8 +300,8 @@ class MultiCompletion(BaseCallback):
         self._puts = [False] * number
     
     def __call__(self, slot, value):
-        if self._puts[slot] == True:
-            raise Errors.MultiCompletionPutError(trace=getTrace(self))
+        if self._puts[slot]:
+            raise errors.MultiCompletionPutError(trace=getTrace(self))
         self._slots[slot] = value
         self._puts[slot] = True
         if False not in self._puts:
@@ -320,7 +319,7 @@ class ErrorCompletion(BaseCallback):
     
     def __call__(self, err, *args, **kwargs):
         for exception in self._exceptions:
-            if isinstance(err, exception) or err == exception:
+            if isinstance(err, exception) or err is exception:
                 self._complete(*args, **kwargs)
                 return
         raise err
@@ -393,18 +392,18 @@ class BaseThread(threading.Thread, EventPoster):
         while True:
             try:
                 self._pop()
-            except Errors.AbortThreadError:
+            except errors.AbortThreadError:
                 if self._abortCount > 20: # FIXME: Make more deterministic.
                     self._abort()
                     break
                 self.abort()
                 self._abortCount += 1
-            except Errors.EmptyQueueError as err:
+            except errors.EmptyQueueError as err:
                 if self._emptyCount > 20: # FIXME: Make more deterministic.
-                    if self._errcallback != None:
+                    if self._errcallback is not None:
                         self._raise(err, self._errcallback)
                     self._raisedEmpty = True
-                elif self._raisedEmpty == False:
+                elif not self._raisedEmpty:
                     self._emptyCount += 1
                     self._queueEmptyQueueCallback()
         self.postDebugLog("\'" + self._name + "\' thread stopped.")
@@ -430,13 +429,13 @@ class BaseThread(threading.Thread, EventPoster):
         try:
             errcompletion(err)
         except:
-            self.postEvent(Events.ExceptionEvent(err))
+            self.postEvent(events.ExceptionEvent(err))
         
     def _queueEmptyQueueCallback(self):
         self.queue(self._emptyQueueCallback, priority=999)
             
     def _emptyQueueCallback(self, thisCallback, *args, **kwargs):
-        raise Errors.EmptyQueueError(trace=thisCallback.getTrace())
+        raise errors.EmptyQueueError(trace=thisCallback.getTrace())
         
     def setAbortInterrupt(self, interrupt):
         self._interrupt = interrupt
@@ -450,13 +449,13 @@ class BaseThread(threading.Thread, EventPoster):
         self.queue(self._abortCallback, priority=priority)
         
     def _abortCallback(self, thisCallback, *args, **kwargs):
-        raise Errors.AbortThreadError(trace=thisCallback.getTrace())
+        raise errors.AbortThreadError(trace=thisCallback.getTrace())
         
     def dumpQueue(self, filename, extraLines=0):
         dump = copy.copy(self._queue.queue)
         file = open(filename, "w")
         for item, time in self._doneQueue:
-            if item:
+            if item is not None:
                 file.write(self._dumpQueueFormatter(item, extraLines, time))
         file.write(("-" * 100 + "\n\n\n") * 2)
         for item in dump:
@@ -468,7 +467,7 @@ class BaseThread(threading.Thread, EventPoster):
                     line for line in traceback.format_list(
                         getTrace(item[2])[:-(8 + extraLines)])])
         traceHash = str(hash(trace))
-        if time == None:
+        if time is None:
             time = datetime.datetime.now()
         return (time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] +
                 "   Priority: "+str(item[0]) +
@@ -509,12 +508,12 @@ class EventLogger:
     def dump(self, filename):
         file = open(filename, "w")
         for item, time in self._queue:
-            if item:
+            if item is not None:
                 file.write(self._dumpFormatter(item, time))
         file.close()
         
     def _dumpFormatter(self, item, time=None):
-        if time == None:
+        if time is None:
             time = datetime.datetime.now()
         return (time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] +
                 "   Event: " + item[0] + "\n")

@@ -4,9 +4,9 @@
 
 import os
 
-import Util
+import util
 
-wx = Util.wx
+wx = util.wx
 
 
 class PrefsFactory:
@@ -22,7 +22,7 @@ class PrefsFactory:
                            self._configParser, self._filename)
             
     def restoreDefaults(self, filename=None):
-        if not filename:
+        if filename is None:
             filename = self._filename + ".backup"
         os.rename(self._filename, filename)
         
@@ -37,7 +37,7 @@ class PrefsWindow(wx.Frame):
         self._logger = logger
         self._gui = parent
         self._modules = modules
-        if self._modules[0] != parent:
+        if self._modules[0] is not parent:
             self._modules.insert(0, parent)
         self._configParser = configParser
         self._filename = filename
@@ -81,7 +81,7 @@ class PrefsWindow(wx.Frame):
 
     def addPage(self, page, pageName, position=None):
         self._logger.debug("Adding preference page.")
-        if position == None:
+        if position is None:
             position = len(self._pages)
         self._pages[pageName] = page
         self._prefs.InsertPage(position, page, pageName)

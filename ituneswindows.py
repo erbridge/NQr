@@ -5,14 +5,14 @@ import time
 import win32com.universal
 import win32com.client
 
-import MediaPlayer
+import mediaplayer
 
 
-class iTunesWindows(MediaPlayer.MediaPlayer):
+class iTunes(mediaplayer.MediaPlayer):
     
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory, playlistName="\"NQr\""):
-        MediaPlayer.MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes",
+        mediaplayer.MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes",
                                          noQueue, configParser, defaultPlayer,
                                          safePlayers, trackFactory)
         self._playlistName = playlistName
@@ -34,44 +34,45 @@ class iTunesWindows(MediaPlayer.MediaPlayer):
             self._tracks = self._playlist.Tracks
             return True
         except win32com.universal.com_error as err:
-            if str(err) != "(-2147221005, 'Invalid class string', None, None)":
+            if str(err) is not ("(-2147221005, 'Invalid class string', " + 
+                                "None, None)"):
                 raise err
             return False
         
     def launch(self):
         self._sendDebug("Launching iTunes.")
-        if self._getRunning() == False:
+        if not self._getRunning():
             # FIXME: Untested!!
             PIPE = subprocess.PIPE
             subprocess.Popen("start itunes", stdout=PIPE, shell=True)
             # FIXME: Possibly unnecessary?
             while True:
                 time.sleep(.25)
-                if self._getRunning() == True:
+                if self._getRunning():
                     return
         else:
             self._sendInfo("iTunes is already running.")
             self._iTunes.Focus() # FIXME: Does this work?
 
     def launchBackground(self):
-        if self._getRunning() == False:
+        if not self._getRunning():
             self._sendDebug("Launching iTunes.")
             # FIXME: Untested!!
             PIPE = subprocess.PIPE
             subprocess.Popen("start itunes", stdout=PIPE, shell=True)
             while True:
                 time.sleep(.25)
-                if self._getRunning() == True:
+                if self._getRunning():
                     self._sendInfo("iTunes has been launched.")
                     return
                 
     def close(self):
         self._sendDebug("Closing iTunes.")
-        if self._getRunning() == True:
+        if self._getRunning():
             self._iTunes.close() # FIXME: Does this work?
             while True:
                 time.sleep(.25)
-                if self._getRunning() == False:
+                if not self._getRunning():
                     self._sendInfo("iTunes has been closed.")
                     return
         else:
@@ -142,10 +143,10 @@ class iTunesWindows(MediaPlayer.MediaPlayer):
     def setShuffle(self, status):
         self.launchBackground()
         self._sendDebug("Setting shuffle status.")
-        if status == True or status == 1:
+        if status:
             self._iTunes.SetShuffle(1) # FIXME: Probably doesn't work.
             self._sendInfo("Shuffle turned on.")
-        if status == False or status == 0:
+        if status:
             self._iTunes.SetShuffle(0) # FIXME: Probably doesn't work.
             self._sendInfo("Shuffle turned off.")
 
@@ -160,7 +161,7 @@ class iTunesWindows(MediaPlayer.MediaPlayer):
         # currentTrack = win32com.client.CastTo(self._iTunes.CurrentTrack, 
         #                                       "IITFileOrCDTrack")
         for pos in range(self.getPlaylistLength()):
-            if currentTrack == self._getTrackAtPos(pos):
+            if currentTrack is self._getTrackAtPos(pos):
                 return pos
         return None # Track is not in "NQr" playlist.
     
@@ -175,12 +176,12 @@ class iTunesWindows(MediaPlayer.MediaPlayer):
            
            Result should always be turned into a track object.
         """
-        if logging == True:
+        if logging:
             self._sendDebug(
                 "Retrieving path of track at position " + str(trackPosition)
                 + ".")
         # FIXME: prob doesn't work
         rawPath = self._getTrackAtPos(trackPosition).FilePath
-        if logging == True:
+        if logging:
             self._sendDebug("Converting path into unicode.")
         return unicode(rawPath, "mcbs")

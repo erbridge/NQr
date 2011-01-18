@@ -11,8 +11,8 @@ import os.path
 #import mutagen
 import mutagen.mp3
 
-import Errors
-import Util
+import errors
+import util
 
 
 class TrackFactory:
@@ -41,11 +41,11 @@ class TrackFactory:
 
     def getTrackFromPathNoID(self, db, path, useCache=True, traceCallback=None):
         path = os.path.realpath(path)
-        if useCache == True:
+        if useCache:
             track = self._trackPathCache.get(path)
         else:
             track = None
-        if track != None:
+        if track is not None:
             return track
         try:
             track = AudioTrack(db, path, self._logger, useCache=useCache,
@@ -54,10 +54,10 @@ class TrackFactory:
                 lambda thisCallback, id, db=db: db.setHistorical(
                     False, id, traceCallback=thisCallback),
                 traceCallback=traceCallback)
-        except Errors.UnknownTrackType:
-            raise Errors.NoTrackError(trace=Util.getTrace(traceCallback))
-        except Errors.NoMetadataError:
-            raise Errors.NoTrackError(trace=Util.getTrace(traceCallback))
+        except errors.UnknownTrackType:
+            raise errors.NoTrackError(trace=util.getTrace(traceCallback))
+        except errors.NoMetadataError:
+            raise errors.NoTrackError(trace=util.getTrace(traceCallback))
 #            track = VideoTrack()
         return track
 
@@ -65,7 +65,7 @@ class TrackFactory:
 #        self._logger.debug("Retrieving track from cache.")
         if type(trackID) is not int:
             self._logger.error(str(trackID) + " is not a valid track ID")
-            raise Errors.InvalidIDError(trace=Util.getTrace(traceCallback))
+            raise errors.InvalidIDError(trace=util.getTrace(traceCallback))
         return self._trackCache.get(trackID, None)
     
     def _getTrackFromIDCompletion(self, db, path, completion, traceCallback,
@@ -73,15 +73,15 @@ class TrackFactory:
         try:
             track = self.getTrackFromPath(db, path, traceCallback=traceCallback)
             completion(traceCallback, track)
-        except Errors.NoTrackError as err:
-            if errcompletion == None:
+        except errors.NoTrackError as err:
+            if errcompletion is None:
                 raise err
             errcompletion(err)
     
     def getTrackFromID(self, db, trackID, completion, priority=None,
                        errcompletion=None, traceCallback=None):
         track = self._getTrackFromCache(trackID, traceCallback)
-        if track == None:
+        if track is None:
             self._logger.debug("Track not in cache.")
             db.getPathFromID(
                 trackID,
@@ -149,7 +149,7 @@ class Track:
 
     # FIXME: Possibly should add to cache?
     def getID(self, completion, priority=None, traceCallback=None):
-        if self._id == None:
+        if self._id is None:
             self._db.getTrackID(
                 self,
                 lambda thisCallback, id, completion=completion:
@@ -161,7 +161,7 @@ class Track:
     def setID(self, factory, id, traceCallback=None):
         self._logger.debug("Setting track's ID to " + str(id) + ".")
         self._id = id
-        if self._useCache == True:
+        if self._useCache:
             factory.addTrackToCache(self, traceCallback=traceCallback)
             
     def _getTagsCompletion(self, tags, completion, traceCallback):
@@ -169,7 +169,7 @@ class Track:
         completion(traceCallback, tags)
 
     def getTags(self, completion, priority=None, traceCallback=None):
-        if self._tags == None:
+        if self._tags is None:
             self._db.getTags(
                 self,
                 lambda thisCallback, tags, completion=completion:
@@ -179,10 +179,10 @@ class Track:
         completion(traceCallback, self._tags)
 
     def setTag(self, tag, traceCallback=None):
-        if self._tags == None:
+        if self._tags is None:
             self._tags = []
         if tag in self._tags:
-            raise Errors.DuplicateTagError(trace=Util.getTrace(traceCallback))
+            raise errors.DuplicateTagError(trace=util.getTrace(traceCallback))
         self._db.setTag(self, tag, traceCallback=traceCallback)
         self._tags.append(tag)
 
@@ -191,7 +191,7 @@ class Track:
         self._tags.remove(tag)
         
     def _addPlayCompletion(self, completion, traceCallback):
-        if self._playCount == None:
+        if self._playCount is None:
             self.getPlayCount(completion, traceCallback=traceCallback)
         else:
             self._playCount += 1
@@ -207,11 +207,11 @@ class Track:
         
     def _getPlayCountCompletion(self, playCount, completion, traceCallback):
         self._playCount = playCount
-        if completion != None:
+        if completion is not None:
             completion(traceCallback, playCount)
 
     def getPlayCount(self, completion, priority=None, traceCallback=None):
-        if self._playCount == None:
+        if self._playCount is None:
             self._db.getPlayCount(
                 lambda thisCallback, playCount, completion=completion:
                     self._getPlayCountCompletion(playCount, completion,
@@ -245,7 +245,7 @@ class Track:
         
     def _getScoreCompletion(self, isScored, completion, traceCallback,
                             priority=None):
-        if isScored == False:
+        if not isScored:
             completion(traceCallback, "-")
         else:
             self.getScoreValue(completion, priority=priority,
@@ -264,7 +264,7 @@ class Track:
         completion(traceCallback, score)
 
     def getScoreValue(self, completion, priority=None, traceCallback=None):
-        if self._score == None:
+        if self._score is None:
             self._db.getScoreValue(
                 self,
                 lambda thisCallback, score, completion=completion:
@@ -284,7 +284,7 @@ class Track:
         completion(traceCallback, isScored)
 
     def getIsScored(self, completion, priority=None, traceCallback=None):
-        if self._isScored == None:
+        if self._isScored is None:
             self._db.getIsScored(
                 self,
                 lambda thisCallback, isScored, completion=completion:
@@ -304,10 +304,10 @@ class AudioTrack(Track):
             self._track = mutagen.File(self._path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
             self._logger.debug("File has no metadata.")
-            raise Errors.NoMetadataError(trace=Util.getTrace(traceCallback))
+            raise errors.NoMetadataError(trace=util.getTrace(traceCallback))
         if self._track is None:
             self._logger.debug("File is not a supported audio file.")
-            raise Errors.UnknownTrackType(trace=Util.getTrace(traceCallback))
+            raise errors.UnknownTrackType(trace=util.getTrace(traceCallback))
         self._logger.debug("Track created.")
         self._initGetAttributes()
         self._db.maybeUpdateTrackDetails(self, traceCallback=traceCallback)
@@ -360,17 +360,17 @@ class AudioTrack(Track):
         return self._length
     
     def getLengthString(self):
-        self._lengthString = Util.formatLength(self._length)
+        self._lengthString = util.formatLength(self._length)
         return self._lengthString
 
 
-class PrefsPage(Util.BasePrefsPage):
+class PrefsPage(util.BasePrefsPage):
     
     def __init__(self, parent, configParser, logger):
-        Util.BasePrefsPage.__init__(self, parent, configParser, logger, "Track")
+        util.BasePrefsPage.__init__(self, parent, configParser, logger, "Track")
 
 
-if __name__ == '__main__':
+if __name__ is '__main__':
     from mutagen.easyid3 import EasyID3
 
     print EasyID3.valid_keys.keys()

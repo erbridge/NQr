@@ -22,15 +22,15 @@ import sys
 import threading
 import traceback
 
-import GUI
-import Logger
-import Prefs
-import Randomizer
-import Database
-import Track
-import Util
+import gui
+import logger
+import prefs
+import randomizer
+import database
+import tracks
+import util
 
-wx = Util.wx
+wx = util.wx
 
 
 class Main(wx.App):
@@ -44,7 +44,7 @@ class Main(wx.App):
         
         self.loadSettings()
         
-        self._loggerFactory = Logger.LoggerFactory(self._logAge,
+        self._loggerFactory = logger.LoggerFactory(self._logAge,
                                                    self._debugMode)
         self._logger = self._loggerFactory.getLogger("NQr", "debug")
 
@@ -66,7 +66,7 @@ class Main(wx.App):
     def _exceptHook(self, type, value, traceBack):
         try:
             trace = value.getTrace()
-            if trace != None:
+            if trace is not None:
                 self._logger.critical(
                     "Uncaught exception:\n\nTraceback (most recent call last):"
                     + "\n" + "".join([
@@ -85,72 +85,67 @@ class Main(wx.App):
         sys.exit(1) # FIXME: Possibly remove for non-dev versions?
 
     def run(self, socket, address):
-        self._logger.debug("Running on " + Util.systemName + ".")
+        self._logger.debug("Running on " + util.systemName + ".")
         
         self._logger.debug("Initializing track factory.")
-        trackFactory = Track.TrackFactory(self._loggerFactory,
+        trackFactory = tracks.TrackFactory(self._loggerFactory,
                                           self._configParser, self._debugMode)
         
         player = None
-        if self._player == "Winamp":
+        if self._player is "Winamp":
             self._logger.debug("Loading Winamp module.")
-            import WinampWindows
-            player = WinampWindows.WinampWindows(self._loggerFactory,
-                                                 self._noQueue,
-                                                 self._configParser,
-                                                 self._defaultPlayer,
-                                                 self._safePlayers,
-                                                 trackFactory)
+            import winampwindows
+            player = winampwindows.Winamp(self._loggerFactory, self._noQueue,
+                                          self._configParser,
+                                          self._defaultPlayer,
+                                          self._safePlayers, trackFactory)
             
-        elif self._player == "XMMS":
+        elif self._player is "XMMS":
             self._logger.debug("Loading XMMS module.")
-            import XMMS
-            player = XMMS.XMMS(self._loggerFactory, self._noQueue,
+            import xmms
+            player = xmms.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
                                self._safePlayers, trackFactory)
             
-        elif self._player == "iTunes" and Util.systemName in Util.macNames:
+        elif self._player is "iTunes" and util.systemName in util.macNames:
             self._logger.debug("Loading iTunes module.")
-            import iTunesMacOS
-            player = iTunesMacOS.iTunesMacOS(self._loggerFactory, self._noQueue,
-                                             self._configParser,
-                                             self._defaultPlayer,
-                                             self._safePlayers, trackFactory)
+            import itunesmacos
+            player = itunesmacos.iTunes(self._loggerFactory, self._noQueue,
+                                        self._configParser, self._defaultPlayer,
+                                        self._safePlayers, trackFactory)
         
-        elif self._player == "iTunes" and Util.systemName in Util.windowsNames:
+        elif self._player is "iTunes" and util.systemName in util.windowsNames:
             self._logger.debug("Loading iTunes module.")
-            import iTunesWindows
-            player = iTunesWindows.iTunesWindows(self._loggerFactory,
-                                                 self._noQueue,
-                                                 self._configParser,
-                                                 self._defaultPlayer,
-                                                 self._safePlayers,
-                                                 trackFactory)
+            import ituneswindows
+            player = ituneswindows.iTunes(self._loggerFactory, self._noQueue,
+                                          self._configParser,
+                                          self._defaultPlayer,
+                                          self._safePlayers, trackFactory)
             
-        eventLogger = Util.EventLogger()
+        eventLogger = util.EventLogger()
 
         self._logger.debug("Initializing database.")
         threadLock = threading.Lock()
-        db = Database.Database(threadLock, trackFactory, self._loggerFactory,
+        db = database.Database(threadLock, trackFactory, self._loggerFactory,
                                self._configParser, self._debugMode,
                                self._databaseFile, self._defaultDefaultScore,
                                eventLogger)
 
         self._logger.debug("Initializing randomizer.")
-        randomizer = Randomizer.Randomizer(db, trackFactory,
+        _randomizer = randomizer.Randomizer(db, trackFactory,
                                            self._loggerFactory,
                                            self._configParser,
                                            self._defaultDefaultScore)
 
-        modules = [player, trackFactory, db, randomizer, self]
-        prefsFactory = Prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
+        modules = [player, trackFactory, db, _randomizer, self]
+        prefsFactory = prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
                                           modules, self._configParser)
         
-        self._logger.debug("Initializing GUI.")
+        self._logger.debug("Initializing gui.")
         if self._noQueue:
             self._title += " (no queue)"
             self._defaultEnqueueOnStartup = False
-        gui = GUI.MainWindow(None, db, randomizer, player, trackFactory,
+        _gui = gui.MainWindow(None, db, _randomizer, player, trackFactory,
                              self._loggerFactory, prefsFactory,
                              self._configParser, socket, address, self._title,
                              threadLock, self._defaultRestorePlaylist,
@@ -184,13 +179,13 @@ class Main(wx.App):
         self._title = "NQr"
         self._defaultNoQueue = False
         self._defaultDebugMode = False
-        if Util.systemName in Util.windowsNames:
+        if util.systemName in util.windowsNames:
             self._safePlayers = ["Winamp", "iTunes"]
             self._defaultPlayer = "Winamp"
-        elif Util.systemName in Util.freebsdNames:
+        elif util.systemName in util.freebsdNames:
             self._safePlayers = ["XMMS"]
             self._defaultPlayer = "XMMS"
-        elif Util.systemName in Util.macNames:
+        elif util.systemName in util.macNames:
             self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
         self._defaultDefaultScore = 10
@@ -239,11 +234,11 @@ class Main(wx.App):
             self._player = self._defaultPlayer
 
 
-class PrefsPage(Util.BasePrefsPage):
+class PrefsPage(util.BasePrefsPage):
     
     def __init__(self, parent, configParser, logger, defaultDebugMode,
                  defaultNoQueue, defaultLogAge):
-        Util.BasePrefsPage.__init__(self, parent, configParser, logger, "Main",
+        util.BasePrefsPage.__init__(self, parent, configParser, logger, "Main",
                                     defaultDebugMode, defaultNoQueue,
                                     defaultLogAge)
         
@@ -260,7 +255,7 @@ class PrefsPage(Util.BasePrefsPage):
         
     def _initCreateDebugCheckBox(self):
         self._debugCheckBox = wx.CheckBox(self, wx.NewId(), "Debug Mode")
-        if self._settings["debugMode"] == True:
+        if self._settings["debugMode"]:
             self._debugCheckBox.SetValue(True)
         else:
             self._debugCheckBox.SetValue(False)
@@ -269,7 +264,7 @@ class PrefsPage(Util.BasePrefsPage):
         
     def _initCreateQueueCheckBox(self):
         self._queueCheckBox = wx.CheckBox(self, wx.NewId(), "No Queue Mode")
-        if self._settings["noQueue"] == True:
+        if self._settings["noQueue"]:
             self._queueCheckBox.SetValue(True)
         else:
             self._queueCheckBox.SetValue(False)
@@ -305,9 +300,9 @@ class PrefsPage(Util.BasePrefsPage):
             self._settings["noQueue"] = False
             
     def _onLogAgeChange(self, e):
-        if Util.validateNumeric(self._logAgeControl):
+        if util.validateNumeric(self._logAgeControl):
             logAge = self._logAgeControl.GetLineText(0)
-            if logAge != "":
+            if logAge is not "":
                 self._settings["logAge"] = int(logAge)
 
     def _setDefaults(self, defaultDebugMode, defaultNoQueue, defaultLogAge):
@@ -333,7 +328,7 @@ class PrefsPage(Util.BasePrefsPage):
             self._settings["logAge"] = self._defaultLogAge
 
 
-if __name__ == '__main__':
+if __name__ is '__main__':
     NQr = Main()
     sock = socket.socket()
     host = socket.gethostname()
@@ -342,7 +337,7 @@ if __name__ == '__main__':
         sock.bind((host, port))
         NQr.run(sock, (host, port))
     except socket.error as (errno, msg):
-        if errno != 10048:
+        if errno is not 10048:
             raise
         NQr.criticalLog("NQr is already running.")
         # TODO: Maybe make running NQr focus - poss see winamp.focus for clues.
@@ -352,7 +347,7 @@ if __name__ == '__main__':
         totalSent = 0
         while totalSent < len(message):
             sent = sock.send(message[totalSent:])
-            if sent == 0:
+            if sent is 0:
                 break
             totalSent += sent
         sock.shutdown(2)
