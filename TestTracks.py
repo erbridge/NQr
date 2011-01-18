@@ -1,10 +1,13 @@
 # List which tracks won't import...
 
-import mutagen
 import os
 import sys
 
+import mutagen
+
+
 class TrackTrier:
+    
     def __init__(self, path):
         self.path_ = path
         self.track_ = mutagen.File(path, easy=True)
@@ -26,6 +29,7 @@ class TrackTrier:
                 #            print str(err)
                 raise err
 
+
 def recurseDir(dir):
     files = os.listdir(dir)
     for file in files:
@@ -39,11 +43,13 @@ def recurseDir(dir):
         else:
             TrackTrier(f)
 
+
 def main():
     dir = sys.argv[1]
     global exceptions
     exceptions = sys.argv[2:]
     recurseDir(dir)
+
 
 if __name__ == '__main__':
     main()

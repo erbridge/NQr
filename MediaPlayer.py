@@ -1,17 +1,21 @@
-## Base class for media players
-##
-## TODO: make all players behave like winamp to allow closing while NQr is
-##       running
+# Base class for media players
+#
+# TODO: Make all players behave like winamp to allow closing while NQr is
+#       running and not keep reopening the player.
 
 import ConfigParser
-from Errors import NoTrackError
 import os.path
-from Util import BasePrefsPage, EventPoster, getIsInstalled, getTrace,\
-    systemName, freebsdNames, windowsNames, macNames, wx
 
-# FIXME: since it now all runs in the track monitor,
-#        needs to have logs post events in classes that inherit from this one
-class MediaPlayer(EventPoster):
+import Errors
+import Util
+
+wx = Util.wx
+
+
+# FIXME: Since it now all runs in the track monitor,
+#        needs to have logs post events in classes that inherit from this one.
+class MediaPlayer(Util.EventPoster):
+    
     def __init__(self, loggerFactory, name, noQueue, configParser,
                  defaultPlayer, safePlayers, trackFactory):
         self._logger = loggerFactory.getLogger(name, "debug")
@@ -24,7 +28,7 @@ class MediaPlayer(EventPoster):
         self._eventPoster = False
 
     def makeEventPoster(self, target, lock):
-        EventPoster.__init__(self, target, self._logger, lock)
+        Util.EventPoster.__init__(self, target, self._logger, lock)
         self._eventPoster = True
 
     def _sendDebug(self, message):
@@ -59,8 +63,8 @@ class MediaPlayer(EventPoster):
                                                    traceCallback=traceCallback))
         return playlist
 
-## FIXME: sets currently playing track to first track in the list, but continues
-##        to play the old track (fixed with work-around)
+    # FIXME: Sets currently playing track to first track in the list, but
+    #        continues to play the old track (fixed with work-around).
     def loadPlaylist(self, playlist, traceCallback=None):
         self._sendDebug("Restoring playlist.")
         currentTrackPath = self.getCurrentTrackPath(traceCallback=traceCallback)
@@ -70,32 +74,37 @@ class MediaPlayer(EventPoster):
             self.addTrack(filepath)
 
     def cropPlaylist(self, number):
-        if number == 1:
-            self._sendDebug("Cropping playlist by "+str(number)+" track.")
-        else:
-            self._sendDebug("Cropping playlist by "+str(number)+" tracks.")
+        self._sendDebug(
+            "Cropping playlist by " + str(number) + " track"
+            + Util.plural(number) + ".")
         for n in range(number):
             self.deleteTrack(0)
         
     def hasNextTrack(self, traceCallback=None):
         try:
-            self.getTrackPathAtPos(self.getCurrentTrackPos()+1, traceCallback)
+            self.getTrackPathAtPos(self.getCurrentTrackPos() + 1, traceCallback)
             return True
-        except NoTrackError, TypeError:
+        except Errors.NoTrackError, TypeError:
             return False
 
-## FIXME: gets confused if the playlist is empty (in winamp): sets currently
-##        playing track to first track in the list, but continues to play the
-##        old track
+    # FIXME: Gets confused if the playlist is empty (in winamp): sets currently
+    #        playing track to first track in the list, but continues to play the
+    #        old track.
     def getCurrentTrackPath(self, traceCallback=None, logging=True):
         return self.getTrackPathAtPos(self.getCurrentTrackPos(), traceCallback,
                                       logging)
 
-    # must always be checked for trackness
     def getTrackPathAtPos(self, trackPosition, traceCallback=None,
                           logging=True):
+        """
+           Gets filename of track at |trackPosition|.
+           
+           If |logging| is False, the debug log is not updated.
+           
+           Result should always be turned into a track object.
+        """
         if trackPosition == None:
-            raise NoTrackError(trace=getTrace(traceCallback))
+            raise Errors.NoTrackError(trace=Util.getTrace(traceCallback))
         path = self._getTrackPathAtPos(trackPosition, traceCallback, logging)
         return os.path.realpath(path)
         
@@ -110,7 +119,7 @@ class MediaPlayer(EventPoster):
                                                   traceCallback=traceCallback)
                     db.maybeGetIDFromPath(
                         path,
-                        lambda thisCallback, id, db=db, path=path:\
+                        lambda thisCallback, id, db=db, path=path:
                             self._getUnplayedTrackIDsCallback(db, id, path,
                                                               thisCallback),
                         traceCallback=traceCallback)
@@ -118,13 +127,13 @@ class MediaPlayer(EventPoster):
         except TypeError:
             pass
         db.complete(
-            lambda thisCallback, db=db, count=count, completion=completion:\
+            lambda thisCallback, db=db, count=count, completion=completion:
                 self._getUnplayedTrackIDListCompletion(db, count, completion,
                                                        thisCallback),
             traceCallback=traceCallback)
         
     def _getUnplayedTrackIDsCallback(self, db, id, path, traceCallback):
-        # The track may be one we don't know added directly to the player
+        # The track may be one we don't know added directly to the player.
         mycompletion = lambda thisCallback, trackID: self._ids.append(trackID)
         if id is None:
             db.getTrackID(
@@ -138,7 +147,7 @@ class MediaPlayer(EventPoster):
                                           traceCallback):
         if len(self._ids) != count:
             db.complete(
-                lambda thisCallback, db=db, count=count, completion=completion:\
+                lambda thisCallback, db=db, count=count, completion=completion:
                     self._getUnplayedTrackIDListCompletion(db, count,
                                                            completion,
                                                            thisCallback),
@@ -148,13 +157,13 @@ class MediaPlayer(EventPoster):
 
     def addTrack(self, filepath):
         if self._noQueue:
-            self._sendInfo("Not queueing "+filepath)
+            self._sendInfo("Not queueing " + filepath)
             return
         self._addTrack(filepath)
         
     def insertTrack(self, filepath, position):
         if self._noQueue:
-            self._sendInfo("Not queueing "+filepath)
+            self._sendInfo("Not queueing " + filepath)
             return
         self._insertTrack(filepath, position)
 
@@ -165,11 +174,13 @@ class MediaPlayer(EventPoster):
     def loadSettings(self):
         pass
 
-class PrefsPage(BasePrefsPage):
+
+class PrefsPage(Util.BasePrefsPage):
+    
     def __init__(self, parent, configParser, logger, defaultPlayer,
                  safePlayers):
-        BasePrefsPage.__init__(self, parent, configParser, logger, "Player",
-                               defaultPlayer, safePlayers)
+        Util.BasePrefsPage.__init__(self, parent, configParser, logger,
+                                    "Player", defaultPlayer, safePlayers)
         
         self._initCreatePlayerSizer()
         
@@ -186,7 +197,7 @@ class PrefsPage(BasePrefsPage):
         label = wx.StaticText(self, wx.NewId(), "Player:  \t")
         self._playerSizer.Add(label, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
         
-        if systemName in windowsNames:
+        if Util.systemName in Util.windowsNames:
             self._winampButton = wx.RadioButton(self, ID_PLAYER, "Winamp  \t",
                                                 style=wx.RB_GROUP)
             self._playerSizer.Add(self._winampButton, 0, wx.TOP|wx.BOTTOM, 3)
@@ -199,13 +210,13 @@ class PrefsPage(BasePrefsPage):
             elif self._settings["player"] == "iTunes":
                 self._iTunesButton.SetValue(True)
                 
-            if not getIsInstalled("Winamp"):
+            if not Util.getIsInstalled("Winamp"):
                 self._winampButton.Enable(False)
-            # FIXME: may not be correct display name for iTunes (untested)
-            if not getIsInstalled("iTunes"):
+            # FIXME: May not be correct display name for iTunes (untested).
+            if not Util.getIsInstalled("iTunes"):
                 self._iTunesButton.Enable(False)
                 
-        elif systemName in freebsdNames:
+        elif Util.systemName in Util.freebsdNames:
             self._xmmsButton = wx.RadioButton(self, ID_PLAYER, "XMMS  \t",
                                               style=wx.RB_GROUP)
             self._playerSizer.Add(self._xmmsButton, 0, wx.TOP|wx.BOTTOM, 3)
@@ -213,10 +224,10 @@ class PrefsPage(BasePrefsPage):
             if self._settings["player"] == "XMMS":
                 self._xmmsButton.SetValue(True)
                 
-            if not getIsInstalled("XMMS"):
+            if not Util.getIsInstalled("XMMS"):
                 self._xmmsButton.Enable(False)
                 
-        elif systemName in macNames:
+        elif Util.systemName in Util.macNames:
             self._iTunesButton = wx.RadioButton(self, ID_PLAYER, "iTunes  \t",
                                                 style=wx.RB_GROUP)
             self._playerSizer.Add(self._iTunesButton, 0, wx.TOP|wx.BOTTOM, 3)
@@ -224,23 +235,23 @@ class PrefsPage(BasePrefsPage):
             if self._settings["player"] == "iTunes":
                 self._iTunesButton.SetValue(True)
                 
-            if not getIsInstalled("iTunes"):
+            if not Util.getIsInstalled("iTunes"):
                 self._iTunesButton.Enable(False)
 
         wx.EVT_RADIOBUTTON(self, ID_PLAYER, self._onPlayerChange)
         
     def _onPlayerChange(self, e):
-        if systemName in windowsNames:
+        if Util.systemName in Util.windowsNames:
             if self._winampButton.GetValue():
                 self._settings["player"] = "Winamp"
             elif self._iTunesButton.GetValue():
                 self._settings["player"] = "iTunes"
                 
-        elif systemName in freebsdNames:
+        elif Util.systemName in Util.freebsdNames:
             if self._xmmsButton.GetValue():
                 self._settings["player"] = "XMMS"
                 
-        elif systemName in macNames:
+        elif Util.systemName in Util.macNames:
             if self._iTunesButton.GetValue():
                 self._settings["player"] = "iTunes"
         

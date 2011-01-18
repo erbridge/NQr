@@ -2,17 +2,19 @@
 
 import xmms.control
 
-from MediaPlayer import MediaPlayer
+import MediaPlayer
 
-class XMMS(MediaPlayer):
+
+class XMMS(MediaPlayer.MediaPlayer):
+    
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
-        MediaPlayer.__init__(self, loggerFactory, "NQr.XMMS", noQueue,
-                             configParser, defaultPlayer, safePlayers,
-                             trackFactory)
+        MediaPlayer.MediaPlayer.__init__(self, loggerFactory, "NQr.XMMS",
+                                         noQueue, configParser, defaultPlayer,
+                                         safePlayers, trackFactory)
 
     def getShuffle(self):
-        # is_shuffle() returns 0 or 1 instead of true or false
+        # is_shuffle() returns 0 or 1 instead of True or False.
         return not not xmms.control.is_shuffle()
 
     def setShuffle(self, status):

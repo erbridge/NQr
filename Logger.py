@@ -1,10 +1,12 @@
-## Logger
+# Logger
 
 import datetime
 import logging
 import os.path
 
+
 class LoggerFactory:
+    
     def __init__(self, logAge, debugMode):
         self._debugMode = debugMode
 
@@ -12,15 +14,15 @@ class LoggerFactory:
             datetime.datetime.strftime(datetime.datetime.utcnow(),
                                        '%Y%m%d_%H%M%S'))
         
-        self.cleanDirectory(logAge) # removes logs older than logAge days
+        self.cleanDirectory(logAge)
 
-        debugLogFilename = "logs/debug_"+dateString+".log"
-        infoLogFilename = "logs/info_"+dateString+".log"
-        errorLogFilename = "logs/error_"+dateString+".log"
+        debugLogFilename = "logs/debug_" + dateString + ".log"
+        infoLogFilename = "logs/info_" + dateString + ".log"
+        errorLogFilename = "logs/error_" + dateString + ".log"
 
         self._formatter = logging.Formatter(
-            "%(asctime)s.%(msecs)03d   %(name)-17s %(levelname)-10s "\
-            +"%(message)s", "%Y-%m-%d %H:%M:%S")
+            "%(asctime)s.%(msecs)03d   %(name)-17s %(levelname)-10s "
+            + "%(message)s", "%Y-%m-%d %H:%M:%S")
 
         self._commandLineHandler = logging.StreamHandler()
         if self._debugMode == True:
@@ -48,7 +50,12 @@ class LoggerFactory:
 
         self._logger = self.getLogger("NQr.Logger", "debug")
         
-    def cleanDirectory(self, days): # set days to -1 to save all logs
+    def cleanDirectory(self, days):
+        """
+           Removes log except those in the last |days| days.
+           
+           Set |days| to -1 to save all logs.
+        """
         if days == -1:
             return
         now = datetime.datetime.utcnow()
@@ -58,7 +65,7 @@ class LoggerFactory:
             if ext != ".log":
                 continue
             time = datetime.datetime.strptime(
-                    name.split("_")[1]+name.split("_")[2], '%Y%m%d%H%M%S')
+                    name.split("_")[1] + name.split("_")[2], '%Y%m%d%H%M%S')
             path = os.path.join("logs", log)
             if time < limit:
                 os.remove(path)
@@ -73,8 +80,8 @@ class LoggerFactory:
         elif level == "error":
             logger.setLevel(logging.ERROR)
         else:
-            self._logger.error(str(level)+" is an invalid level for logger.")
-            raise ValueError(str(level)+" is an invalid level for logger.")
+            self._logger.error(str(level) + " is an invalid level for logger.")
+            raise ValueError(str(level) + " is an invalid level for logger.")
         return logger
 
     def refreshStreamHandler(self):

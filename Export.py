@@ -1,5 +1,6 @@
 import sqlite3
 
+
 def main():
     conn = sqlite3.connect("database")
     cursor = conn.cursor()
@@ -15,6 +16,7 @@ def main():
     results = cursor.fetchall()
     for result in results:
         print str(result[0]) + "\t" + result[1]
+
 
 if __name__ == '__main__':
     main()

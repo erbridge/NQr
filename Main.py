@@ -1,37 +1,40 @@
-## NQr
-##
-## TODO: sort out unicode in filenames (has hacky solution currently)
-## TODO: allow use of bpm for music queueing (from ID3)
-## TODO: allow import of directories with a score
-## TODO: ORGANIZE CODE
-## TODO: add track with tag retrieval?
-## TODO: populate prefs window including customizable score range (with
-##	     database converter)?
-## TODO: make refocussing on window reselect current track?
-## TODO: build HTTP server for remote control
-## TODO: add undo function
-##
-## FIXME: queues wrong track if track changes at time of start up
-## FIXME: has problems if library is small, poss due to problems with multiple
-##        track addition - poss fixed
-## FIXME: iTunes only sees tracks in NQr playlist
+# NQr
+#
+# TODO: Allow use of bpm for music queueing (from ID3)?
+# TODO: Allow import of directories with a score.
+# TODO: ORGANIZE CODE
+# TODO: Add track with tag retrieval?
+# TODO: Populate prefs window including customizable score range (with
+#	     database converter)?
+# TODO: Make refocussing on window reselect current track?
+# TODO: Build HTTP server/Android app for remote control.
+# TODO: Add undo function.
+#
+# FIXME: Queues wrong track if track changes at time of start up.
+# FIXME: Has problems if library is small, poss due to problems with multiple
+#        track addition - possibly fixed?
+# FIXME: iTunes only sees tracks in "NQr" playlist.
 
 import ConfigParser
-import Database
 import getopt
-import GUI
-import Logger
-import Prefs
-import Randomizer
 import socket
 import sys
 import threading
 import traceback
+
+import GUI
+import Logger
+import Prefs
+import Randomizer
+import Database
 import Track
-from Util import BasePrefsPage, validateNumeric, EventLogger, macNames,\
-    windowsNames, freebsdNames, systemName, wx
+import Util
+
+wx = Util.wx
+
 
 class Main(wx.App):
+    
     def __init__(self):
         wx.App.__init__(self, False)
         self._setDefaults()
@@ -65,26 +68,24 @@ class Main(wx.App):
             trace = value.getTrace()
             if trace != None:
                 self._logger.critical(
-                    "Uncaught exception:\n\nTraceback (most recent call last):"\
-                    +"\n"+"".join([
-                        line for line in traceback.format_list(trace)\
-                        +traceback.format_exception_only(type, value)]))
+                    "Uncaught exception:\n\nTraceback (most recent call last):"
+                    + "\n" + "".join([
+                        line for line in traceback.format_list(trace)
+                        + traceback.format_exception_only(type, value)]))
             else:
-                self._logger.critical("Uncaught exception:\n\n"+"".join([
+                self._logger.critical("Uncaught exception:\n\n" + "".join([
                     line for line in traceback.format_exception(type, value,
                                                                 traceBack)]))
         except AttributeError as err:
             if "object has no attribute \'getTrace\'" not in str(err):
                 raise err
-            self._logger.critical("Uncaught exception:\n\n"+"".join([
+            self._logger.critical("Uncaught exception:\n\n" + "".join([
                 line for line in traceback.format_exception(type, value,
                                                             traceBack)]))
-        sys.exit(1)## poss remove for non-dev versions?
+        sys.exit(1) # FIXME: Possibly remove for non-dev versions?
 
     def run(self, socket, address):
-        # Do platform-dependent imports, and choose a player type. For
-        # now, we just choose it based on the platform...
-        self._logger.debug("Running on "+systemName+".")
+        self._logger.debug("Running on " + Util.systemName + ".")
         
         self._logger.debug("Initializing track factory.")
         trackFactory = Track.TrackFactory(self._loggerFactory,
@@ -108,7 +109,7 @@ class Main(wx.App):
                                self._configParser, self._defaultPlayer,
                                self._safePlayers, trackFactory)
             
-        elif self._player == "iTunes" and systemName in macNames:
+        elif self._player == "iTunes" and Util.systemName in Util.macNames:
             self._logger.debug("Loading iTunes module.")
             import iTunesMacOS
             player = iTunesMacOS.iTunesMacOS(self._loggerFactory, self._noQueue,
@@ -116,7 +117,7 @@ class Main(wx.App):
                                              self._defaultPlayer,
                                              self._safePlayers, trackFactory)
         
-        elif self._player == "iTunes" and systemName in windowsNames:
+        elif self._player == "iTunes" and Util.systemName in Util.windowsNames:
             self._logger.debug("Loading iTunes module.")
             import iTunesWindows
             player = iTunesWindows.iTunesWindows(self._loggerFactory,
@@ -126,7 +127,7 @@ class Main(wx.App):
                                                  self._safePlayers,
                                                  trackFactory)
             
-        eventLogger = EventLogger()
+        eventLogger = Util.EventLogger()
 
         self._logger.debug("Initializing database.")
         threadLock = threading.Lock()
@@ -162,8 +163,8 @@ class Main(wx.App):
                              self._defaultDumpPath, eventLogger)
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
-        ## TODO: remove command window at this point and stop logging to stream
-        ##       if we are not in dev mode (poss just rename to .pyw)
+        # TODO: Remove command window at this point and stop logging to stream
+        #       if we are not in dev mode (poss just rename to .pyw)?
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
         self._logger.info("Main loop stopped.")
@@ -172,20 +173,24 @@ class Main(wx.App):
     def criticalLog(self, message):
         self._logger.critical(message)
         
+    def getPort(self):
+        return self._port
+        
     def _setDefaults(self):
+        self._port = 35636 # FIXME: Ensure this port is not used on this system.
         self._prefsFile = "settings"
         self._databaseFile = "database"
         self._defaultDumpPath = "dumps/"
         self._title = "NQr"
         self._defaultNoQueue = False
         self._defaultDebugMode = False
-        if systemName in windowsNames:
+        if Util.systemName in Util.windowsNames:
             self._safePlayers = ["Winamp", "iTunes"]
             self._defaultPlayer = "Winamp"
-        elif systemName in freebsdNames:
+        elif Util.systemName in Util.freebsdNames:
             self._safePlayers = ["XMMS"]
             self._defaultPlayer = "XMMS"
-        elif systemName in macNames:
+        elif Util.systemName in Util.macNames:
             self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
         self._defaultDefaultScore = 10
@@ -227,18 +232,20 @@ class Main(wx.App):
         try:
             self._player = self._configParser.get("Player", "player")
             if self._player not in self._safePlayers:
-                self._logger.warning("Chosen player is not supported. Picking "\
-                                     +"the default.")
+                self._logger.warning(
+                    "Chosen player is not supported. Picking the default.")
                 self._player = self._defaultPlayer
         except ConfigParser.NoOptionError:
             self._player = self._defaultPlayer
-        
-class PrefsPage(BasePrefsPage):
+
+
+class PrefsPage(Util.BasePrefsPage):
+    
     def __init__(self, parent, configParser, logger, defaultDebugMode,
                  defaultNoQueue, defaultLogAge):
-        BasePrefsPage.__init__(self, parent, configParser, logger,
-                               "Main", defaultDebugMode, defaultNoQueue,
-                               defaultLogAge)
+        Util.BasePrefsPage.__init__(self, parent, configParser, logger, "Main",
+                                    defaultDebugMode, defaultNoQueue,
+                                    defaultLogAge)
         
         self._initCreateLogAgeSizer()
         self._initCreateDebugCheckBox()
@@ -298,7 +305,7 @@ class PrefsPage(BasePrefsPage):
             self._settings["noQueue"] = False
             
     def _onLogAgeChange(self, e):
-        if validateNumeric(self._logAgeControl):
+        if Util.validateNumeric(self._logAgeControl):
             logAge = self._logAgeControl.GetLineText(0)
             if logAge != "":
                 self._settings["logAge"] = int(logAge)
@@ -324,12 +331,13 @@ class PrefsPage(BasePrefsPage):
             self._settings["logAge"] = logAge
         except ConfigParser.NoOptionError:
             self._settings["logAge"] = self._defaultLogAge
-        
+
+
 if __name__ == '__main__':
     NQr = Main()
     sock = socket.socket()
     host = socket.gethostname()
-    port = 35636 # FIXME: make sure this port is not used on this system
+    port = NQr.getPort()
     try:
         sock.bind((host, port))
         NQr.run(sock, (host, port))
@@ -337,8 +345,8 @@ if __name__ == '__main__':
         if errno != 10048:
             raise
         NQr.criticalLog("NQr is already running.")
-        # TODO: maybe make running NQr focus - poss see winamp.focus for clues
-        # FIXME: has windows firewall permission issues...
+        # TODO: Maybe make running NQr focus - poss see winamp.focus for clues.
+        # FIXME: Has windows firewall permission issues...
         sock.connect((host, port))
         message = "ATTEND\n"
         totalSent = 0

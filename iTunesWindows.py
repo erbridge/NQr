@@ -1,18 +1,20 @@
-## Windows, iTunes interface
+# Windows, iTunes interface
 
 import subprocess
 import time
 import win32com.universal
 import win32com.client
 
-from MediaPlayer import MediaPlayer
+import MediaPlayer
 
-class iTunesWindows(MediaPlayer):
+
+class iTunesWindows(MediaPlayer.MediaPlayer):
+    
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory, playlistName="\"NQr\""):
-        MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes", noQueue,
-                             configParser, defaultPlayer, safePlayers,
-                             trackFactory)
+        MediaPlayer.MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes",
+                                         noQueue, configParser, defaultPlayer,
+                                         safePlayers, trackFactory)
         self._playlistName = playlistName
         self.launchBackground()
     
@@ -21,11 +23,11 @@ class iTunesWindows(MediaPlayer):
             self._iTunes = win32com.client.gencache.EnsureDispatch(
                 "iTunes.Application")
             try:
-                self._playlist =\
+                self._playlist = (
                     self._iTunes.LibrarySource.Playlists.ItemByName(
-                        self._playlistName)
+                        self._playlistName))
             except AttributeError as err:
-                print err # to find specific error
+                print err # FIXME: Find specific error.
                 self._playlist = self._iTunes.CreatePlaylist(self._playlistName)
 #                self._playlist = win32com.client.CastTo(self._playlist,
 #                                                        "IITUserPlaylist")
@@ -39,22 +41,22 @@ class iTunesWindows(MediaPlayer):
     def launch(self):
         self._sendDebug("Launching iTunes.")
         if self._getRunning() == False:
-            # FIXME: untested!!
+            # FIXME: Untested!!
             PIPE = subprocess.PIPE
             subprocess.Popen("start itunes", stdout=PIPE, shell=True)
-            # FIXME: poss unnecessary?
+            # FIXME: Possibly unnecessary?
             while True:
                 time.sleep(.25)
                 if self._getRunning() == True:
                     return
         else:
             self._sendInfo("iTunes is already running.")
-            self._iTunes.Focus() # FIXME: does this work?
+            self._iTunes.Focus() # FIXME: Does this work?
 
     def launchBackground(self):
         if self._getRunning() == False:
             self._sendDebug("Launching iTunes.")
-            # FIXME: untested!!
+            # FIXME: Untested!!
             PIPE = subprocess.PIPE
             subprocess.Popen("start itunes", stdout=PIPE, shell=True)
             while True:
@@ -66,7 +68,7 @@ class iTunesWindows(MediaPlayer):
     def close(self):
         self._sendDebug("Closing iTunes.")
         if self._getRunning() == True:
-            self._iTunes.close() # FIXME: does this work?
+            self._iTunes.close() # FIXME: Does this work?
             while True:
                 time.sleep(.25)
                 if self._getRunning() == False:
@@ -77,27 +79,29 @@ class iTunesWindows(MediaPlayer):
             
     def _addTrack(self, filepath):
         self.launchBackground()
-        self._sendInfo("Adding \'"+filepath+"\' to playlist.")
-        self._playlist.AddTrack(filepath) # FIXME: poss needs track object
+        self._sendInfo("Adding \'" + filepath + "\' to playlist.")
+        self._playlist.AddTrack(filepath) # FIXME: Possibly needs track object.
         
     def _insertTrack(self, filepath, position):
         self.launchBackground()
-        self._sendInfo("Inserting \'"+filepath+"\' into playlist position "\
-                       +str(position)+".")
-        self._playlist.Insert(filepath, position) # FIXME: prob doesn't work
+        self._sendInfo(
+            "Inserting \'" + filepath+"\' into playlist position "
+            + str(position) + ".")
+        # FIXME: Probably doesn't work.
+        self._playlist.Insert(filepath, position)
             
-##    def playTrack(self, filepath):
+#    def playTrack(self, filepath):
 
     def deleteTrack(self, position):
         self.launchBackground()
-        self._sendDebug("Deleting track in position "+str(position)\
-                        +" from playlist.")
-        self._playlist.Delete(position) # FIXME: prob doesn't work
+        self._sendDebug(
+            "Deleting track in position " + str(position) + " from playlist.")
+        self._playlist.Delete(position) # FIXME: Probably doesn't work.
 
     def clearPlaylist(self):
         self.launchBackground()
         self._sendDebug("Clearing playlist.")
-        self._playlist.Clear() # FIXME: prob doesn't work
+        self._playlist.Clear() # FIXME: Probably doesn't work.
 
     def nextTrack(self):
         self.launchBackground()
@@ -117,7 +121,7 @@ class iTunesWindows(MediaPlayer):
     def playAtPosition(self, position):
         self.launchBackground()
         self._sendDebug("Playing track at position.")
-        self._iTunes.setCurrentTrack(position) # FIXME: prob doesn't work
+        self._iTunes.setCurrentTrack(position) # FIXME: Probably doesn't work.
         self._iTunes.Play()
 
     def previousTrack(self):
@@ -133,16 +137,16 @@ class iTunesWindows(MediaPlayer):
     def getShuffle(self):
         self.launchBackground()
         self._sendDebug("Retrieving shuffle status.")
-        return self._iTunes.GetShuffle() # FIXME: prob doesn't work
+        return self._iTunes.GetShuffle() # FIXME: Probably doesn't work.
 
     def setShuffle(self, status):
         self.launchBackground()
         self._sendDebug("Setting shuffle status.")
         if status == True or status == 1:
-            self._iTunes.SetShuffle(1) # FIXME: prob doesn't work
+            self._iTunes.SetShuffle(1) # FIXME: Probably doesn't work.
             self._sendInfo("Shuffle turned on.")
         if status == False or status == 0:
-            self._iTunes.SetShuffle(0) # FIXME: prob doesn't work
+            self._iTunes.SetShuffle(0) # FIXME: Probably doesn't work.
             self._sendInfo("Shuffle turned off.")
 
     def getPlaylistLength(self):
@@ -153,25 +157,28 @@ class iTunesWindows(MediaPlayer):
     def getCurrentTrackPos(self):
         self.launchBackground()
         currentTrack = self._iTunes.CurrentTrack
-        # or:
         # currentTrack = win32com.client.CastTo(self._iTunes.CurrentTrack, 
         #                                       "IITFileOrCDTrack")
         for pos in range(self.getPlaylistLength()):
             if currentTrack == self._getTrackAtPos(pos):
                 return pos
-        return None # track is not in "NQr" playlist
+        return None # Track is not in "NQr" playlist.
     
     def _getTrackAtPos(self, trackPosition):
         return self._tracks.Item(trackPosition + 1)
-    
-    ## poss insecure: should always be checked for trackness
-    ## gets track at a playlist position
-    ## Has logging option so track monitor can call it without spamming the
-    ## debug log.
+
     def _getTrackPathAtPos(self, trackPosition, logging=True):
+        """
+           Gets filename of track at |trackPosition|.
+           
+           If |logging| is False, the debug log is not updated.
+           
+           Result should always be turned into a track object.
+        """
         if logging == True:
-            self._sendDebug("Retrieving path of track at position "\
-                            +str(trackPosition)+".")
+            self._sendDebug(
+                "Retrieving path of track at position " + str(trackPosition)
+                + ".")
         # FIXME: prob doesn't work
         rawPath = self._getTrackAtPos(trackPosition).FilePath
         if logging == True:

@@ -1,18 +1,24 @@
-## Randomization Algorithm
-##
-## TODO: work out what weights should be (poss make sliders)
-## TODO: use tags to limit track selection
-## TODO: make oldest not include tracks below threshold
+# Randomization Algorithm
+#
+# TODO: work out what weights should be (poss make sliders)
+# TODO: use tags to limit track selection
+# TODO: make oldest not include tracks below threshold
 
 import ConfigParser
-from Errors import EmptyDatabaseError, UnsafeInputError, NoTrackError
 import random
-from Util import plural, MultiCompletion, ErrorCompletion, BasePrefsPage,\
-    validateNumeric, roughAge, getTrace, wx
 
-## tracks with a score >= scoreThreshold get played
-## by default, -10s are not played
+import Errors
+import Util
+
+wx = Util.wx
+
+
 class Randomizer:
+    """
+       Tracks with a |score| >= |scoreThreshold| get played. By default, -10s
+       are not played.
+    """
+    
     def __init__(self, db, trackFactory, loggerFactory, configParser,
                  defaultDefaultScore, defaultScoreThreshold=-9,
                  defaultWeight="(score ** 2) * (time ** 2)"):
@@ -46,9 +52,9 @@ class Randomizer:
             if part not in self._safeOperations:
                 if self._isSafeAlgorithmPart(part):
                     continue
-                self._logger.error("Unsafe weight algorithm imported: \'"\
-                                   +rawWeightAlgorithm+"\'.")
-                raise UnsafeInputError
+                self._logger.error("Unsafe weight algorithm imported: \'" +
+                                   rawWeightAlgorithm + "\'.")
+                raise Errors.UnsafeInputError
         self._setWeightAlgorithm(rawWeightAlgorithm)
         try:
             self._scoreThreshold = self._configParser.getint("Randomizer",
@@ -89,39 +95,46 @@ class Randomizer:
 
     def chooseTracks(self, number, exclude, completion, traceCallback=None,
                      tags=None):
-        self._logger.debug("Selecting "+str(number)+" track"+plural(number)+".")
-        mycompletion = lambda thisCallback, trackIDs, completion=completion:\
-            self._chooseTracksCompletion(trackIDs, completion, thisCallback)
+        self._logger.debug("Selecting " + str(number) + " track" +
+                           Util.plural(number) + ".")
+        mycompletion = (lambda thisCallback, trackIDs, completion=completion:
+                            self._chooseTracksCompletion(trackIDs, completion,
+                                                         thisCallback))
         self._chooseTrackIDs(number, exclude, mycompletion, traceCallback, tags)
 
     def _chooseTracksCompletion(self, trackIDs, completion, traceCallback):
-        self._tracks = [] # FIXME: possibly clears list before posting it
+        self._tracks = [] # FIXME: Possibly clears list before posting it.
         for [trackID, weight] in trackIDs:
-            errcompletion = ErrorCompletion(
-                NoTrackError,
-                lambda thisCallback, trackID=trackID: self._db.setHistorical(
-                    True, trackID, traceCallback=thisCallback), traceCallback)
+            errcompletion = Util.ErrorCompletion(
+                Errors.NoTrackError,
+                lambda thisCallback, trackID=trackID:
+                    self._db.setHistorical(True, trackID,
+                                           traceCallback=thisCallback),
+                traceCallback)
             self._trackFactory.getTrackFromID(
                 self._db, trackID,
-                lambda thisCallback, track, weight=weight:\
+                lambda thisCallback, track, weight=weight:
                     self._addTrackToListCallback(track, weight),
                 errcompletion=errcompletion, traceCallback=traceCallback)
         self._db.complete(
-            lambda thisCallback, completion=completion: completion(
-                thisCallback, self._tracks), traceCallback=traceCallback)
+            lambda thisCallback, completion=completion:
+                completion(thisCallback, self._tracks),
+            traceCallback=traceCallback)
         
     def _addTrackToListCallback(self, track, weight):
         track.setWeight(weight)
         self._tracks.append(track)
     
-    ## will throw exception if database is empty?
+    # FIXME: Will throw exception if database is empty?
     def _chooseTrackIDs(self, number, exclude, completion, traceCallback,
                         tags=None):
-        mycompletion = lambda thisCallback, trackWeightList, totalWeight,\
-            number=number, completion=completion:\
-                self._chooseTrackIDsCompletion(number, trackWeightList,
-                                               totalWeight, completion,
-                                               thisCallback)
+        mycompletion = (lambda thisCallback, trackWeightList, totalWeight,
+                        number=number, completion=completion:
+                            self._chooseTrackIDsCompletion(number,
+                                                           trackWeightList,
+                                                           totalWeight,
+                                                           completion,
+                                                           thisCallback))
         self._createLists(exclude, mycompletion, traceCallback, tags)
 
     def _chooseTrackIDsCompletion(self, number, trackWeightList, totalWeight,
@@ -131,10 +144,9 @@ class Randomizer:
             trackID, weight = self._selectTrackID(trackWeightList, totalWeight,
                                                   trackIDs)
             norm = float(weight) * len(trackWeightList) / totalWeight
-            self._logger.debug("Selected "+str(trackID)+" with weight: "\
-                               +str(weight)+" of a total: "\
-                               +str(totalWeight)+" (norm "+str(norm)\
-                               +").")
+            self._logger.debug("Selected " + str(trackID) + " with weight: " +
+                               str(weight) + " of a total: " +
+                               str(totalWeight) + " (norm " + str(norm) + ").")
             trackIDs.append([trackID, norm])
         completion(traceCallback, trackIDs)
         
@@ -150,37 +162,40 @@ class Randomizer:
         
         
     def _createLists(self, exclude, completion, traceCallback, tags=None):
-        multicompletion = MultiCompletion(
+        multicompletion = Util.MultiCompletion(
             3,
-            lambda oldest, list, thisCallback, exclude=exclude,\
-                completion=completion: self._createListsCompletion(
-                    exclude, oldest, list, completion, thisCallback),
+            lambda oldest, list, thisCallback, exclude=exclude,
+            completion=completion:
+                self._createListsCompletion(exclude, oldest, list, completion,
+                                            thisCallback),
             traceCallback)
         self._db.getOldestLastPlayed(
-            lambda thisCallback, oldest, multicompletion=multicompletion:\
-                multicompletion(0, oldest), traceCallback=traceCallback)
+            lambda thisCallback, oldest, multicompletion=multicompletion:
+                multicompletion(0, oldest),
+            traceCallback=traceCallback)
         multicompletion(2, traceCallback)
         if tags == None:
             self._db.getRandomizerList(
-                lambda thisCallback, list, multicompletion=multicompletion:\
-                    multicompletion(1, list), traceCallback=traceCallback)
+                lambda thisCallback, list, multicompletion=multicompletion:
+                    multicompletion(1, list),
+                traceCallback=traceCallback)
         else:
-            # FIXME: support tags
+            # FIXME: Support tags.
 #            self._db.getRandomizerListFromTags(
 #                tags,
 #                lambda list, multicompletion=multicompletion: multicompletion(
 #                    1, list))
             pass
 
-    # FIXME: EmptyDatabaseError needs to be caught
+    # FIXME: EmptyDatabaseError needs to be caught.
     def _createListsCompletion(self, exclude, oldest, list, completion,
                                traceCallback):
         self._logger.debug("Creating weighted list of tracks.")
         if list == []:
             self._logger.error("No tracks in database.")
-            raise EmptyDatabaseError(trace=getTrace(traceCallback))
-        self._logger.debug("Oldest track was played "+str(oldest)\
-                           +" seconds ago ("+roughAge(oldest)+" ago).")
+            raise Errors.EmptyDatabaseError(trace=Util.getTrace(traceCallback))
+        self._logger.debug("Oldest track was played " + str(oldest) +
+                           " seconds ago (" + Util.roughAge(oldest) + " ago).")
         trackWeightList = []
         totalWeight = 0
         for (trackID, time, score, unscored) in list:
@@ -202,7 +217,8 @@ class Randomizer:
         completion(traceCallback, trackWeightList, totalWeight)
         
     def _setWeightAlgorithm(self, rawWeightAlgorithm):
-        self._weightAlgorithm = eval("lambda score, time: "+rawWeightAlgorithm)
+        self._weightAlgorithm = eval("lambda score, time: " +
+                                     rawWeightAlgorithm)
 
     def getWeight(self, score, time):
 ##        weight = time ** (score/50.)
@@ -210,12 +226,14 @@ class Randomizer:
 ##        weight = score * time
         return self._weightAlgorithm(score, time)
 
-class PrefsPage(BasePrefsPage):
+
+class PrefsPage(Util.BasePrefsPage):
+    
     def __init__(self, parent, configParser, logger,
                  defaultScoreThreshold, defaultWeight):
-        BasePrefsPage.__init__(self, parent, configParser, logger,
-                               "Randomizer", defaultScoreThreshold,
-                               defaultWeight)
+        Util.BasePrefsPage.__init__(self, parent, configParser, logger,
+                                    "Randomizer", defaultScoreThreshold,
+                                    defaultWeight)
         
         self._initCreateWeightSizer()
         self._initCreateThresholdSizer()
@@ -237,8 +255,8 @@ class PrefsPage(BasePrefsPage):
 
         self._weightControl = wx.TextCtrl(
             self, wx.NewId(), self._settings["weightAlgorithm"], size=(-1, -1))
-        # TODO(ben): make this expand to fill the space (doesn't on at
-        # least FreeBSD)
+        # TODO(ben): Make this expand to fill the space (doesn't on at
+        #            least FreeBSD).
         weightAlgorithmSizer.Add(self._weightControl, 1)
 
         self._weightSizer.Add(weightAlgorithmSizer, 0)
@@ -251,8 +269,8 @@ class PrefsPage(BasePrefsPage):
         weightHelpVariablesBox = wx.StaticBox(self, wx.NewId(), "Variables:")
         weightHelpVariablesSizer = wx.StaticBoxSizer(weightHelpVariablesBox)
 
-        weightHelpVariablesText = "score = track score + 11        \n"\
-            +"time  = seconds since last play "
+        weightHelpVariablesText = ("score = track score + 11        \n" +
+                                   "time  = seconds since last play ")
         weightHelpVariables = wx.StaticText(self, wx.NewId(),
                                             weightHelpVariablesText)
         weightHelpVariables.SetFont(weightHelpFont)
@@ -262,11 +280,11 @@ class PrefsPage(BasePrefsPage):
         weightHelpOperatorsBox = wx.StaticBox(self, wx.NewId(), "Operators:")
         weightHelpOperatorsSizer = wx.StaticBoxSizer(weightHelpOperatorsBox)
 
-        weightHelpOperatorsText = "** = to the power of \n"\
-            +"*  = multiplied by   \n"\
-            +"/  = divided by      \n"\
-            +"+  = plus            \n"\
-            +"-  = minus           "
+        weightHelpOperatorsText = ("** = to the power of \n" +
+                                   "*  = multiplied by   \n" +
+                                   "/  = divided by      \n" +
+                                   "+  = plus            \n" +
+                                   "-  = minus           ")
         weightHelpOperators = wx.StaticText(self, wx.NewId(),
                                             weightHelpOperatorsText)
         weightHelpOperators.SetFont(weightHelpFont)
@@ -297,7 +315,7 @@ class PrefsPage(BasePrefsPage):
             self._settings["weightAlgorithm"] = weight
 
     def _onThresholdChange(self, e):
-        if validateNumeric(self._thresholdControl):
+        if Util.validateNumeric(self._thresholdControl):
             threshold = self._thresholdControl.GetLineText(0)
             if threshold != "":
                 self._settings["scoreThreshold"] = int(threshold)

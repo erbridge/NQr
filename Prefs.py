@@ -1,11 +1,16 @@
-## Preference window
-##
-## TODO: create validation rules for text controls
+# Preference window
+#
+# TODO: Create validation rules for all text controls.
 
 import os
-from Util import wx
+
+import Util
+
+wx = Util.wx
+
 
 class PrefsFactory:
+    
     def __init__(self, filename, loggerFactory, modules, configParser):
         self._logger = loggerFactory.getLogger("NQr.Prefs", "debug")
         self._modules = modules
@@ -18,14 +23,16 @@ class PrefsFactory:
             
     def restoreDefaults(self, filename=None):
         if not filename:
-            filename = self._filename+".backup"
+            filename = self._filename + ".backup"
         os.rename(self._filename, filename)
         
     def writePrefs(self):
         with open(self._filename, 'w') as file:
             self._configParser.write(file)
 
+
 class PrefsWindow(wx.Frame):
+    
     def __init__(self, parent, logger, modules, configParser, filename):
         self._logger = logger
         self._gui = parent
@@ -54,7 +61,7 @@ class PrefsWindow(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self._onCancel, cancelButton)
 
         buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
-        ## FIXME: doesn't align right...
+        # FIXME: Doesn't align right...
         buttonSizer.Add(saveButton, 0, wx.ALIGN_RIGHT)
         buttonSizer.Add(cancelButton, 0, wx.ALIGN_RIGHT)
 
