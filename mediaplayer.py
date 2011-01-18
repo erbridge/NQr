@@ -145,7 +145,7 @@ class MediaPlayer(util.EventPoster):
             
     def _getUnplayedTrackIDListCompletion(self, db, count, completion,
                                           traceCallback):
-        if len(self._ids) is not count:
+        if len(self._ids) != count:
             db.complete(
                 lambda thisCallback, db=db, count=count, completion=completion:
                     self._getUnplayedTrackIDListCompletion(db, count,
@@ -197,7 +197,7 @@ class PrefsPage(util.BasePrefsPage):
         label = wx.StaticText(self, wx.NewId(), "Player:  \t")
         self._playerSizer.Add(label, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
         
-        if util.systemName in util.windowsNames:
+        if util.SYSTEM_NAME in util.WINDOWS_NAMES:
             self._winampButton = wx.RadioButton(self, ID_PLAYER, "Winamp  \t",
                                                 style=wx.RB_GROUP)
             self._playerSizer.Add(self._winampButton, 0, wx.TOP|wx.BOTTOM, 3)
@@ -205,9 +205,9 @@ class PrefsPage(util.BasePrefsPage):
             self._iTunesButton = wx.RadioButton(self, ID_PLAYER, "iTunes  \t")
             self._playerSizer.Add(self._iTunesButton, 0, wx.TOP|wx.BOTTOM, 3)
             
-            if self._settings["player"] is "Winamp":
+            if self._settings["player"] == "Winamp":
                 self._winampButton.SetValue(True)
-            elif self._settings["player"] is "iTunes":
+            elif self._settings["player"] == "iTunes":
                 self._iTunesButton.SetValue(True)
                 
             if not util.getIsInstalled("Winamp"):
@@ -216,23 +216,23 @@ class PrefsPage(util.BasePrefsPage):
             if not util.getIsInstalled("iTunes"):
                 self._iTunesButton.Enable(False)
                 
-        elif util.systemName in util.freebsdNames:
+        elif util.SYSTEM_NAME in util.FREEBSD_NAMES:
             self._xmmsButton = wx.RadioButton(self, ID_PLAYER, "XMMS  \t",
                                               style=wx.RB_GROUP)
             self._playerSizer.Add(self._xmmsButton, 0, wx.TOP|wx.BOTTOM, 3)
             
-            if self._settings["player"] is "XMMS":
+            if self._settings["player"] == "XMMS":
                 self._xmmsButton.SetValue(True)
                 
             if not util.getIsInstalled("XMMS"):
                 self._xmmsButton.Enable(False)
                 
-        elif util.systemName in util.macNames:
+        elif util.SYSTEM_NAME in util.MAC_NAMES:
             self._iTunesButton = wx.RadioButton(self, ID_PLAYER, "iTunes  \t",
                                                 style=wx.RB_GROUP)
             self._playerSizer.Add(self._iTunesButton, 0, wx.TOP|wx.BOTTOM, 3)
 
-            if self._settings["player"] is "iTunes":
+            if self._settings["player"] == "iTunes":
                 self._iTunesButton.SetValue(True)
                 
             if not util.getIsInstalled("iTunes"):
@@ -241,17 +241,17 @@ class PrefsPage(util.BasePrefsPage):
         wx.EVT_RADIOBUTTON(self, ID_PLAYER, self._onPlayerChange)
         
     def _onPlayerChange(self, e):
-        if util.systemName in util.windowsNames:
+        if util.SYSTEM_NAME in util.WINDOWS_NAMES:
             if self._winampButton.GetValue():
                 self._settings["player"] = "Winamp"
             elif self._iTunesButton.GetValue():
                 self._settings["player"] = "iTunes"
                 
-        elif util.systemName in util.freebsdNames:
+        elif util.SYSTEM_NAME in util.FREEBSD_NAMES:
             if self._xmmsButton.GetValue():
                 self._settings["player"] = "XMMS"
                 
-        elif util.systemName in util.macNames:
+        elif util.SYSTEM_NAME in util.MAC_NAMES:
             if self._iTunesButton.GetValue():
                 self._settings["player"] = "iTunes"
         

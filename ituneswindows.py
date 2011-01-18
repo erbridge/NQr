@@ -34,9 +34,8 @@ class iTunes(mediaplayer.MediaPlayer):
             self._tracks = self._playlist.Tracks
             return True
         except win32com.universal.com_error as err:
-            if str(err) is not ("(-2147221005, 'Invalid class string', " + 
-                                "None, None)"):
-                raise err
+            if str(err) != "(-2147221005, 'Invalid class string', None, None)":
+                raise
             return False
         
     def launch(self):
@@ -146,7 +145,7 @@ class iTunes(mediaplayer.MediaPlayer):
         if status:
             self._iTunes.SetShuffle(1) # FIXME: Probably doesn't work.
             self._sendInfo("Shuffle turned on.")
-        if status:
+        else:
             self._iTunes.SetShuffle(0) # FIXME: Probably doesn't work.
             self._sendInfo("Shuffle turned off.")
 
@@ -161,7 +160,7 @@ class iTunes(mediaplayer.MediaPlayer):
         # currentTrack = win32com.client.CastTo(self._iTunes.CurrentTrack, 
         #                                       "IITFileOrCDTrack")
         for pos in range(self.getPlaylistLength()):
-            if currentTrack is self._getTrackAtPos(pos):
+            if currentTrack == self._getTrackAtPos(pos):
                 return pos
         return None # Track is not in "NQr" playlist.
     

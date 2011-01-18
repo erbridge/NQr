@@ -1,5 +1,5 @@
-# NQr
-#
+"""Main NQr module. Run to start NQr."""
+
 # TODO: Allow use of bpm for music queueing (from ID3)?
 # TODO: Allow import of directories with a score.
 # TODO: ORGANIZE CODE
@@ -35,7 +35,10 @@ wx = util.wx
 
 class Main(wx.App):
     
+    """The main application class. Start with `self.run()`."""
+    
     def __init__(self):
+        """Initialize NQr."""
         wx.App.__init__(self, False)
         self._setDefaults()
 
@@ -78,21 +81,31 @@ class Main(wx.App):
                                                                 traceBack)]))
         except AttributeError as err:
             if "object has no attribute \'getTrace\'" not in str(err):
-                raise err
+                raise
             self._logger.critical("Uncaught exception:\n\n" + "".join([
                 line for line in traceback.format_exception(type, value,
                                                             traceBack)]))
         sys.exit(1) # FIXME: Possibly remove for non-dev versions?
 
-    def run(self, socket, address):
-        self._logger.debug("Running on " + util.systemName + ".")
+    def run(self, sock, address):
+        """Start NQr.
+        
+        Arguments:
+        
+        - sock: the `socket.socket()` bound to `address`.
+        
+        - address: a (host, port) tuple representing the address assigned
+          to NQr to prevent running of multiple instances.
+        
+        """
+        self._logger.debug("Running on " + util.SYSTEM_NAME + ".")
         
         self._logger.debug("Initializing track factory.")
         trackFactory = tracks.TrackFactory(self._loggerFactory,
-                                          self._configParser, self._debugMode)
+                                           self._configParser, self._debugMode)
         
         player = None
-        if self._player is "Winamp":
+        if self._player == "Winamp":
             self._logger.debug("Loading Winamp module.")
             import winampwindows
             player = winampwindows.Winamp(self._loggerFactory, self._noQueue,
@@ -100,21 +113,21 @@ class Main(wx.App):
                                           self._defaultPlayer,
                                           self._safePlayers, trackFactory)
             
-        elif self._player is "XMMS":
+        elif self._player == "XMMS":
             self._logger.debug("Loading XMMS module.")
             import xmms
             player = xmms.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
                                self._safePlayers, trackFactory)
             
-        elif self._player is "iTunes" and util.systemName in util.macNames:
+        elif self._player == "iTunes" and util.SYSTEM_NAME in util.MAC_NAMES:
             self._logger.debug("Loading iTunes module.")
             import itunesmacos
             player = itunesmacos.iTunes(self._loggerFactory, self._noQueue,
                                         self._configParser, self._defaultPlayer,
                                         self._safePlayers, trackFactory)
         
-        elif self._player is "iTunes" and util.systemName in util.windowsNames:
+        elif self._player == "iTunes" and util.SYSTEM_NAME in util.WINDOWS_NAMES:
             self._logger.debug("Loading iTunes module.")
             import ituneswindows
             player = ituneswindows.iTunes(self._loggerFactory, self._noQueue,
@@ -147,7 +160,7 @@ class Main(wx.App):
             self._defaultEnqueueOnStartup = False
         _gui = gui.MainWindow(None, db, _randomizer, player, trackFactory,
                              self._loggerFactory, prefsFactory,
-                             self._configParser, socket, address, self._title,
+                             self._configParser, sock, address, self._title,
                              threadLock, self._defaultRestorePlaylist,
                              self._defaultEnqueueOnStartup,
                              self._defaultRescanOnStartup,
@@ -166,9 +179,17 @@ class Main(wx.App):
         eventLogger.done()
         
     def criticalLog(self, message):
+        """Send a critical log message to the logger.
+        
+        Arguments:
+        
+        - message: the message to be sent to the logger.
+        
+        """
         self._logger.critical(message)
         
     def getPort(self):
+        """Return the port the socket is bound to."""
         return self._port
         
     def _setDefaults(self):
@@ -179,13 +200,13 @@ class Main(wx.App):
         self._title = "NQr"
         self._defaultNoQueue = False
         self._defaultDebugMode = False
-        if util.systemName in util.windowsNames:
+        if util.SYSTEM_NAME in util.WINDOWS_NAMES:
             self._safePlayers = ["Winamp", "iTunes"]
             self._defaultPlayer = "Winamp"
-        elif util.systemName in util.freebsdNames:
+        elif util.SYSTEM_NAME in util.FREEBSD_NAMES:
             self._safePlayers = ["XMMS"]
             self._defaultPlayer = "XMMS"
-        elif util.systemName in util.macNames:
+        elif util.SYSTEM_NAME in util.MAC_NAMES:
             self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
         self._defaultDefaultScore = 10
@@ -199,11 +220,21 @@ class Main(wx.App):
         self._defaultLogAge = 30
         
     def getPrefsPage(self, parent, logger):
-        return PrefsPage(parent, self._configParser, logger,
+        """Return an instance of `_PrefsPage`.
+        
+        Arguments:
+        
+        - parent: the parent of the `wx.Panel` returned.
+        
+        - logger: the logger for the `_PrefsPage` to post to.
+        
+        """
+        return _PrefsPage(parent, self._configParser, logger,
                          self._defaultDebugMode, self._defaultNoQueue,
                          self._defaultLogAge), "Dev"
 
     def loadSettings(self):
+        """Load preferences from file."""
         try:
             self._configParser.add_section("Main")
         except ConfigParser.DuplicateSectionError:
@@ -234,10 +265,33 @@ class Main(wx.App):
             self._player = self._defaultPlayer
 
 
-class PrefsPage(util.BasePrefsPage):
+class _PrefsPage(util.BasePrefsPage):
+    
+    """Extend `util.BasePrefsPage` to hold advanced preference options."""
     
     def __init__(self, parent, configParser, logger, defaultDebugMode,
                  defaultNoQueue, defaultLogAge):
+        """Extend `util.BasePrefsPage.__init__()` to create controls.
+        
+        Arguments:
+        
+        - parent: the parent of the `wx.Panel` created.
+        
+        - configParser: the `ConfigParser.SafeConfigParser()` configured
+          to read from the settings file.
+          
+        - logger: the logger to post log messages to.
+        
+        - defaultDebugMode: True if, by default, debug messages should be
+          posted from anywhere in NQr. False otherwise.
+          
+        - defaultNoQueue: True if, by default, NQr should not be able to
+          enqueue tracks in the player. False otherwise.
+          
+        - defaultLogAge: the default number of days to keep logs. A value of
+          -1 means to keep them forever.
+        
+        """
         util.BasePrefsPage.__init__(self, parent, configParser, logger, "Main",
                                     defaultDebugMode, defaultNoQueue,
                                     defaultLogAge)
@@ -302,7 +356,7 @@ class PrefsPage(util.BasePrefsPage):
     def _onLogAgeChange(self, e):
         if util.validateNumeric(self._logAgeControl):
             logAge = self._logAgeControl.GetLineText(0)
-            if logAge is not "":
+            if logAge != "":
                 self._settings["logAge"] = int(logAge)
 
     def _setDefaults(self, defaultDebugMode, defaultNoQueue, defaultLogAge):
@@ -328,7 +382,7 @@ class PrefsPage(util.BasePrefsPage):
             self._settings["logAge"] = self._defaultLogAge
 
 
-if __name__ is '__main__':
+if __name__ == '__main__':
     NQr = Main()
     sock = socket.socket()
     host = socket.gethostname()
@@ -337,7 +391,7 @@ if __name__ is '__main__':
         sock.bind((host, port))
         NQr.run(sock, (host, port))
     except socket.error as (errno, msg):
-        if errno is not 10048:
+        if errno != 10048:
             raise
         NQr.criticalLog("NQr is already running.")
         # TODO: Maybe make running NQr focus - poss see winamp.focus for clues.
@@ -347,7 +401,7 @@ if __name__ is '__main__':
         totalSent = 0
         while totalSent < len(message):
             sent = sock.send(message[totalSent:])
-            if sent is 0:
+            if sent == 0:
                 break
             totalSent += sent
         sock.shutdown(2)

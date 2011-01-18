@@ -18,7 +18,7 @@ class XMMS(mediaplayer.MediaPlayer):
         return not not xmms.control.is_shuffle()
 
     def setShuffle(self, status):
-        if status is not self.getShuffle():
+        if status != self.getShuffle():
             xmms.control.toggle_shuffle()
 
     def getPlaylistLength(self):

@@ -51,8 +51,8 @@ class _Thread(util.BaseThread):
         try:
             self._conn.commit()
         except sqlite3.OperationalError as err:
-            if str(err) is not "disk I/O error":
-                raise err
+            if str(err) != "disk I/O error":
+                raise
             self.postErrorLog("Got a disk I/O error. Retrying commit.")
             time.sleep(.01)
             self._commit()
@@ -599,28 +599,28 @@ class Database(_DatabaseEventHandler):
                                         integer, lastplayed datetime)""")
             self._logger.debug("Track table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table tracks already exists":
-                raise err
+            if str(err) != "table tracks already exists":
+                raise
             self._logger.debug("Track table found.")
             self._cursor.execute("pragma table_info(tracks)")
             details = self._cursor.fetchall()
             columnNames = []
             for detail in details:
                 columnNames.append(detail[1])
-            if columnNames.count('length') is 0:
+            if columnNames.count('length') == 0:
                 self._logger.debug("Adding length column to track table.")
                 self._cursor.execute(
                     "alter table tracks add column length real")
-            if columnNames.count('bpm') is 0:
+            if columnNames.count('bpm') == 0:
                 self._logger.debug("Adding bpm column to track table.")
                 self._cursor.execute(
                     "alter table tracks add column bpm integer")
-            if columnNames.count('historical') is 0:
+            if columnNames.count('historical') == 0:
                 self._logger.debug("Adding historical column to track table.")
                 self._cursor.execute(
                     "alter table tracks add column historical integer")
                 self._cursor.execute("update tracks set historical = 0")
-            if columnNames.count('score') is 0:
+            if columnNames.count('score') == 0:
                 self._logger.debug("Adding score column to track table.")
                 self._cursor.execute(
                     "alter table tracks add column score integer")
@@ -631,7 +631,7 @@ class Database(_DatabaseEventHandler):
                                 scores.scoreid desc limit 1)
                        where exists (select scores.score from scores where
                                      scores.trackid = tracks.trackid)""")
-            if columnNames.count('lastplayed') is 0:
+            if columnNames.count('lastplayed') == 0:
                 self._logger.debug("Adding last played column to track table.")
                 self._cursor.execute(
                     "alter table tracks add column lastplayed datetime")
@@ -651,8 +651,8 @@ class Database(_DatabaseEventHandler):
                                              autoincrement, path text)""")
             self._logger.debug("Directory table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table directories already exists":
-                raise err
+            if str(err) != "table directories already exists":
+                raise
             self._logger.debug("Directory table found.")
 
     def _initMaybeCreatePlaysTable(self):
@@ -663,8 +663,8 @@ class Database(_DatabaseEventHandler):
                                        trackid integer, datetime text)""")
             self._logger.debug("Play table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table plays already exists":
-                raise err
+            if str(err) != "table plays already exists":
+                raise
             self._logger.debug("Play table found.")
 
     def _initMaybeCreateEnqueuesTable(self):
@@ -676,8 +676,8 @@ class Database(_DatabaseEventHandler):
                                           datetime text)""")
             self._logger.debug("Enqueue table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table enqueues already exists":
-                raise err
+            if str(err) != "table enqueues already exists":
+                raise
             self._logger.debug("Enqueue table found.")
 
     def _initMaybeCreateScoresTable(self):
@@ -689,8 +689,8 @@ class Database(_DatabaseEventHandler):
                                         integer, datetime text)""")
             self._logger.debug("Score table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table scores already exists":
-                raise err
+            if str(err) != "table scores already exists":
+                raise
             self._logger.debug("Score table found.")
 
     def _initMaybeCreateLinksTable(self):
@@ -702,8 +702,8 @@ class Database(_DatabaseEventHandler):
                                        integer)""")
             self._logger.debug("Track link table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table links already exists":
-                raise err
+            if str(err) != "table links already exists":
+                raise
             self._logger.debug("Track link table found.")
     
     # FIXME: Possibly unnecessary with historical?
@@ -715,8 +715,8 @@ class Database(_DatabaseEventHandler):
                                         autoincrement, trackid integer)""")
             self._logger.debug("Ignore table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table ignore already exists":
-                raise err
+            if str(err) != "table ignore already exists":
+                raise
             self._logger.debug("Ignore table found.")
 
     def _initMaybeCreateTagNamesTable(self):
@@ -727,8 +727,8 @@ class Database(_DatabaseEventHandler):
                                           text)""")
             self._logger.debug("Tag names table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table tagnames already exists":
-                raise err
+            if str(err) != "table tagnames already exists":
+                raise
             self._logger.debug("Tag names table found.")
 
     def _initMaybeCreateTagsTable(self):
@@ -739,8 +739,8 @@ class Database(_DatabaseEventHandler):
                                       integer, trackid integer)""")
             self._logger.debug("Tags table created.")
         except sqlite3.OperationalError as err:
-            if str(err) is not "table tags already exists":
-                raise err
+            if str(err) != "table tags already exists":
+                raise
             self._logger.debug("Tags table found.")
         
     def _initMaybeCreateTableIndices(self):
@@ -1008,7 +1008,7 @@ class Database(_DatabaseEventHandler):
 #                    self._trackQueue.appendleft(track)
 #                    oldLinkIDs = linkIDs
 #                    linkIDs = self._db.getLinkIDs(track)
-#            if oldLinkIDs is linkIDs:
+#            if oldLinkIDs == linkIDs:
 #                break
 #    
 #    def _getLinksCompletion3(self, linkIDs, oldLinkIDs, firstTrack,
@@ -1026,7 +1026,7 @@ class Database(_DatabaseEventHandler):
 #                    self._trackQueue.appendleft(track)
 #                    oldLinkIDs = firstLinkIDs
 #                    firstLinkIDs = self._db.getLinkIDs(track)
-#            if oldLinkIDs is firstLinkIDs:
+#            if oldLinkIDs == firstLinkIDs:
 #                break
 #        self.complete(
 #            lambda result: self._returnTracksCompletion(callback))
@@ -1046,7 +1046,7 @@ class Database(_DatabaseEventHandler):
 #                                1, secondLinkIDs))
 #        
 #    def _getLinksCompletion(self, track, linkIDs, callback):
-#        if linkIDs is (None, None):
+#        if linkIDs == (None, None):
 #            callback(track)
 #            return
 #        elif linkIDs[0] is not None:
@@ -1427,7 +1427,7 @@ class Database(_DatabaseEventHandler):
         newDetails[self._bpmIndex] = track.getBPM()
         for n in range(self._numberIndices):
             try:
-                if details[n] is not newDetails[n]:
+                if details[n] != newDetails[n]:
                     completion(traceCallback, True)
                     return
             except KeyError:
@@ -1755,7 +1755,7 @@ class Database(_DatabaseEventHandler):
         if unscored is None:
             completion(traceCallback, None)
         else:
-            completion(traceCallback, bool(unscored))
+            completion(traceCallback, not bool(unscored))
     
     # FIXME: Possibly should add a record to scores table.
     def setUnscored(self, track, traceCallback=None):
@@ -1933,7 +1933,7 @@ class PrefsPage(util.BasePrefsPage):
     def _onDefaultScoreChange(self, e):
         if util.validateNumeric(self._defaultScoreControl):
             defaultScore = self._defaultScoreControl.GetLineText(0)
-            if defaultScore is not "":
+            if defaultScore != "":
                 self._settings["defaultScore"] = int(defaultScore)
 
     def _setDefaults(self, defaultDefaultScore):

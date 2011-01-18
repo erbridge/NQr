@@ -56,13 +56,13 @@ class LoggerFactory:
            
            Set |days| to -1 to save all logs.
         """
-        if days is -1:
+        if days == -1:
             return
         now = datetime.datetime.utcnow()
         limit = now - datetime.timedelta(days=days)
         for log in os.listdir("logs"):
             name, ext = os.path.splitext(log)
-            if ext is not ".log":
+            if ext != ".log":
                 continue
             time = datetime.datetime.strptime(
                     name.split("_")[1] + name.split("_")[2], '%Y%m%d%H%M%S')
@@ -72,12 +72,12 @@ class LoggerFactory:
 
     def getLogger(self, name, level):
         logger = logging.getLogger(name)
-        if level is "debug":
+        if level == "debug":
             if self._debugMode:
                 logger.setLevel(logging.DEBUG)
             else:
                 logger.setLevel(logging.INFO)
-        elif level is "error":
+        elif level == "error":
             logger.setLevel(logging.ERROR)
         else:
             self._logger.error(str(level) + " is an invalid level for logger.")

@@ -89,7 +89,7 @@ class Randomizer:
                         pass
                     continue
                 newPart = ""
-            if newPart is not "":
+            if newPart != "":
                 return False
         return True
 
@@ -311,13 +311,13 @@ class PrefsPage(util.BasePrefsPage):
 
     def _onWeightChange(self, e):
         weight = self._weightControl.GetLineText(0)
-        if weight is not "":
+        if weight != "":
             self._settings["weightAlgorithm"] = weight
 
     def _onThresholdChange(self, e):
         if util.validateNumeric(self._thresholdControl):
             threshold = self._thresholdControl.GetLineText(0)
-            if threshold is not "":
+            if threshold != "":
                 self._settings["scoreThreshold"] = int(threshold)
 
     def _setDefaults(self, defaultScoreThreshold, defaultWeight):

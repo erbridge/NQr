@@ -81,6 +81,7 @@ class Winamp(mediaplayer.MediaPlayer):
 
     def _addTrack(self, filepath):
         self.launchBackground()
+        # FIXME: Has problems with unicode strings.
         self._sendInfo("Adding \'" + filepath + "\' to playlist.")
         self._winamp.enqueue(filepath)
         
@@ -117,7 +118,7 @@ class Winamp(mediaplayer.MediaPlayer):
         self.launchBackground()
         self._sendDebug("Moving to next track in playlist.")
         self._winamp.next()
-        if self._winamp.getStatus() is not "playing":
+        if self._winamp.getStatus() != "playing":
             self.play()
 
     def pause(self):
@@ -140,7 +141,7 @@ class Winamp(mediaplayer.MediaPlayer):
         self.launchBackground()
         self._sendDebug("Moving to previous track in playlist.")
         self._winamp.previous()
-        if self._winamp.getStatus() is not "playing":
+        if self._winamp.getStatus() != "playing":
             self.play()
 
     def stop(self):
@@ -159,7 +160,7 @@ class Winamp(mediaplayer.MediaPlayer):
         if status:
             self._winamp.setShuffle(1)
             self._sendInfo("Shuffle turned on.")
-        if not status:
+        else:
             self._winamp.setShuffle(0)
             self._sendInfo("Shuffle turned off.")
 
@@ -208,10 +209,9 @@ class Winamp(mediaplayer.MediaPlayer):
             self._sendDebug("Retrieving path from memory buffer.")
         try:
             rawPath = os.path.realpath(memoryBuffer.raw.split("\x00")[0])
-        except win32api.error as err:
-            (winerror, funcname, strerror) = err
-            if winerror is not 299:
-                raise err
+        except win32api.error as (winerror, funcname, strerror):
+            if winerror != 299:
+                raise
             self._sendError("Playlist is empty.")
             raise errors.NoTrackError(trace=util.getTrace(traceCallback))
         if logging:

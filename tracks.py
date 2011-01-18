@@ -63,7 +63,7 @@ class TrackFactory:
 
     def _getTrackFromCache(self, trackID, traceCallback):
 #        self._logger.debug("Retrieving track from cache.")
-        if type(trackID) is not int:
+        if not isinstance(trackID, int):
             self._logger.error(str(trackID) + " is not a valid track ID")
             raise errors.InvalidIDError(trace=util.getTrace(traceCallback))
         return self._trackCache.get(trackID, None)
@@ -75,7 +75,7 @@ class TrackFactory:
             completion(traceCallback, track)
         except errors.NoTrackError as err:
             if errcompletion is None:
-                raise err
+                raise
             errcompletion(err)
     
     def getTrackFromID(self, db, trackID, completion, priority=None,
@@ -333,7 +333,7 @@ class AudioTrack(Track):
             # FIXME: What is key for artist?
             if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'",
                                 "'TIT2'"):
-                raise err
+                raise
             return "-"
 
     def _getLength(self):
@@ -370,7 +370,7 @@ class PrefsPage(util.BasePrefsPage):
         util.BasePrefsPage.__init__(self, parent, configParser, logger, "Track")
 
 
-if __name__ is '__main__':
+if __name__ == '__main__':
     from mutagen.easyid3 import EasyID3
 
     print EasyID3.valid_keys.keys()

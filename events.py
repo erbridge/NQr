@@ -5,7 +5,7 @@
 
 import wxversion
 wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') is not -1])
+                  if x.find('unicode') != -1])
 import wx
 
 #from util import wx
@@ -226,13 +226,13 @@ class LogEvent(wx.PyEvent):
         self._message = message
         
     def doLog(self):
-        if self._level is "debug":
+        if self._level == "debug":
             self._logger.debug(self._message)
-        elif self._level is "info":
+        elif self._level == "info":
             self._logger.info(self._message)
-        elif self._level is "error":
+        elif self._level == "error":
             self._logger.error(self._message)
-        elif self._level is "warning":
+        elif self._level == "warning":
             self._logger.warning(self._message)
 
 

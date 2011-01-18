@@ -100,7 +100,7 @@ class iTunes(mediaplayer.MediaPlayer):
     def play(self):
         self.launchBackground()
         self._sendDebug("Resuming playback or restarting current track.")
-        if self._iTunes.player_state() is k.playing:
+        if self._iTunes.player_state() == k.playing:
             self._iTunes.stop()
         self._iTunes.play()
         
@@ -130,7 +130,7 @@ class iTunes(mediaplayer.MediaPlayer):
         if status:
             self._iTunes.set(self._playlist.shuffle, to=True)
             self._sendInfo("Shuffle turned on.")
-        if not status:
+        else:
             self._iTunes.set(self._playlist.shuffle, to=False)
             self._sendInfo("Shuffle turned off.")
 
@@ -146,7 +146,7 @@ class iTunes(mediaplayer.MediaPlayer):
         except CommandError:
             return None
         for pos in range(self.getPlaylistLength()):
-            if currentTrack is self._getTrackAtPos(pos):
+            if currentTrack == self._getTrackAtPos(pos):
                 return pos
         return None # Track is not in "NQr" playlist.
     

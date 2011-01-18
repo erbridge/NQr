@@ -12,22 +12,22 @@ import traceback
 
 #import wxversion
 #wxversion.select([x for x in wxversion.getInstalled()
-#                  if x.find('unicode') is not -1])
+#                  if x.find('unicode') != -1])
 #import wx
 
 import errors
 import events
 
 wx = events.wx
-versionNumber = "0.1"
-systemName = platform.system()
-macNames = ["Mac OS X", "Darwin"]
-windowsNames = ["Windows"]
-freebsdNames = ["FreeBSD"]
+VERSION_NUMBER = "0.1"
+SYSTEM_NAME = platform.system()
+MAC_NAMES = ["Mac OS X", "Darwin"]
+WINDOWS_NAMES = ["Windows"]
+FREEBSD_NAMES = ["FreeBSD"]
 
 
 def plural(count):
-    if count is 1:
+    if count == 1:
         return ''
     return 's'
 
@@ -75,7 +75,7 @@ def doNothing():
 #    if trace is None:
 #        return newTrace
 ##    for index in range(len(trace)):
-##        if trace[index] is not newTrace[index]:
+##        if trace[index] != newTrace[index]:
 ##            return trace + newTrace[index:]
 ##    return newTrace
 #    return trace + newTrace
@@ -123,9 +123,9 @@ def _doRough(time, bigDivider, bigName, littleDivider, littleName):
     big = int((time + littleDivider / 2) / littleDivider / bigDivider)
     little = int(((time + littleDivider / 2) / littleDivider) % bigDivider)
     timeString = ""
-    if big is not 0:
+    if big != 0:
         timeString = str(big) + " " + bigName + plural(big)
-    if little is not 0:
+    if little != 0:
         if timeString is not "":
             timeString  += " " + str(little) + " " + littleName + plural(little)
         else:
@@ -152,7 +152,7 @@ def roughAge(time):
 # FIXME: Implement for other systems (maybe see:
 #        www.cyberciti.biz/faq/howto-display-list-of-all-installed-software/).
 def getIsInstalled(softwareName):
-    if systemName in windowsNames:
+    if SYSTEM_NAME in WINDOWS_NAMES:
         import wmi
         import _winreg
         
@@ -176,15 +176,15 @@ def doUpdate():
 
 def postEvent(lock, target, event):
     try:
-        if lock is not None and lock.acquire():
-            wx.PostEvent(target, event)
-            lock.release()
+        if lock is not None:
+            with lock:
+                wx.PostEvent(target, event)
         elif lock is None:
             wx.PostEvent(target, event)
     except TypeError as err:
-        if str(err) is not ("in method 'PostEvent', expected argument 1 of type"
-                            + " 'wxEvtHandler *'"):
-            raise err
+        if str(err) != ("in method 'PostEvent', expected argument 1 of type"
+                        + " 'wxEvtHandler *'"):
+            raise
         raise errors.NoEventHandlerError
 
 
@@ -251,7 +251,7 @@ class RedirectText:
         self._out.write(string)
         start, end = self._out2.GetSelection()
         self._out2.AppendText(string)
-        if start is not end:
+        if start != end:
             self._out2.SetSelection(start, end)
 
 
@@ -267,8 +267,8 @@ class RedirectOut(RedirectText):
         RedirectText.__init__(self, textCtrl, stdout)
 
 
-# FIXME: Catch all errors and reraise with trace (poss done?).
 class BaseCallback:
+    # FIXME: Catch all errors and reraise with trace (poss done?).
     
     def __init__(self, completion, traceCallbackOrList=None):
         self._completion = completion
@@ -282,7 +282,7 @@ class BaseCallback:
             self._completion(*args, **kwargs)
         except errors.Error as err:
             if err.getTrace() is not None:
-                raise err
+                raise
             raise err(trace=self.getTrace())
 
 
@@ -359,13 +359,35 @@ class BasePrefsPage(wx.Panel):
 class BaseThread(threading.Thread, EventPoster):
     
     def __init__(self, parent, name, logger, errcallback, lock,
-                 raiseEmpty=False):
+                 raiseEmpty=False, doneQueueLength=50):
+        """FIXME
+        
+        Arguments:
+        
+        - parent: the target for `wx.PostEvent()` if either the track changes
+          or the end of the playlist is reached.
+          
+        - lock: the `threading.Lock()` shared by all threads with the same parent
+          to prevent concurrency issues when calling `wx.PostEvent()`.
+          
+        - db: the database.
+        
+        - player: the player.
+        
+        - trackFactory: the track factory.
+        
+        - loggerFactory: the logger factory.
+        
+        - trackCheckDelay: the delay in seconds between checks of the player for track
+          changes and end of playlist.
+        
+        """
         threading.Thread.__init__(self, name=name)
         EventPoster.__init__(self, parent, logger, lock)
         self._name = name
         self._errcallback = errcallback
         self._queue = Queue.PriorityQueue()
-        self._doneQueue = CircularQueue(50)
+        self._doneQueue = CircularQueue(doneQueueLength)
         self._eventCount = 0
         self._abortCount = 0
         self._emptyCount = 0
@@ -387,27 +409,26 @@ class BaseThread(threading.Thread, EventPoster):
 
     def run(self):
         self.postDebugLog("Starting \'" + self._name + "\' thread.")
-        self._runningLock.acquire()
-        self._run()
-        while True:
-            try:
-                self._pop()
-            except errors.AbortThreadError:
-                if self._abortCount > 20: # FIXME: Make more deterministic.
-                    self._abort()
-                    break
-                self.abort()
-                self._abortCount += 1
-            except errors.EmptyQueueError as err:
-                if self._emptyCount > 20: # FIXME: Make more deterministic.
-                    if self._errcallback is not None:
-                        self._raise(err, self._errcallback)
-                    self._raisedEmpty = True
-                elif not self._raisedEmpty:
-                    self._emptyCount += 1
-                    self._queueEmptyQueueCallback()
-        self.postDebugLog("\'" + self._name + "\' thread stopped.")
-        self._runningLock.release()
+        with self._runningLock:
+            self._run()
+            while True:
+                try:
+                    self._pop()
+                except errors.AbortThreadSignal:
+                    if self._abortCount > 20: # FIXME: Make more deterministic.
+                        self._abort()
+                        break
+                    self.abort()
+                    self._abortCount += 1
+                except errors.EmptyQueueError as err:
+                    if self._emptyCount > 20: # FIXME: Make more deterministic.
+                        if self._errcallback is not None:
+                            self._raise(err, self._errcallback)
+                        self._raisedEmpty = True
+                    elif not self._raisedEmpty:
+                        self._emptyCount += 1
+                        self._queueEmptyQueueCallback()
+            self.postDebugLog("\'" + self._name + "\' thread stopped.")
 
     def _run(self):
         pass
@@ -449,7 +470,7 @@ class BaseThread(threading.Thread, EventPoster):
         self.queue(self._abortCallback, priority=priority)
         
     def _abortCallback(self, thisCallback, *args, **kwargs):
-        raise errors.AbortThreadError(trace=thisCallback.getTrace())
+        raise errors.AbortThreadSignal()
         
     def dumpQueue(self, filename, extraLines=0):
         dump = copy.copy(self._queue.queue)
@@ -495,8 +516,8 @@ class CircularQueue:
 
 class EventLogger:
     
-    def __init__(self):
-        self._queue = CircularQueue(100)
+    def __init__(self, length=100):
+        self._queue = CircularQueue(length)
         self("---INIT---", None)
         
     def __call__(self, eventString, event):
