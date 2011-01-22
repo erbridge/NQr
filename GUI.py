@@ -11,10 +11,14 @@
 ## TODO: implement ignoring of tracks played not in database
 ##       (option already created)
 ## TODO: make keyboard shortcuts make sense for Macs
-## TODO: add clear cache menu option (to force metadata change updates)?
 ## TODO: make details resizable (splitter window?)
 ## TODO: add tags to right click menu
-## TODO: give scores a drop down menu in the track list.
+## TODO: give scores a drop down menu in the track list
+## TODO: add requeue next
+## TODO: add keyboard commands for (user defined) common ratings: like, love,
+##       neutral, dislike, hate?
+## TODO: swap some menu ids for stock items:
+##       http://docs.wxwidgets.org/2.9/page_stockitems.html
 ##
 ## FIXME: track refreshes should only refresh things that will change - poss no
 ##        longer necessary?
@@ -26,6 +30,9 @@
 ##        (if there is one) and poss shouldn't update
 ## FIXME: make clicking a position on the slider move it there (and holding the
 ##        click drag it)
+## FIXME: make all clicks/key presses reset inactivity timer (done,
+##        needs testing)
+## FIXME: clearCache breaks references to tracks in cache
 
 #from collections import deque
 import ConfigParser
@@ -38,7 +45,8 @@ import threading
 import time
 from Util import MultiCompletion, RedirectErr, RedirectOut, plural,\
     BasePrefsPage, validateDirectory, validateNumeric, roughAge, EventPoster,\
-    BaseThread, versionNumber, getUpdate, doUpdate, getTrace, wx
+    BaseThread, versionNumber, getUpdate, doUpdate, getTrace, systemName,\
+    freebsdNames, convertToUnicode, wx
 
 ##import wx.lib.agw.multidirdialog as wxMDD
 
@@ -126,9 +134,10 @@ class SocketMonitor(BaseThread):
         self._abortFlag = False
 
     def run(self):
-        self._socket.listen(5) # FIXME: how many can it listen to?
+        self._runningLock.acquire()
+        self._socket.listen(5) # FIXME: how many can/should it listen to?
         while not self._abortFlag:
-            # FIXME: has windows permission issues...
+            # FIXME: has windows firewall permission issues...
             (conn, address) = self._socket.accept()
             self.postDebugLog("Starting connection ("+address[0]+":"\
                               +str(address[1])+") monitor.")
@@ -136,8 +145,9 @@ class SocketMonitor(BaseThread):
                                             address, self._logger)
             connMonitor.start_()
             self._connections.append(connMonitor)
-        self.postDebugLog("Stopping socket monitor.")
         self._socket.close()
+        self.postDebugLog("Socket monitor stopped.")
+        self._runningLock.release()
                 
     def abort(self):
         self._abortFlag = True
@@ -145,6 +155,12 @@ class SocketMonitor(BaseThread):
         sock.connect(self._address)
         sock.shutdown(2)
         sock.close()
+        
+    def getRunningLocks(self):
+        locks = [self.getRunningLock()]
+        for conn in self._connections:
+            locks.append(conn.getRunningLock())
+        return locks
         
 class ConnectionMonitor(BaseThread):
     def __init__(self, window, lock, connection, address, logger):
@@ -154,6 +170,7 @@ class ConnectionMonitor(BaseThread):
         self._conn = connection
     
     def run(self):
+        self._runningLock.acquire()
         while True:
             try:
                 message = self._recieve()
@@ -184,6 +201,7 @@ class ConnectionMonitor(BaseThread):
             else:
                 raise BadMessageError(trace=getTrace(self._trace))
         self.postDebugLog("Connection ("+self._address+") monitor stopped.")
+        self._runningLock.release()
                                
     def _recieve(self):
         byte = ""
@@ -199,7 +217,7 @@ class ConnectionMonitor(BaseThread):
         self._conn.close()
         
 class MainWindow(wx.Frame, EventPoster):
-    def __init__(self, parent, db, randomizer, player, trackFactory, system,
+    def __init__(self, parent, db, randomizer, player, trackFactory,
                  loggerFactory, prefsFactory, configParser, socket, address,
                  title, threadLock, defaultRestorePlaylist,
                  defaultEnqueueOnStartup, defaultRescanOnStartup,
@@ -216,7 +234,6 @@ class MainWindow(wx.Frame, EventPoster):
         self._player = player
         self._player.makeEventPoster(self, threadLock)
         self._trackFactory = trackFactory
-        self._system = system
         self._loggerFactory = loggerFactory
         self._logger = loggerFactory.getLogger("NQr.GUI", "debug")
         self._prefsFactory = prefsFactory
@@ -292,6 +309,7 @@ class MainWindow(wx.Frame, EventPoster):
         Events.EVT_CHOOSE_TRACKS(self, self._onChooseTracks)
         
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
+        self._bindMouseAndKeyEvents(self)
 
         if self._restorePlaylist:
             self._oldPlaylist = None
@@ -302,6 +320,7 @@ class MainWindow(wx.Frame, EventPoster):
 
         self._initCreateHotKeyTable()
         self._logger.debug("Drawing main window.")
+        self._setPositionAndSize()
         self.Show(True)
         
         wx.CallAfter(self._onStart)
@@ -317,6 +336,12 @@ class MainWindow(wx.Frame, EventPoster):
             self._onRescan()
         
         self.maintainPlaylist()
+        
+    # FIXME: needs testing to make sure all clicks are registered correctly
+    #        (and holds on score slider)
+    def _bindMouseAndKeyEvents(self, window):
+        window.Bind(wx.EVT_MOUSE_EVENTS, self._onMouseOrKeyPress)
+        window.Bind(wx.EVT_KEY_DOWN, self._onMouseOrKeyPress)
 
     def _trackMonitorQueue(self, completion, traceCallbackOrList=None):
         self._trackMonitor.queue(completion, traceCallbackOrList)
@@ -338,6 +363,7 @@ class MainWindow(wx.Frame, EventPoster):
         menuBar.Append(self._advMenu, "&Advanced")
 
         self.SetMenuBar(menuBar)
+        self._bindMouseAndKeyEvents(menuBar)
         
     def _addMenuItem(self, menu, label, caption, onClick, id=None, hotkey=None,
                      checkItem=False):
@@ -347,6 +373,8 @@ class MainWindow(wx.Frame, EventPoster):
             menuItem = menu.AppendCheckItem(id, label, caption)
         else:
             menuItem = menu.Append(id, label, caption)
+# labels are sufficient:
+# http://docs.wxwidgets.org/2.9/classwx_menu_item.html#8b0517fb35e3eada66b51568aa87f261
         if hotkey != None:
             (modifier, key) = hotkey
             self._addHotKey(modifier, key, id)
@@ -387,11 +415,13 @@ class MainWindow(wx.Frame, EventPoster):
         self._fileMenu.AppendSeparator()
         self._addMenuItem(self._fileMenu, "E&xit\tCtrl+Q", " Terminate NQr",
                           self._onExit, id=wx.ID_EXIT, hotkey=("ctrl", "Q"))
+        self._bindMouseAndKeyEvents(self._fileMenu)
 
     def _initCreateRateMenu(self):
         self._logger.debug("Creating rate menu.")
         self._rateMenu = wx.Menu()
         self._populateRateMenu(self._rateMenu)
+        self._bindMouseAndKeyEvents(self._rateMenu)
 
     ## TODO: change up in "Rate Up" to an arrow
     def _initCreatePlayerMenu(self):
@@ -440,6 +470,7 @@ class MainWindow(wx.Frame, EventPoster):
                           self._onLaunchPlayer)
         self._addMenuItem(self._playerMenu, "E&xit Player",
                           " Terminate the media player", self._onExitPlayer)
+        self._bindMouseAndKeyEvents(self._playerMenu)
 
     def _getAllTagsCompletion(self, menu, tags):
         self._allTags = {}
@@ -460,6 +491,8 @@ class MainWindow(wx.Frame, EventPoster):
         self._db.getAllTagNames(
             lambda thisCallback, tags, menu=self._tagMenu:\
                 self._getAllTagsCompletion(menu, tags), priority=1)
+        
+        self._bindMouseAndKeyEvents(self._tagMenu)
 
     def _initCreateOptionsMenu(self):
         self._logger.debug("Creating options menu.")
@@ -467,22 +500,30 @@ class MainWindow(wx.Frame, EventPoster):
         self._addMenuItem(self._optionsMenu, "&Preferences...\tCtrl+P",
                           " Change NQr's settings", self._onPrefs,
                           hotkey=("ctrl", "P"))
+        self._addMenuItem(self._optionsMenu, "Restore &Defaults...",
+                          " Restores settings to defaults",
+                          self._onRestoreSettings)
         self._optionsMenu.AppendSeparator()
         self._addMenuItem(self._optionsMenu, "En&queue with NQr\tCtrl+E",
                           " Use NQr to enqueue tracks", self._onToggleNQr,
                           id=self._ID_TOGGLENQR, hotkey=("ctrl", "E"),
                           checkItem=True)
+        self._bindMouseAndKeyEvents(self._optionsMenu)
         
     def _initCreateAdvancedMenu(self):
         self._logger.debug("Creating advanced menu.")
         self._advMenu = wx.Menu()
+        self._addMenuItem(self._advMenu, "&Clear Cache",
+                          " Clears the track cache", self._onClearCache)
         self._addMenuItem(self._advMenu, "&Dump Queues",
                           " Dump thread queues to file", self._onDump)
+        self._bindMouseAndKeyEvents(self._advMenu)
 
     def _initCreateRightClickRateMenu(self):
         self._logger.debug("Creating rate menu.")
         self._rightClickRateMenu = wx.Menu()
         self._populateRateMenu(self._rightClickRateMenu)
+        self._bindMouseAndKeyEvents(self._rightClickRateMenu)
 
     def _initCreateTrackRightClickMenu(self):
         self._logger.debug("Creating track right click menu.")
@@ -508,6 +549,7 @@ class MainWindow(wx.Frame, EventPoster):
         self._addMenuItem(self._trackRightClickMenu, "Reset Sc&ore",
                           " Reset the score of the current track",
                           self._onResetScore)
+        self._bindMouseAndKeyEvents(self._trackRightClickMenu)
 
     def _initCreateMainPanel(self):
         self._panel = wx.Panel(self)
@@ -529,7 +571,8 @@ class MainWindow(wx.Frame, EventPoster):
         self._panel.SetSizerAndFit(self._mainSizer)
         self._panel.SetAutoLayout(True)
         self._mainSizer.Fit(self)
-        self.SetSizeHints(430, self.GetSize().y);
+        self.SetSizeHints(430, 481)
+        self._bindMouseAndKeyEvents(self._panel)
 
 ## TODO: use svg or gd to create button images via wx.Bitmap and wx.BitmapButton
     def _initCreatePlayerControls(self):
@@ -555,12 +598,14 @@ class MainWindow(wx.Frame, EventPoster):
         self.Bind(wx.EVT_BUTTON, self._onPause, pauseButton)
         self.Bind(wx.EVT_BUTTON, self._onStop, stopButton)
         self.Bind(wx.EVT_BUTTON, self._onNext, nextButton)
+        self._bindMouseAndKeyEvents(self._playerControls)
 
     def _initCreateDetails(self):
         self._logger.debug("Creating details panel.")
         self._details = wx.TextCtrl(
             self._panel, wx.NewId(),
             style=wx.TE_READONLY|wx.TE_MULTILINE|wx.TE_DONTWRAP, size=(-1,140))
+        self._bindMouseAndKeyEvents(self._details)
 
     def _initCreateTrackSizer(self):
         self._logger.debug("Creating track panel.")
@@ -579,17 +624,19 @@ class MainWindow(wx.Frame, EventPoster):
             style=wx.LC_REPORT|wx.LC_VRULES|wx.LC_SINGLE_SEL, size=(656,-1))
         # for some reason setting column 0 forces left justification
         self._trackList.InsertColumn(1, "Artist", format=wx.LIST_FORMAT_CENTER,
-                                     width=100)
+                                     width=self._artistWidth)
         self._trackList.InsertColumn(2, "Title", format=wx.LIST_FORMAT_CENTER,
-                                     width=170)
+                                     width=self._titleWidth)
         self._trackList.InsertColumn(3, "Score", format=wx.LIST_FORMAT_CENTER,
-                                     width=45)
+                                     width=self._scoreWidth)
         self._trackList.InsertColumn(4, "Played At",
-                                     format=wx.LIST_FORMAT_CENTER, width=120)
+                                     format=wx.LIST_FORMAT_CENTER,
+                                     width=self._playedAtWidth)
         self._trackList.InsertColumn(5, "Last Played",
-                                     format=wx.LIST_FORMAT_CENTER, width=120)
+                                     format=wx.LIST_FORMAT_CENTER,
+                                     width=self._lastPlayedWidth)
         self._trackList.InsertColumn(6, "Weight", format=wx.LIST_FORMAT_CENTER,
-                                     width=80)
+                                     width=self._weightWidth)
 
 #        try:
 #            self._logger.debug("Adding current track to track playlist.")
@@ -630,6 +677,7 @@ class MainWindow(wx.Frame, EventPoster):
                   self._trackList)
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._onTrackActivate,
                   self._trackList)
+        self._bindMouseAndKeyEvents(self._trackList)
         
     def _compareTracksCompletion(self, firstTrack, firstTrackID, secondTrackID):
         if firstTrackID != secondTrackID:
@@ -639,7 +687,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _initCreateScoreSlider(self):
         self._logger.debug("Creating score slider.")
         options = wx.SL_LABELS|wx.SL_INVERSE
-        if self._system == 'FreeBSD':
+        if systemName in freebsdNames:
             options = wx.SL_VERTICAL|options
         else:
             options=wx.SL_RIGHT|options
@@ -650,6 +698,7 @@ class MainWindow(wx.Frame, EventPoster):
                   self._scoreSlider)
         self.Bind(wx.EVT_SCROLL_THUMBRELEASE, self._onScoreSliderMove,
                   self._scoreSlider)
+        self._bindMouseAndKeyEvents(self._scoreSlider)
 
     def _initCreateLogPanel(self):
         self._logger.debug("Creating log panel.")
@@ -666,6 +715,8 @@ class MainWindow(wx.Frame, EventPoster):
         self._redirectErr = RedirectErr(self._logPanel, sys.stderr)
         sys.stdout = self._redirectOut
         sys.stderr = self._redirectErr
+        
+        self._bindMouseAndKeyEvents(self._logPanel)
         
     def _initCreateHotKeyTable(self):
         self._hotKeyTable = wx.AcceleratorTable(self._hotKeys)
@@ -762,6 +813,17 @@ class MainWindow(wx.Frame, EventPoster):
         self._logger.debug("Opening preferences window.")
         self._prefsWindow = self._prefsFactory.getPrefsWindow(self)
         self._prefsWindow.Show()
+        
+    def _onRestoreSettings(self, e):
+        self._eventLogger("GUI Restore Settings", e)
+        dialog = wx.MessageDialog(
+            self,
+            "Are you sure you wish to restore default settings?\n"\
+            +"(Settings will be backed up, overwriting old backups)",
+            "NQr", wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
+        if dialog.ShowModal() == wx.ID_YES:
+            self._prefsFactory.restoreDefaults()
+        dialog.Destroy()
 
 ## TODO: change buttons to say "import" rather than "open"/"choose"
     def _onAddFile(self, e):
@@ -779,7 +841,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _onAddDirectory(self, e):
         self._eventLogger("GUI Add Directory Dialog", e)
         self._logger.debug("Opening add directory dialog.")
-        if self._system == 'FreeBSD':
+        if systemName in freebsdNames:
             dialog = wx.DirDialog(self, "Choose a directory...",
                                   self._defaultDirectory)
         else:
@@ -793,7 +855,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _onAddDirectoryOnce(self, e):
         self._eventLogger("GUI Add Directory Once Dialog", e)
         self._logger.debug("Opening add directory once dialog.")
-        if self._system == 'FreeBSD':
+        if systemName in freebsdNames:
             dialog = wx.DirDialog(self, "Choose a directory...",
                                   self._defaultDirectory)
         else:
@@ -815,7 +877,7 @@ class MainWindow(wx.Frame, EventPoster):
     def _onRemoveDirectory(self, e):
         self._eventLogger("GUI Remove Directory Dialog", e)
         self._logger.debug("Opening remove directory dialog.")
-        if self._system == 'FreeBSD':
+        if systemName in freebsdNames:
             dialog = wx.DirDialog(self, "Choose a directory to remove...",
                                   self._defaultDirectory)
         else:
@@ -1025,7 +1087,7 @@ class MainWindow(wx.Frame, EventPoster):
             self._logger.info("Creating tag.")
             dialog = wx.TextEntryDialog(self, "Tag name:", "New Tag...")
             if dialog.ShowModal() == wx.ID_OK:
-                tag = unicode(dialog.GetValue())
+                tag = convertToUnicode(dialog.GetValue(), self._logger.debug)
                 self._db.addTagName(tag)
                 tagID = wx.NewId()
                 self._allTags[tagID] = tag
@@ -1053,6 +1115,8 @@ class MainWindow(wx.Frame, EventPoster):
     def _onClose(self, e):
         self._eventLogger("GUI Close", e)
         interrupt = None
+        locks = [self._trackMonitor.getRunningLock()]\
+            +self._socketMonitor.getRunningLocks()
         if self._db.getDirectoryWalking():
             options = wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION
             if e.CanVeto():
@@ -1081,17 +1145,37 @@ class MainWindow(wx.Frame, EventPoster):
         self._inactivityTimer.Stop()
         self._refreshTimer.Stop()
         if interrupt == None:
+            locks += self._db.getThreadRunningLocks()
             self._db.abort()
+        elif interrupt:
+            locks += self._db.getThreadRunningLocks()
+            self._db.abort(True)
         else:
-            self._db.abort(interrupt)
+            self._db.abort(False)
         if self._haveLogPanel == True:
             sys.stdout = self._stdout
             sys.stderr = self._stderr
             self._loggerFactory.refreshStreamHandler()
         self._socketMonitor.abort()
+        self._saveWindowAndColumnSizes()
         
+        for lock in locks:
+            lock.acquire()
         self.Destroy()
+        # FIXME: self.ScheduleForDestruction() added in wxPython 2.9
 
+    def _onMouseOrKeyPress(self, e):
+        try:
+            if e.Moving() or e.Leaving() or e.Entering():
+                e.Skip()
+                return
+        except AttributeError as err:
+            if "\'KeyEvent\' object has no attribute" not in str(err):
+                raise err
+        self._eventLogger("GUI Mouse or Key Press", e)
+        self.resetInactivityTimer()
+        e.Skip()
+        
     def _onLaunchPlayer(self, e):
         self._eventLogger("GUI Launch Player", e)
         self._trackMonitorQueue(lambda thisCallback: self._player.launch())
@@ -1210,9 +1294,14 @@ class MainWindow(wx.Frame, EventPoster):
         self._eventLogger.dump(self._dumpPath+"GUIEvents.dump")
         self._trackMonitor.dumpQueue(self._dumpPath+"TrackMonitorQueue.dump")
         self._db.dumpQueues(self._dumpPath)
+        
+    def _onClearCache(self, e): # TODO: should also refresh tracks?
+        self._eventLogger("GUI Clear Track Cache", e)
+        self._trackFactory.clearCache()
                 
     def _onTrackChangeCompletion(self, track, previousPlay, traceCallback):
         track.setPreviousPlay(previousPlay)
+        # FIXME: needs to ignore first track if same as last play before closing
         self._playTimer.Stop()
         if self._playTimer.Start(self._playDelay, oneShot=True) == False:
             # ensures play is added for track
@@ -1253,8 +1342,9 @@ class MainWindow(wx.Frame, EventPoster):
         else:
             self.refreshLastPlayed(1, track, traceCallback=traceCallback)
             self.refreshPreviousPlay(1, track)
+        if self._track == track:
+            self.populateDetails(track, traceCallback)
 
-# FIXME: needs to ignore first track if same as last play before closing
     def _onPlayTimerDing(self, e):
         self._eventLogger("GUI Play Timer Ding", e)
         track = self._playingTrack
@@ -1423,8 +1513,6 @@ class MainWindow(wx.Frame, EventPoster):
                                       e.getCompletion(), e.getCallback(),
                                       e.getTags())
 
-## TODO: would be better for NQr to create a queue during idle time and pop from
-##       it when enqueuing
     def enqueueRandomTracks(self, number, traceCallback=None, tags=None):
         if self._enqueueing:
             self._logger.debug("Already enqueuing")
@@ -1689,10 +1777,35 @@ class MainWindow(wx.Frame, EventPoster):
         for (tagID, tagName) in self._allTags.iteritems():
             if tag == tagName:
                 return tagID
+            
+    def _setPositionAndSize(self):
+        self.SetDimensions(self._xCoord, self._yCoord, self._width,
+                           self._height, wx.SIZE_USE_EXISTING)
+            
+    def _saveWindowAndColumnSizes(self):
+        settings = {}
+        windowRect = self.GetScreenRect()
+        settings["height"] = windowRect.GetHeight()
+        settings["width"] = windowRect.GetWidth()
+        settings["xCoord"] = windowRect.GetX()
+        settings["yCoord"] = windowRect.GetY()
+        settings["artistWidth"] = self._trackList.GetColumnWidth(0)
+        settings["titleWidth"] = self._trackList.GetColumnWidth(1)
+        settings["scoreWidth"] = self._trackList.GetColumnWidth(2)
+        settings["playedAtWidth"] = self._trackList.GetColumnWidth(3)
+        settings["lastPlayedWidth"] = self._trackList.GetColumnWidth(4)
+        settings["weightWidth"] = self._trackList.GetColumnWidth(5)
+        try:
+            self._configParser.add_section("GUI")
+        except ConfigParser.DuplicateSectionError:
+            pass
+        for (name, value) in settings.items():
+            self._configParser.set("GUI", name, str(value))
+        self._prefsFactory.writePrefs()
 
-    def getPrefsPage(self, parent, logger, system):
+    def getPrefsPage(self, parent, logger):
         return PrefsPage(
-            parent, system, self._configParser, logger, self._defaultPlayDelay,
+            parent, self._configParser, logger, self._defaultPlayDelay,
             self._defaultInactivityTime, self._defaultIgnore,
             self._defaultHaveLogPanel, self._defaultRescanOnStartup,
             self._defaultDefaultDirectory, self._defaultTrackCheckDelay), "GUI"
@@ -1737,14 +1850,56 @@ class MainWindow(wx.Frame, EventPoster):
                 "GUI", "trackCheckDelay")
         except ConfigParser.NoOptionError:
             self._trackCheckDelay = self._defaultTrackCheckDelay
+        try:
+            self._height = self._configParser.getint("GUI", "height")
+        except ConfigParser.NoOptionError:
+            self._height = 481
+        try:
+            self._width = self._configParser.getint("GUI", "width")
+        except ConfigParser.NoOptionError:
+            self._width = 730
+        try:
+            self._xCoord = self._configParser.getint("GUI", "xCoord")
+        except ConfigParser.NoOptionError:
+            self._xCoord = 475
+        try:
+            self._yCoord = self._configParser.getint("GUI", "yCoord")
+        except ConfigParser.NoOptionError:
+            self._yCoord = 284
+        try:
+            self._artistWidth = self._configParser.getint("GUI", "artistWidth")
+        except ConfigParser.NoOptionError:
+            self._artistWidth = 100
+        try:
+            self._titleWidth = self._configParser.getint("GUI", "titleWidth")
+        except ConfigParser.NoOptionError:
+            self._titleWidth = 170
+        try:
+            self._scoreWidth = self._configParser.getint("GUI", "scoreWidth")
+        except ConfigParser.NoOptionError:
+            self._scoreWidth = 45
+        try:
+            self._playedAtWidth = self._configParser.getint("GUI",
+                                                            "playedAtWidth")
+        except ConfigParser.NoOptionError:
+            self._playedAtWidth = 120
+        try:
+            self._lastPlayedWidth = self._configParser.getint("GUI",
+                                                              "lastPlayedWidth")
+        except ConfigParser.NoOptionError:
+            self._lastPlayedWidth = 120
+        try:
+            self._weightWidth = self._configParser.getint("GUI", "weightWidth")
+        except ConfigParser.NoOptionError:
+            self._weightWidth = 80
 
 class PrefsPage(BasePrefsPage):
-    def __init__(self, parent, system, configParser, logger, defaultPlayDelay,
+    def __init__(self, parent, configParser, logger, defaultPlayDelay,
                  defaultInactivityTime, defaultIgnore, defaultHaveLogPanel,
                  defaultRescanOnStartup, defaultDefaultDirectory,
                  defaultTrackCheckDelay):
-        BasePrefsPage.__init__(self, parent, system, configParser, logger,
-                               "GUI", defaultPlayDelay, defaultInactivityTime,
+        BasePrefsPage.__init__(self, parent, configParser, logger, "GUI",
+                               defaultPlayDelay, defaultInactivityTime,
                                defaultIgnore, defaultHaveLogPanel,
                                defaultRescanOnStartup, defaultDefaultDirectory,
                                defaultTrackCheckDelay)

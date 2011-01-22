@@ -5,6 +5,7 @@
 import ctypes
 from Errors import NoTrackError, PlayerNotRunningError
 from MediaPlayer import MediaPlayer
+import os.path
 import subprocess
 import time
 from Util import convertToUnicode, getTrace
@@ -35,8 +36,6 @@ IPC_GETWND = 260
 ## returns the HWND of the window specified.
 IPC_GETWND_PE = 1
 
-# FIXME: make class hold on to handle for winamp and recreate it if error
-#        (poss already does this...)
 class WinampWindows(MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
@@ -199,8 +198,7 @@ class WinampWindows(MediaPlayer):
         if logging == True:
             self._sendDebug("Retrieving path from memory buffer.")
         try:
-            rawPath = win32api.GetFullPathName(
-                memoryBuffer.raw.split("\x00")[0])
+            rawPath = os.path.realpath(memoryBuffer.raw.split("\x00")[0])
         except win32api.error as err:
             (winerror, funcname, strerror) = err
             if winerror != 299:
@@ -209,4 +207,4 @@ class WinampWindows(MediaPlayer):
             raise NoTrackError(trace=getTrace(traceCallback))
         if logging == True:
             self._sendDebug("Converting path into unicode.")
-        return convertToUnicode(rawPath, self._sendWarning, logging)
+        return convertToUnicode(rawPath, self._sendDebug, logging)

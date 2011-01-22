@@ -1,6 +1,6 @@
 ## Track information
 ##
-## TODO: create clearCache function for when user has changed metadata?
+## TODO: create clearCache function for when user has changed metadata? (done)
 ##       * I would actually make tracks update themselves and the
 ##       database when you spot a metadata change. (Ben)
 ##       * but how would you get them to find out that their metadata
@@ -9,6 +9,7 @@
 from Errors import NoTrackError, UnknownTrackType, NoMetadataError,\
     DuplicateTagError, InvalidIDError
 import mutagen
+import mutagen.mp3
 import os.path
 from Util import BasePrefsPage, formatLength, getTrace
 
@@ -24,8 +25,8 @@ class TrackFactory:
         self._trackPathCache = {}
         self._trackPathList = []
 
-    def getPrefsPage(self, parent, logger, system):
-        return PrefsPage(parent, system, self._configParser, logger), "Track"
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger), "Track"
 
     def loadSettings(self):
         pass
@@ -116,6 +117,13 @@ class TrackFactory:
             lambda thisCallback, id, track=track:\
                 self._addTrackToCacheCompletion(track, id),
             traceCallback=traceCallback)
+        
+    def clearCache(self):
+        self._logger.debug("Clearing track cache.")
+        self._trackCache = {}
+        self._trackIDList = []
+        self._trackPathCache = {}
+        self._trackPathList = []
 
 class Track:
     def __init__(self, db, path, logger, useCache=True):
@@ -210,6 +218,8 @@ class Track:
             return
         completion(traceCallback, self._playCount)
         
+    # FIXME: make last play get stored and add play change the store (and change
+    #        previous)
     def getLastPlay(self, completion, priority=None, traceCallback=None):
         self._db.getLastPlayedLocalTime(self, completion, priority=priority,
                                         traceCallback=traceCallback)
@@ -289,6 +299,7 @@ class AudioTrack(Track):
 #        self._path = self.getPath()
         try:
             self._logger.debug("Creating track from \'"+self._path+"\'.")
+#            print repr(self._path), repr(self._path.encode("cp1252"))
             self._track = mutagen.File(self._path, easy=True)
         except mutagen.mp3.HeaderNotFoundError:
             self._logger.debug("File has no metadata.")
@@ -355,9 +366,8 @@ class AudioTrack(Track):
         return self._lengthString
 
 class PrefsPage(BasePrefsPage):
-    def __init__(self, parent, system, configParser, logger):
-        BasePrefsPage.__init__(self, parent, system, configParser, logger,
-                               "Track")
+    def __init__(self, parent, configParser, logger):
+        BasePrefsPage.__init__(self, parent, configParser, logger, "Track")
 
 if __name__ == '__main__':
     from mutagen.easyid3 import EasyID3

@@ -1,6 +1,6 @@
 ## NQr
 ##
-## TODO: sort out ' and unicode in filenames (done?)
+## TODO: sort out unicode in filenames (has hacky solution currently)
 ## TODO: allow use of bpm for music queueing (from ID3)
 ## TODO: allow import of directories with a score
 ## TODO: ORGANIZE CODE
@@ -21,7 +21,6 @@ import Database
 import getopt
 import GUI
 import Logger
-import platform
 import Prefs
 import Randomizer
 import socket
@@ -29,12 +28,12 @@ import sys
 import threading
 import traceback
 import Track
-from Util import BasePrefsPage, validateNumeric, EventLogger, wx
+from Util import BasePrefsPage, validateNumeric, EventLogger, macNames,\
+    windowsNames, freebsdNames, systemName, wx
 
 class Main(wx.App):
     def __init__(self):
         wx.App.__init__(self, False)
-        self._system = platform.system()
         self._setDefaults()
 
         self._configParser = ConfigParser.SafeConfigParser()
@@ -85,7 +84,7 @@ class Main(wx.App):
     def run(self, socket, address):
         # Do platform-dependent imports, and choose a player type. For
         # now, we just choose it based on the platform...
-        self._logger.debug("Running on "+self._system+".")
+        self._logger.debug("Running on "+systemName+".")
         
         self._logger.debug("Initializing track factory.")
         trackFactory = Track.TrackFactory(self._loggerFactory,
@@ -109,8 +108,7 @@ class Main(wx.App):
                                self._configParser, self._defaultPlayer,
                                self._safePlayers, trackFactory)
             
-        elif self._player == "iTunes"\
-                 and self._system in ["Mac OS X", "Darwin"]:
+        elif self._player == "iTunes" and systemName in macNames:
             self._logger.debug("Loading iTunes module.")
             import iTunesMacOS
             player = iTunesMacOS.iTunesMacOS(self._loggerFactory, self._noQueue,
@@ -118,7 +116,7 @@ class Main(wx.App):
                                              self._defaultPlayer,
                                              self._safePlayers, trackFactory)
         
-        elif self._player == "iTunes" and self._system == "Windows":
+        elif self._player == "iTunes" and systemName in windowsNames:
             self._logger.debug("Loading iTunes module.")
             import iTunesWindows
             player = iTunesWindows.iTunesWindows(self._loggerFactory,
@@ -129,7 +127,6 @@ class Main(wx.App):
                                                  trackFactory)
             
         eventLogger = EventLogger()
-        eventLogger("---INIT---", None)
 
         self._logger.debug("Initializing database.")
         threadLock = threading.Lock()
@@ -146,15 +143,14 @@ class Main(wx.App):
 
         modules = [player, trackFactory, db, randomizer, self]
         prefsFactory = Prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
-                                          modules, self._configParser,
-                                          self._system)
+                                          modules, self._configParser)
         
         self._logger.debug("Initializing GUI.")
         if self._noQueue:
             self._title += " (no queue)"
             self._defaultEnqueueOnStartup = False
         gui = GUI.MainWindow(None, db, randomizer, player, trackFactory,
-                             self._system, self._loggerFactory, prefsFactory,
+                             self._loggerFactory, prefsFactory,
                              self._configParser, socket, address, self._title,
                              threadLock, self._defaultRestorePlaylist,
                              self._defaultEnqueueOnStartup,
@@ -164,7 +160,6 @@ class Main(wx.App):
                              self._defaultIgnoreNewTracks,
                              self._defaultTrackCheckDelay,
                              self._defaultDumpPath, eventLogger)
-        gui.Center()
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
         ## TODO: remove command window at this point and stop logging to stream
@@ -172,7 +167,7 @@ class Main(wx.App):
         self._loggerFactory.refreshStreamHandler()
         self.MainLoop()
         self._logger.info("Main loop stopped.")
-        eventLogger("---DONE---", None)
+        eventLogger.done()
         
     def criticalLog(self, message):
         self._logger.critical(message)
@@ -184,13 +179,13 @@ class Main(wx.App):
         self._title = "NQr"
         self._defaultNoQueue = False
         self._defaultDebugMode = False
-        if self._system == "Windows":
+        if systemName in windowsNames:
             self._safePlayers = ["Winamp", "iTunes"]
             self._defaultPlayer = "Winamp"
-        elif self._system == "FreeBSD":
+        elif systemName in freebsdNames:
             self._safePlayers = ["XMMS"]
             self._defaultPlayer = "XMMS"
-        elif self._system in ["Mac OS X", "Darwin"]:
+        elif systemName in macNames:
             self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
         self._defaultDefaultScore = 10
@@ -203,8 +198,8 @@ class Main(wx.App):
         self._defaultTrackCheckDelay = 0.5
         self._defaultLogAge = 30
         
-    def getPrefsPage(self, parent, logger, system):
-        return PrefsPage(parent, system, self._configParser, logger,
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger,
                          self._defaultDebugMode, self._defaultNoQueue,
                          self._defaultLogAge), "Dev"
 
@@ -239,9 +234,9 @@ class Main(wx.App):
             self._player = self._defaultPlayer
         
 class PrefsPage(BasePrefsPage):
-    def __init__(self, parent, system, configParser, logger, defaultDebugMode,
+    def __init__(self, parent, configParser, logger, defaultDebugMode,
                  defaultNoQueue, defaultLogAge):
-        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+        BasePrefsPage.__init__(self, parent, configParser, logger,
                                "Main", defaultDebugMode, defaultNoQueue,
                                defaultLogAge)
         
@@ -343,7 +338,7 @@ if __name__ == '__main__':
             raise
         NQr.criticalLog("NQr is already running.")
         # TODO: maybe make running NQr focus - poss see winamp.focus for clues
-        # FIXME: has windows permission issues...
+        # FIXME: has windows firewall permission issues...
         sock.connect((host, port))
         message = "ATTEND\n"
         totalSent = 0

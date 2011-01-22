@@ -27,10 +27,10 @@ class Randomizer:
         self._defaultDefaultScore = defaultDefaultScore
         self.loadSettings()
         
-    def getPrefsPage(self, parent, logger, system):
+    def getPrefsPage(self, parent, logger):
         return PrefsPage(
-            parent, system, self._configParser, logger,
-            self._defaultScoreThreshold, self._defaultWeight), "Randomizer"
+            parent, self._configParser, logger, self._defaultScoreThreshold,
+            self._defaultWeight), "Randomizer"
 
     def loadSettings(self):
         try:
@@ -211,9 +211,9 @@ class Randomizer:
         return self._weightAlgorithm(score, time)
 
 class PrefsPage(BasePrefsPage):
-    def __init__(self, parent, system, configParser, logger,
+    def __init__(self, parent, configParser, logger,
                  defaultScoreThreshold, defaultWeight):
-        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+        BasePrefsPage.__init__(self, parent, configParser, logger,
                                "Randomizer", defaultScoreThreshold,
                                defaultWeight)
         

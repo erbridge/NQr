@@ -4,10 +4,11 @@ import ConfigParser
 import copy
 import datetime
 from Errors import MultiCompletionPutError, AbortThreadError, EmptyQueueError,\
-    NoEventHandlerError
+    NoEventHandlerError, Error
 import Events
 import logging
 import os.path
+import platform
 import Queue
 import threading
 import traceback
@@ -19,6 +20,10 @@ import traceback
 
 wx = Events.wx
 versionNumber = "0.1"
+systemName = platform.system()
+macNames = ["Mac OS X", "Darwin"]
+windowsNames = ["Windows"]
+freebsdNames = ["FreeBSD"]
 
 def plural(count):
     if count == 1:
@@ -34,27 +39,28 @@ def formatLength(rawLength):
         length = str(int(minutes))+":0"+str(int(seconds))
     return length
 
-def convertToUnicode(string, warningCompletion, logging=True):
-    try:
-        unicodeString = unicode(string)
-    except UnicodeDecodeError:
-        if logging == True:
-            warningCompletion("Found bad characters. Attempting to resolve.")
-        unicodeString = u""
-        for char in string:
-            try:
-                unicodeString += unicode(char)
-            except UnicodeDecodeError as err:
-                errStr = str(err)
-                startIndex = errStr.index("0x")
-                endIndex = errStr.index(" ", startIndex)
-                hexStr = ""
-                for i in range(startIndex, endIndex):
-                    hexStr += errStr[i]
-                unicodeString += unichr(int(hexStr, 16))
-        if logging == True:
-            warningCompletion("Bad characters resolved.")
-    return unicodeString
+def convertToUnicode(string, debugCompletion, logging=True):
+    return unicode(string, "mbcs") # the rest is now possibly unnecessary?
+#    try:
+#        unicodeString = unicode(string, "cp1252")
+#    except UnicodeDecodeError:
+#        if logging == True:
+#            debugCompletion("Found bad characters. Attempting to resolve.")
+#        unicodeString = u""
+#        for char in string:
+#            try:
+#                unicodeString += unicode(char, "cp1252")
+#            except UnicodeDecodeError as err:
+#                errStr = str(err)
+#                startIndex = errStr.index("0x")
+#                endIndex = errStr.index(" ", startIndex)
+#                hexStr = ""
+#                for i in range(startIndex, endIndex):
+#                    hexStr += errStr[i]
+#                unicodeString += unichr(int(hexStr, 16))
+#        if logging == True:
+#            debugCompletion("Bad characters resolved.")
+#    return unicodeString
         
 def doNothing():
     pass
@@ -131,10 +137,8 @@ def roughAge(time):
     # yes, this measure of a year is fairly crap :-)
     return _doRough(time, 52, "year", 7*24*60*60, "week")
 
-# FIXME: implement for other systems (maybe see:
-#        www.cyberciti.biz/faq/howto-display-list-of-all-installed-software/)
-def getIsInstalled(system, softwareName):
-    if system == "Windows":
+def getIsInstalled(softwareName):
+    if systemName in windowsNames:
         import wmi
         import _winreg
         
@@ -144,6 +148,8 @@ def getIsInstalled(system, softwareName):
         if softwareName in names:
             return True
         return False
+# FIXME: implement for other systems (maybe see:
+#        www.cyberciti.biz/faq/howto-display-list-of-all-installed-software/)
     return True
 
 # FIXME: implement updating
@@ -233,6 +239,7 @@ class RedirectOut(RedirectText):
     def __init__(self, textCtrl, stdout):
         RedirectText.__init__(self, textCtrl, stdout)
         
+# FIXME: catch all errors and reraise with trace (poss done?)
 class BaseCallback:
     def __init__(self, completion, traceCallbackOrList=None):
         self._completion = completion
@@ -240,10 +247,18 @@ class BaseCallback:
         
     def getTrace(self):
         return getTrace(self._trace)[:-1]
+    
+    def _complete(self, *args, **kwargs):
+        try:
+            self._completion(*args, **kwargs)
+        except Error as err:
+            if err.getTrace():
+                raise err
+            raise err(trace=self.getTrace())
         
 class Callback(BaseCallback):
     def __call__(self, *args, **kwargs):
-        self._completion(self, *args, **kwargs)
+        self._complete(self, *args, **kwargs)
         
 class MultiCompletion(BaseCallback):
     def __init__(self, number, completion, traceCallback=None):
@@ -257,7 +272,7 @@ class MultiCompletion(BaseCallback):
         self._slots[slot] = value
         self._puts[slot] = True
         if False not in self._puts:
-            self._completion(*self._slots)        
+            self._complete(*self._slots)        
         
 class ErrorCompletion(BaseCallback):
     def __init__(self, exceptions, completion, traceCallbackOrList=None):
@@ -270,15 +285,14 @@ class ErrorCompletion(BaseCallback):
     def __call__(self, err, *args, **kwargs):
         for exception in self._exceptions:
             if isinstance(err, exception) or err == exception:
-                self._completion(*args, **kwargs)
+                self._complete(*args, **kwargs)
                 return
         raise err
     
 class BasePrefsPage(wx.Panel):
-    def __init__(self, parent, system, configParser, logger, sectionName, *args,
+    def __init__(self, parent, configParser, logger, sectionName, *args,
                  **kwargs):
         wx.Panel.__init__(self, parent)
-        self._system = system
         self._configParser = configParser
         self._logger = logger
         self._sectionName = sectionName
@@ -318,6 +332,7 @@ class BaseThread(threading.Thread, EventPoster):
         self._emptyCount = 0
         self._raisedEmpty = raiseEmpty
         self._interrupt = False
+        self._runningLock = threading.Lock()
         
     def queue(self, thing, traceCallbackOrList=None, priority=2):
         thing = Callback(thing, traceCallbackOrList)
@@ -333,6 +348,7 @@ class BaseThread(threading.Thread, EventPoster):
 
     def run(self):
         self.postDebugLog("Starting \'"+self._name+"\' thread.")
+        self._runningLock.acquire()
         self._run()
         while True:
             try:
@@ -351,7 +367,8 @@ class BaseThread(threading.Thread, EventPoster):
                 elif self._raisedEmpty == False:
                     self._emptyCount += 1
                     self._queueEmptyQueueCallback()
-        self.postInfoLog("\'"+self._name+"\' thread stopped.")
+        self.postDebugLog("\'"+self._name+"\' thread stopped.")
+        self._runningLock.release()
 
     def _run(self):
         pass
@@ -418,6 +435,9 @@ class BaseThread(threading.Thread, EventPoster):
             +str(item[1])+"   Object: "+str(item[2])+"   Trace Hash: "\
             +traceHash+"\n\n"+trace+"\n\n\n"
             
+    def getRunningLock(self):
+        return self._runningLock
+            
 class CircularQueue:
     def __init__(self, size):
         self._queue = [(None, None)]*size
@@ -432,9 +452,13 @@ class CircularQueue:
 class EventLogger:
     def __init__(self):
         self._queue = CircularQueue(100)
+        self("---INIT---", None)
         
     def __call__(self, eventString, event):
         self._queue.append((eventString, event))
+        
+    def done(self):
+        self("---DONE---", None)
         
     def dump(self, filename):
         file = open(filename, "w")

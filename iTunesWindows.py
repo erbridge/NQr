@@ -177,4 +177,4 @@ class iTunesWindows(MediaPlayer):
         rawPath = self._getTrackAtPos(trackPosition).FilePath
         if logging == True:
             self._sendDebug("Converting path into unicode.")
-        return convertToUnicode(rawPath, self._sendWarning, logging)
+        return convertToUnicode(rawPath, self._sendDebug, logging)

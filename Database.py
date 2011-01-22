@@ -69,10 +69,10 @@ class DatabaseEventHandler(wx.EvtHandler, EventPoster):
     def _onDatabaseEvent(self, e):
         self.postDebugLog("Got event.")
         e.complete()
-        self._eventLogger("Database Complete", e)
+        self._eventLogger("DB Complete", e)
         
     def _onExceptionEvent(self, e):
-        self._eventLogger("Database Exception", e)
+        self._eventLogger("DB Exception", e)
         raise e.getException()
     
     def _completionEvent(self, completion, returnData=True):
@@ -561,7 +561,7 @@ class Database(DatabaseEventHandler):
         
     def _onLogEvent(self, e):
         e.doLog()
-        self._eventLogger("Database Log", e)
+        self._eventLogger("DB Log", e)
 
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
@@ -1792,9 +1792,13 @@ class Database(DatabaseEventHandler):
     
     def getDirectoryWalking(self):
         return self._directoryWalkThread.getWorking()
-
-    def getPrefsPage(self, parent, logger, system):
-        return PrefsPage(parent, system, self._configParser, logger,
+    
+    def getThreadRunningLocks(self):
+        return [self._dbThread.getRunningLock(),
+                self._directoryWalkThread.getRunningLock()]
+    
+    def getPrefsPage(self, parent, logger):
+        return PrefsPage(parent, self._configParser, logger,
                          self._defaultDefaultScore), "Database"
 
     def loadSettings(self):
@@ -1809,9 +1813,9 @@ class Database(DatabaseEventHandler):
             self._defaultScore = self._defaultDefaultScore
 
 class PrefsPage(BasePrefsPage):
-    def __init__(self, parent, system, configParser, logger,
+    def __init__(self, parent, configParser, logger,
                  defaultDefaultScore):
-        BasePrefsPage.__init__(self, parent, system, configParser, logger,
+        BasePrefsPage.__init__(self, parent, configParser, logger,
                                "Database", defaultDefaultScore)
         
         self._initCreateDefaultScoreSizer()
