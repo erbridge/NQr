@@ -257,11 +257,11 @@ class MainWindow(wx.Frame, EventPoster):
 
         self._logger.debug("Creating and starting inactivity timer.")
         self._inactivityTimer = wx.Timer(self, wx.NewId())
-        self._inactivityTimer.Start(self._inactivityTime, oneShot=False)
+        self._inactivityTimer.Start(self._inactivityTime, oneShot=True)
 
         self._logger.debug("Creating and starting track list refresh timer.")
         self._refreshTimer = wx.Timer(self, wx.NewId())
-        self._refreshTimer.Start(1000, oneShot=False)
+        self._refreshTimer.Start(1000, oneShot=True)
         
         self._logger.debug("Starting track monitor.")
         self._trackMonitor = TrackMonitor(self, threadLock, self._db,
@@ -1268,7 +1268,8 @@ class MainWindow(wx.Frame, EventPoster):
         self._eventLogger("GUI Inactivity Timer Ding", e)
         if self._index != 0:
             self.selectTrack(0)
-            
+        self.resetInactivityTimer()
+
     def _onRefreshTimerDing(self, e):
         self._eventLogger("GUI Refresh Timer Ding", e) # FIXME: poss remove?
         top = self._trackList.GetTopItem()
@@ -1284,12 +1285,13 @@ class MainWindow(wx.Frame, EventPoster):
                 self._db, trackID,
                 lambda thisCallback, track, index=index:\
                     self.refreshPreviousPlay(index, track), priority=1)
+        self._refreshTimer.Start(1000, oneShot=True)
 
     def resetInactivityTimer(self, time=None):
         self._logger.debug("Restarting inactivity timer.")
         if time == None:
             time = self._inactivityTime
-        self._inactivityTimer.Start(time, oneShot=False)
+        self._inactivityTimer.Start(time, oneShot=True)
 
     def _cropCompletion(self, traceCallback):
         trackPosition = self._player.getCurrentTrackPos(traceCallback)
