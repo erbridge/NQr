@@ -2,6 +2,8 @@
 #
 # FIXME: Needs to somehow select playlist (possibly see shuffle for hint). 
 
+import time
+
 from appscript import app, k, mactypes, CommandError
 
 import mediaplayer

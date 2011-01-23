@@ -360,6 +360,7 @@ class BaseThread(threading.Thread, EventPoster):
     
     def __init__(self, parent, name, logger, errcallback, lock,
                  raiseEmpty=False, doneQueueLength=50):
+        # FIXME: this doc string is wrong.
         """FIXME
         
         Arguments:

@@ -7,6 +7,7 @@
 #       has changed without querying the file all the time? (Felix)
 
 import os.path
+import time
 
 #import mutagen
 import mutagen.mp3
@@ -68,16 +69,6 @@ class TrackFactory:
             raise errors.InvalidIDError(trace=util.getTrace(traceCallback))
         return self._trackCache.get(trackID, None)
     
-    def _getTrackFromIDCompletion(self, db, path, completion, traceCallback,
-                                  errcompletion=None):
-        try:
-            track = self.getTrackFromPath(db, path, traceCallback=traceCallback)
-            completion(traceCallback, track)
-        except errors.NoTrackError as err:
-            if errcompletion is None:
-                raise
-            errcompletion(err)
-    
     def getTrackFromID(self, db, trackID, completion, priority=None,
                        errcompletion=None, traceCallback=None):
         track = self._getTrackFromCache(trackID, traceCallback)
@@ -92,6 +83,22 @@ class TrackFactory:
                 priority=priority, traceCallback=traceCallback)
         else:
             completion(traceCallback, track)
+    
+    def _getTrackFromIDCompletion(self, db, path, completion, traceCallback,
+                                  errcompletion=None):
+        try:
+            track = self.getTrackFromPath(db, path, traceCallback=traceCallback)
+            completion(traceCallback, track)
+        except errors.NoTrackError as err:
+            if errcompletion is None:
+                raise
+            errcompletion(err)
+            
+    def addTrackToCache(self, track, traceCallback=None):
+        track.getID(
+            lambda thisCallback, id, track=track:
+                self._addTrackToCacheCompletion(track, id),
+            traceCallback=traceCallback)
     
     def _addTrackToCacheCompletion(self, track, id):
         self._logger.debug("Adding track to cache.")
@@ -111,12 +118,6 @@ class TrackFactory:
             self._trackPathList.append(path)
         else:
             assert track is self._trackPathCache[path]
-
-    def addTrackToCache(self, track, traceCallback=None):
-        track.getID(
-            lambda thisCallback, id, track=track:
-                self._addTrackToCacheCompletion(track, id),
-            traceCallback=traceCallback)
         
     def clearCache(self):
         self._logger.debug("Clearing track cache.")
@@ -139,16 +140,14 @@ class Track:
         self._isScored = None
         self._score = None
         self._playCount = None
+        self._lastPlayed = None
+        self._playedAt = None
 
     def getPath(self):
         return self._path
-    
-    def _getIDCompletion(self, id, completion, traceCallback):
-        self._id = id
-        completion(traceCallback, id)
 
-    # FIXME: Possibly should add to cache?
     def getID(self, completion, priority=None, traceCallback=None):
+        # FIXME: Possibly should add to cache?
         if self._id is None:
             self._db.getTrackID(
                 self,
@@ -157,16 +156,16 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._id)
+        
+    def _getIDCompletion(self, id, completion, traceCallback):
+        self._id = id
+        completion(traceCallback, id)
 
     def setID(self, factory, id, traceCallback=None):
         self._logger.debug("Setting track's ID to " + str(id) + ".")
         self._id = id
         if self._useCache:
             factory.addTrackToCache(self, traceCallback=traceCallback)
-            
-    def _getTagsCompletion(self, tags, completion, traceCallback):
-        self._tags = tags
-        completion(traceCallback, tags)
 
     def getTags(self, completion, priority=None, traceCallback=None):
         if self._tags is None:
@@ -177,6 +176,10 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._tags)
+        
+    def _getTagsCompletion(self, tags, completion, traceCallback):
+        self._tags = tags
+        completion(traceCallback, tags)
 
     def setTag(self, tag, traceCallback=None):
         if self._tags is None:
@@ -189,26 +192,24 @@ class Track:
     def unsetTag(self, tag, traceCallback=None):
         self._db.unsetTag(self, tag, traceCallback=traceCallback)
         self._tags.remove(tag)
-        
-    def _addPlayCompletion(self, completion, traceCallback):
-        if self._playCount is None:
-            self.getPlayCount(completion, traceCallback=traceCallback)
-        else:
-            self._playCount += 1
-            completion(traceCallback, self._playCount)
 
     def addPlay(self, delay=0, completion=None, priority=None,
                 traceCallback=None):
         self._db.addPlay(
             self, delay,
-            lambda thisCallback, completion=completion: self._addPlayCompletion(
-                completion, thisCallback), priority=priority,
-            traceCallback=traceCallback)
+            lambda thisCallback, playedAt, completion=completion:
+                self._addPlayCompletion(playedAt, completion, thisCallback),
+            priority=priority, traceCallback=traceCallback)
         
-    def _getPlayCountCompletion(self, playCount, completion, traceCallback):
-        self._playCount = playCount
-        if completion is not None:
-            completion(traceCallback, playCount)
+    def _addPlayCompletion(self, playedAt, completion, traceCallback):
+        if self._playedAt is not None:
+            self._lastPlayed = time.mktime(self._playedAt.timetuple())
+        self._playedAt = playedAt
+        if self._playCount is None:
+            self.getPlayCount(completion, traceCallback=traceCallback)
+        else:
+            self._playCount += 1
+            completion(traceCallback, self._playCount)
 
     def getPlayCount(self, completion, priority=None, traceCallback=None):
         if self._playCount is None:
@@ -220,17 +221,30 @@ class Track:
             return
         completion(traceCallback, self._playCount)
         
-    # FIXME: Make last play get stored and add play change the store (and change
-    #        previous).
-    def getLastPlay(self, completion, priority=None, traceCallback=None):
-        self._db.getLastPlayedLocalTime(self, completion, priority=priority,
-                                        traceCallback=traceCallback)
+    def _getPlayCountCompletion(self, playCount, completion, traceCallback):
+        self._playCount = playCount
+        if completion is not None:
+            completion(traceCallback, playCount)
+        
+    def getPlayedAt(self):
+        if self._playedAt is None:
+            return None
+        return str(self._playedAt)[:-7]
 
-    def setPreviousPlay(self, previous):
-        self._previous = previous
-
-    def getPreviousPlay(self):
-        return self._previous
+    def getLastPlayed(self, completion, priority=None, traceCallback=None):
+        if self._lastPlayed is None:
+            self._db.getLastPlayedInSeconds(
+                self,
+                lambda thisCallback, lastPlayed, completion=completion:
+                    self._getLastPlayedCompletion(lastPlayed, completion,
+                                                  thisCallback),
+                priority=priority, traceCallback=traceCallback)
+            return
+        completion(traceCallback, self._lastPlayed)
+        
+    def _getLastPlayedCompletion(self, lastPlayed, completion, traceCallback):
+        self._lastPlayed = lastPlayed
+        completion(traceCallback, lastPlayed)
 
     def setWeight(self, weight):
         self._weight = weight
@@ -243,14 +257,6 @@ class Track:
         self._score = score
         self._isScored = True
         
-    def _getScoreCompletion(self, isScored, completion, traceCallback,
-                            priority=None):
-        if not isScored:
-            completion(traceCallback, "-")
-        else:
-            self.getScoreValue(completion, priority=priority,
-                               traceCallback=traceCallback)
-
     def getScore(self, completion, priority=None, traceCallback=None):
         self.getIsScored(
             lambda thisCallback, isScored, completion=completion,
@@ -259,9 +265,13 @@ class Track:
                                          priority=priority),
             traceCallback=traceCallback)
         
-    def _getScoreValueCompletion(self, score, completion, traceCallback):
-        self._score = score
-        completion(traceCallback, score)
+    def _getScoreCompletion(self, isScored, completion, traceCallback,
+                            priority=None):
+        if not isScored:
+            completion(traceCallback, "-")
+        else:
+            self.getScoreValue(completion, priority=priority,
+                               traceCallback=traceCallback)
 
     def getScoreValue(self, completion, priority=None, traceCallback=None):
         if self._score is None:
@@ -273,15 +283,15 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._score)
+        
+    def _getScoreValueCompletion(self, score, completion, traceCallback):
+        self._score = score
+        completion(traceCallback, score)
 
     def setUnscored(self, traceCallback=None):
         self._isScored = False
         self._score = None
         self._db.setUnscored(self, traceCallback=traceCallback)
-        
-    def _getIsScoredCompletion(self, isScored, completion, traceCallback):
-        self._isScored = isScored
-        completion(traceCallback, isScored)
 
     def getIsScored(self, completion, priority=None, traceCallback=None):
         if self._isScored is None:
@@ -293,6 +303,10 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._isScored)
+        
+    def _getIsScoredCompletion(self, isScored, completion, traceCallback):
+        self._isScored = isScored
+        completion(traceCallback, isScored)
 
 
 class AudioTrack(Track):
@@ -321,8 +335,8 @@ class AudioTrack(Track):
         self._bpm = self._getAttribute('bpm')
         self._length = self._getLength()
 
-    # Tags are of the form [u'artistName'].
     def _getAttribute(self, attr):
+        # Tags are of the form [u'artistName'].
         try:
             attribute = self._track[attr][0]
             return attribute

@@ -28,8 +28,6 @@
 #        change delay in _onNext() etc.).
 # FIXME: Old track details should update if track is in track list twice.
 # FIXME: Change indicies when possible to finditemdata calls?
-# FIXME: Last played should consistently be the time since the previous play 
-#        (if there is one) and poss shouldn't update.
 # FIXME: Make clicking a position on the slider move it there (and holding the
 #        click drag it).
 # FIXME: Make all clicks/key presses reset inactivity timer (done,
@@ -339,6 +337,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.loadSettings()
 
         self._index = None
+        self._track = None
         self._stdout = sys.stdout
         self._stderr = sys.stderr
         self._hotKeys = []
@@ -360,9 +359,9 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._inactivityTimer = wx.Timer(self, wx.NewId())
         self._inactivityTimer.Start(self._inactivityTime, oneShot=True)
 
-        self._logger.debug("Creating and starting track list refresh timer.")
-        self._refreshTimer = wx.Timer(self, wx.NewId())
-        self._refreshTimer.Start(1000, oneShot=True)
+#        self._logger.debug("Creating and starting track list refresh timer.")
+#        self._refreshTimer = wx.Timer(self, wx.NewId())
+#        self._refreshTimer.Start(1000, oneShot=True)
         
         self._logger.debug("Starting track monitor.")
         self._trackMonitor = _TrackMonitor(self, threadLock, self._db,
@@ -376,7 +375,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.Bind(wx.EVT_TIMER, self._onPlayTimerDing, self._playTimer)
         self.Bind(wx.EVT_TIMER, self._onInactivityTimerDing,
                   self._inactivityTimer)
-        self.Bind(wx.EVT_TIMER, self._onRefreshTimerDing, self._refreshTimer)
+#        self.Bind(wx.EVT_TIMER, self._onRefreshTimerDing, self._refreshTimer)
         
         events.EVT_TRACK_CHANGE(self, self._onTrackChange)
         events.EVT_NO_NEXT_TRACK(self, self._onNoNextTrack)
@@ -954,7 +953,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         if self._trackMonitor is not None:
             self._trackMonitor.abort()
         self._inactivityTimer.Stop()
-        self._refreshTimer.Stop()
+#        self._refreshTimer.Stop()
         if interrupt is None:
             locks += self._db.getThreadRunningLocks()
             self._db.abort()
@@ -1462,43 +1461,37 @@ class MainWindow(wx.Frame, util.EventPoster):
         
     def _onPlayTimerDing(self, e):
         self._eventLogger("GUI Play Timer Ding", e)
-        track = self._playingTrack
-        track.addPlay(
+        self._playingTrack.addPlay(
             self._playDelay,
-            lambda thisCallback, playCount, track=track:
+            lambda thisCallback, playCount, track=self._playingTrack:
                 self._onPlayTimerDingCompletion(track, thisCallback),
             priority=1)
         
     def _onPlayTimerDingCompletion(self, track, traceCallback):
         if track == self._playingTrack:
-            self.refreshLastPlayed(0, track, traceCallback=traceCallback)
-            if track == self._playingTrack:
-                self.refreshPreviousPlay(0, track)
-            else:
-                self.refreshPreviousPlay(1, track)
+            self.refreshPlayedAt(0, track)
         else:
-            self.refreshLastPlayed(1, track, traceCallback=traceCallback)
-            self.refreshPreviousPlay(1, track)
+            self.refreshPlayedAt(1, track)
         if self._track == track:
             self.populateDetails(track, traceCallback)
             
-    def _onRefreshTimerDing(self, e):
-        self._eventLogger("GUI Refresh Timer Ding", e) # FIXME: Possibly remove?
-        top = self._trackList.GetTopItem()
-        visibleCount = self._trackList.GetCountPerPage() + 1
-        total = self._trackList.GetItemCount()
-        if visibleCount > total:
-            visibleCount = total
-        elif total - visibleCount < top:
-            visibleCount -= 1
-        for index in range(top, top + visibleCount):
-            trackID = self._trackList.GetItemData(index)
-            self._trackFactory.getTrackFromID(
-                self._db, trackID,
-                lambda thisCallback, track, index=index:
-                    self.refreshPreviousPlay(index, track),
-                priority=1)
-        self._refreshTimer.Start(1000, oneShot=True)
+#    def _onRefreshTimerDing(self, e):
+#        self._eventLogger("GUI Refresh Timer Ding", e) # FIXME: Possibly remove?
+#        top = self._trackList.GetTopItem()
+#        visibleCount = self._trackList.GetCountPerPage() + 1
+#        total = self._trackList.GetItemCount()
+#        if visibleCount > total:
+#            visibleCount = total
+#        elif total - visibleCount < top:
+#            visibleCount -= 1
+#        for index in range(top, top + visibleCount):
+#            trackID = self._trackList.GetItemData(index)
+#            self._trackFactory.getTrackFromID(
+#                self._db, trackID,
+#                lambda thisCallback, track, index=index:
+#                    self.refreshLastPlayed(index, track),
+#                priority=1)
+#        self._refreshTimer.Start(1000, oneShot=True)
         
     def _onRequestAttention(self, e):
         self._eventLogger("GUI Request Attention", e)
@@ -1509,22 +1502,29 @@ class MainWindow(wx.Frame, util.EventPoster):
     def _onTrackChange(self, e):
         self._eventLogger("GUI Track Change", e)
         self._playingTrack = e.getTrack()
-        self._db.getLastPlayedInSeconds(
-            self._playingTrack,
-            lambda thisCallback, previousPlay, track=self._playingTrack:
-                self._onTrackChangeCompletion(track, previousPlay,
-                                              thisCallback),
-            traceCallback=e.getCallback(), priority=1)
-        
-    def _onTrackChangeCompletion(self, track, previousPlay, traceCallback):
-        track.setPreviousPlay(previousPlay)
+#        self._db.getLastPlayedInSeconds(
+#            self._playingTrack,
+#            lambda thisCallback, previousPlay, track=self._playingTrack:
+#                self._onTrackChangeCompletion(track, previousPlay,
+#                                              thisCallback),
+#            traceCallback=e.getCallback(), priority=1)
         # FIXME: Needs to ignore first track if it was last play before closing.
         self._playTimer.Stop()
         if not self._playTimer.Start(self._playDelay, oneShot=True):
             # Ensures play is added for track.
-            track.addPlay(priority=1)
-        self.addTrack(track)
-        self.maintainPlaylist(traceCallback=traceCallback)
+            self._playingTrack.addPlay(priority=1)
+        self.addTrack(self._playingTrack)
+        self.maintainPlaylist()
+        
+#    def _onTrackChangeCompletion(self, track, previousPlay, traceCallback):
+#        track.setPreviousPlay(previousPlay)
+#        # FIXME: Needs to ignore first track if it was last play before closing.
+#        self._playTimer.Stop()
+#        if not self._playTimer.Start(self._playDelay, oneShot=True):
+#            # Ensures play is added for track.
+#            track.addPlay(priority=1)
+#        self.addTrack(track)
+#        self.maintainPlaylist(traceCallback=traceCallback)
 
     def maintainPlaylist(self, traceCallback=None):
         """Crop and enqueue random tracks into the player's playlist
@@ -1606,8 +1606,8 @@ class MainWindow(wx.Frame, util.EventPoster):
             lambda thiscallback, isScored, multicompletion=multicompletion:
                 multicompletion(0, isScored),
             priority=1, traceCallback=traceCallback)
-        track.getLastPlay(
-            lambda thisCallback, lastPlayed, multicompletion=multicompletion:
+        track.getLastPlayed(
+            lambda thiscallback, lastPlayed, multicompletion=multicompletion:
                 multicompletion(1, lastPlayed),
             priority=1, traceCallback=traceCallback)
         track.getScore(
@@ -1630,16 +1630,16 @@ class MainWindow(wx.Frame, util.EventPoster):
             score = "(" + str(scoreValue) + ")"
         else:
             score = str(score)
-        if lastPlayed is None:
-            lastPlayed = "-"
+        playedAt = track.getPlayedAt()
+        if playedAt is None:
+            playedAt = "-"
         self._trackList.InsertStringItem(index, track.getArtist())
         self._trackList.SetStringItem(index, 1, track.getTitle())
         self._trackList.SetStringItem(index, 2, score)
-        self._trackList.SetStringItem(index, 3, lastPlayed)
-        previous = track.getPreviousPlay()
-        if previous is not None:
-            self._trackList.SetStringItem(index, 4,
-                                          util.roughAge(time.time() - previous))
+        self._trackList.SetStringItem(index, 3, playedAt)
+        if lastPlayed is not None:
+            self._trackList.SetStringItem(
+                index, 4, util.roughAge(time.time() - lastPlayed))
         weight = track.getWeight()
         if weight is not None:
             self._trackList.SetStringItem(index, 5, str(weight))
@@ -1813,8 +1813,8 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.refreshArtist(index, track)
         self.refreshTitle(index, track)
         self.refreshScore(index, track, traceCallback=traceCallback)
-        self.refreshLastPlayed(index, track, traceCallback=traceCallback)
-        self.refreshPreviousPlay(index, track)
+        self.refreshPlayedAt(index, track)
+        self.refreshLastPlayed(index, track)
 
     def refreshArtist(self, index, track):
         """Refresh the track's artist at position `index` in the track list.
@@ -1884,6 +1884,23 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._trackList.SetStringItem(index, 2, score)
         self._trackList.RefreshItem(index)
         
+    def refreshPlayedAt(self, index, track):
+        """Refresh the track's played at time at position `index`
+        in the track list.
+        
+        Arguments:
+        
+        - index: the index of the track to refresh.
+        
+        - track: the track object to retrieve the data from.
+        
+        """
+        playedAt = track.getPlayedAt()
+        if playedAt is None:
+            playedAt = "-"
+        self._trackList.SetStringItem(index, 3, playedAt)
+        self._trackList.RefreshItem(index)
+
     def refreshLastPlayed(self, index, track, traceCallback=None):
         """Refresh the track's last played time at position `index`
         in the track list.
@@ -1900,32 +1917,15 @@ class MainWindow(wx.Frame, util.EventPoster):
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
         
         """
-        track.getLastPlay(
+        track.getLastPlayed(
             lambda thisCallback, lastPlayed, index=index:
-                self._refreshLastPlayedCompletion(index, lastPlayed),
+                self._refreshLastPlayedCompletion(lastPlayed, index),
             priority=1, traceCallback=traceCallback)
         
-    def _refreshLastPlayedCompletion(self, index, lastPlayed):
-        if lastPlayed is None:
-            lastPlayed = "-"
-        self._trackList.SetStringItem(index, 3, lastPlayed)
-        self._trackList.RefreshItem(index)
-
-    def refreshPreviousPlay(self, index, track):
-        """Refresh the track's previous play time at position `index`
-        in the track list.
-        
-        Arguments:
-        
-        - index: the index of the track to refresh.
-        
-        - track: the track object to retrieve the data from.
-        
-        """
-        previous = track.getPreviousPlay()
-        if previous is not None:
-            self._trackList.SetStringItem(index, 4,
-                                          util.roughAge(time.time() - previous))
+    def _refreshLastPlayedCompletion(self, lastPlayed, index):
+        if lastPlayed is not None:
+            self._trackList.SetStringItem(
+                index, 4, util.roughAge(time.time() - lastPlayed))
         self._trackList.RefreshItem(index)
 
     def selectTrack(self, index):
@@ -1963,9 +1963,9 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._logger.debug("Collecting details for details panel.")
         multicompletion = util.MultiCompletion(
             4,
-            lambda score, playCount, lastPlayed, tags, track=track:\
+            lambda score, playCount, playedAt, tags, track=track:\
                 self._populateDetailsCompletion(track, score, playCount,
-                                                lastPlayed, tags),
+                                                playedAt, tags),
             traceCallback)
         
         track.getScore(
@@ -1976,16 +1976,13 @@ class MainWindow(wx.Frame, util.EventPoster):
             lambda thisCallback, playCount, multicompletion=multicompletion:
                 multicompletion(1, playCount),
             priority=1, traceCallback=traceCallback)
-        track.getLastPlay(
-            lambda thisCallback, lastPlayed, multicompletion=multicompletion:
-                multicompletion(2, lastPlayed),
-            priority=1, traceCallback=traceCallback)
+        multicompletion(2, track.getPlayedAt())
         track.getTags(
             lambda thisCallback, tags, multicompletion=multicompletion:
                 multicompletion(3, tags),
             priority=1, traceCallback=traceCallback)
         
-    def _populateDetailsCompletion(self, track, score, playCount, lastPlayed,
+    def _populateDetailsCompletion(self, track, score, playCount, playedAt,
                                    tags):
         detailString = ("Artist:  \t" + track.getArtist()
                         + "\nTitle:  \t"+track.getTitle()
@@ -2000,8 +1997,8 @@ class MainWindow(wx.Frame, util.EventPoster):
         detailString += ("\nScore:  \t" + str(score)
                          + "\nPlay Count:    " + str(playCount))
             
-        if lastPlayed is not None:
-            detailString += "    \tPlayed at:  \t" + lastPlayed
+        if playedAt is not None:
+            detailString += "    \tPlayed at:  \t" + playedAt
             
         tagString = self._updateTagMenu(tags)
         if tagString:

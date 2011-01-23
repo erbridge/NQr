@@ -1320,30 +1320,26 @@ class Database(_DatabaseEventHandler):
 
     def addPlay(self, track, msDelay=0, completion=None, priority=None,
                 traceCallback=None):
-        mycompletion = (lambda thisCallback, trackID, track=track,
-                        msDelay=msDelay, completion=completion:
-                            self._addPlayCompletion(track, trackID,
+        mycompletion = (lambda thisCallback, trackID, msDelay=msDelay,
+                        completion=completion:
+                            self._addPlayCompletion(trackID,
                                                     thisCallback, msDelay,
                                                     completion, priority))
         track.getID(mycompletion, priority=priority,
                     traceCallback=traceCallback)
 
-    def _addPlayCompletion(self, track, trackID, traceCallback, msDelay=0,
+    def _addPlayCompletion(self, trackID, traceCallback, msDelay=0,
                            completion=None, priority=None):
         self._logger.debug("Adding play.")
         now = datetime.datetime.now()
         delay = datetime.timedelta(0, 0, 0, msDelay)
         playTime = now - delay
-        self.getLastPlayedInSeconds(
-            track,
-            lambda thisCallback, previousPlay, track=track:
-                track.setPreviousPlay(previousPlay),
-            traceCallback)
         if completion is None:
             mycompletion = (lambda thisCallback:
                                 util.doNothing())
         else:
-            mycompletion = completion
+            mycompletion = (lambda thisCallback, playedAt=playTime:
+                                completion(thisCallback, playedAt))
         self._executeMany(["""insert into plays (trackid, datetime) values
                               (?, datetime(?))""",
                            """update tracks set lastplayed = datetime(?) where
