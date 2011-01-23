@@ -5,6 +5,7 @@
 import os
 import sqlite3
 
+
 def main():
     conn = sqlite3.connect("database")
     cursor = conn.cursor()
@@ -40,6 +41,7 @@ def main():
         cursor.execute("delete from tags where trackid = ?", (trackid, ))
         cursor.execute("delete from tracks where trackid = ?", (trackid, ))
     conn.commit()
+
 
 if __name__ == '__main__':
     main()

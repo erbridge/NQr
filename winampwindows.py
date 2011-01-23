@@ -1,53 +1,55 @@
-## Windows, Winamp interface
-##
-## Tested on Winamp 5+
+# Windows, Winamp interface
+#
+# Tested on Winamp 5+
 
-import ctypes
-from Errors import NoTrackError, PlayerNotRunningError
-from MediaPlayer import MediaPlayer
 import os.path
 import subprocess
 import time
-from Util import convertToUnicode, getTrace
+
+import ctypes
 import win32api
 import win32con
 import win32process
 import winamp as winampImport
 
-WM_USER = 0x400
-WM_WA_IPC = WM_USER
+import errors
+import mediaplayer
+import util
 
-IPC_PE_DELETEINDEX = 104
+_WM_USER = 0x400
+_WM_WA_IPC = _WM_USER
+_IPC_PE_DELETEINDEX = 104
+_IPC_GETLISTLENGTH = 124
+# (requires Winamp 2.0+)
+# int length = SendMessage(hwnd_winamp,_WM_WA_IPC,0,_IPC_GETLISTLENGTH);
+# _IPC_GETLISTLENGTH returns the length of the current playlist, in tracks.
 
-IPC_GETLISTLENGTH = 124
-## (requires Winamp 2.0+)
-## int length = SendMessage(hwnd_winamp,WM_WA_IPC,0,IPC_GETLISTLENGTH);
-## IPC_GETLISTLENGTH returns the length of the current playlist, in tracks.
+_IPC_GETPLAYLISTFILE = 211
+# (requires Winamp 2.04+, only usable from plug-ins (not external apps))
+# char *name=SendMessage(hwnd_winamp,_WM_WA_IPC,index,_IPC_GETPLAYLISTFILE);
+# _IPC_GETPLAYLISTFILE gets the filename of the playlist entry [index].
+# returns a pointer to it. returns NULL on error.
 
-IPC_GETPLAYLISTFILE = 211
-## (requires Winamp 2.04+, only usable from plug-ins (not external apps))
-## char *name=SendMessage(hwnd_winamp,WM_WA_IPC,index,IPC_GETPLAYLISTFILE);
-## IPC_GETPLAYLISTFILE gets the filename of the playlist entry [index].
-## returns a pointer to it. returns NULL on error.
+_IPC_GETWND = 260
+# (requires Winamp 2.9+)
+# HWND h=SendMessage(hwnd_winamp,_WM_WA_IPC,IPC_GETWND_xxx,_IPC_GETWND);
+# returns the HWND of the window specified.
+_IPC_GETWND_PE = 1
 
-IPC_GETWND = 260
-## (requires Winamp 2.9+)
-## HWND h=SendMessage(hwnd_winamp,WM_WA_IPC,IPC_GETWND_xxx,IPC_GETWND);
-## returns the HWND of the window specified.
-IPC_GETWND_PE = 1
 
-class WinampWindows(MediaPlayer):
+class Winamp(mediaplayer.MediaPlayer):
+    
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
-        MediaPlayer.__init__(self, loggerFactory, "NQr.Winamp", noQueue,
-                             configParser, defaultPlayer, safePlayers,
-                             trackFactory)
+        mediaplayer.MediaPlayer.__init__(self, loggerFactory, "NQr.Winamp",
+                                         noQueue, configParser, defaultPlayer,
+                                         safePlayers, trackFactory)
         self._winamp = winampImport.Winamp()
         self.launchBackground()
         
     def launch(self):
         self._sendDebug("Launching Winamp.")
-        if self._winamp.getRunning() == False:
+        if not self._winamp.getRunning():
             PIPE = subprocess.PIPE
             subprocess.Popen("start winamp", stdout=PIPE, shell=True)
         else:
@@ -55,23 +57,23 @@ class WinampWindows(MediaPlayer):
             self._winamp.focus()
 
     def launchBackground(self):
-        if self._winamp.getRunning() == False:
+        if not self._winamp.getRunning():
             self._sendDebug("Launching Winamp.")
             PIPE = subprocess.PIPE
             subprocess.Popen("start winamp", stdout=PIPE, shell=True)
             while True:
                 time.sleep(.25)
-                if self._winamp.getRunning() == True:
+                if self._winamp.getRunning():
                     self._sendInfo("Winamp has been launched.")
                     return
 
     def close(self):
         self._sendDebug("Closing Winamp.")
-        if self._winamp.getRunning() == True:
+        if self._winamp.getRunning():
             self._winamp.close()
             while True:
                 time.sleep(.25)
-                if self._winamp.getRunning() == False:
+                if not self._winamp.getRunning():
                     self._sendInfo("Winamp has been closed.")
                     return
         else:
@@ -79,13 +81,15 @@ class WinampWindows(MediaPlayer):
 
     def _addTrack(self, filepath):
         self.launchBackground()
-        self._sendInfo("Adding \'"+filepath+"\' to playlist.")
+        # FIXME: Has problems with unicode strings.
+        self._sendInfo("Adding \'" + filepath + "\' to playlist.")
         self._winamp.enqueue(filepath)
         
     def _insertTrack(self, filepath, position):
         self.launchBackground()
-        self._sendInfo("Inserting \'"+filepath+"\' into playlist position "\
-                          +str(position)+".")
+        self._sendInfo(
+            "Inserting \'" + filepath + "\' into playlist position "
+            + str(position) + ".")
         playlist = self.savePlaylist()
         for pos in range(len(playlist), position - 1, -1):
             self.deleteTrack(pos)
@@ -94,16 +98,16 @@ class WinampWindows(MediaPlayer):
         for path in playlist[position:]:
             self._winamp.enqueue(path)
             
-##    def playTrack(self, filepath):
+#    def playTrack(self, filepath):
 
     def deleteTrack(self, position):
         self.launchBackground()
-        self._sendDebug("Deleting track in position "+str(position)\
-                           +" from playlist.")
-        playlistEditorHandle = self._winamp.doIpcCommand(IPC_GETWND,
-                                                         IPC_GETWND_PE)
-        ctypes.windll.user32.SendMessageA(playlistEditorHandle, WM_WA_IPC,
-                                          IPC_PE_DELETEINDEX, position)
+        self._sendDebug(
+            "Deleting track in position " + str(position) + " from playlist.")
+        playlistEditorHandle = self._winamp.doIpcCommand(_IPC_GETWND,
+                                                         _IPC_GETWND_PE)
+        ctypes.windll.user32.SendMessageA(playlistEditorHandle, _WM_WA_IPC,
+                                          _IPC_PE_DELETEINDEX, position)
 
     def clearPlaylist(self):
         self.launchBackground()
@@ -153,10 +157,10 @@ class WinampWindows(MediaPlayer):
     def setShuffle(self, status):
         self.launchBackground()
         self._sendDebug("Setting shuffle status.")
-        if status == True or status == 1:
+        if status:
             self._winamp.setShuffle(1)
             self._sendInfo("Shuffle turned on.")
-        if status == False or status == 0:
+        else:
             self._winamp.setShuffle(0)
             self._sendInfo("Shuffle turned off.")
 
@@ -166,45 +170,50 @@ class WinampWindows(MediaPlayer):
         return self._winamp.getPlaylistLength()
 
     def getCurrentTrackPos(self, traceCallback=None):
-        if self._winamp.getRunning() == False:
-            raise PlayerNotRunningError(trace=getTrace(traceCallback))
+        if not self._winamp.getRunning():
+            raise errors.PlayerNotRunningError(
+                trace=util.getTrace(traceCallback))
         return self._winamp.getCurrentTrack()
 
-    ## poss insecure: should always be checked for trackness
-    ## gets track at a playlist position
-    ## Has logging option so track monitor can call it without spamming the
-    ## debug log.
     def _getTrackPathAtPos(self, trackPosition, traceCallback=None,
                            logging=True):
-        if self._winamp.getRunning() == False:
-            raise PlayerNotRunningError(trace=getTrace(traceCallback))
-        if logging == True:
-            self._sendDebug("Retrieving path of track at position "\
-                               +str(trackPosition)+".")
+        """
+           Gets filename of track at |trackPosition|.
+           
+           If |logging| is False, the debug log is not updated.
+           
+           Result should always be turned into a track object.
+        """
+        if not self._winamp.getRunning():
+            raise errors.PlayerNotRunningError(
+                trace=util.getTrace(traceCallback))
+        if logging:
+            self._sendDebug(
+                "Retrieving path of track at position " + str(trackPosition)
+                + ".")
         winampWindow = self._winamp.hwnd
-        memoryPointer = self._winamp.doIpcCommand(IPC_GETPLAYLISTFILE,
+        memoryPointer = self._winamp.doIpcCommand(_IPC_GETPLAYLISTFILE,
                                                   trackPosition)
         (threadID,
          processID) = win32process.GetWindowThreadProcessId(winampWindow)
         winampProcess = win32api.OpenProcess(win32con.PROCESS_VM_READ, False,
                                              processID)
         memoryBuffer = ctypes.create_string_buffer(256)
-        if logging == True:
+        if logging:
             self._sendDebug("Reading Winamp's memory.")
         ctypes.windll.kernel32.ReadProcessMemory(winampProcess.handle,
                                                  memoryPointer, memoryBuffer,
                                                  256, 0)
         winampProcess.Close()
-        if logging == True:
+        if logging:
             self._sendDebug("Retrieving path from memory buffer.")
         try:
             rawPath = os.path.realpath(memoryBuffer.raw.split("\x00")[0])
-        except win32api.error as err:
-            (winerror, funcname, strerror) = err
+        except win32api.error as (winerror, funcname, strerror):
             if winerror != 299:
-                raise err
+                raise
             self._sendError("Playlist is empty.")
-            raise NoTrackError(trace=getTrace(traceCallback))
-        if logging == True:
+            raise errors.NoTrackError(trace=util.getTrace(traceCallback))
+        if logging:
             self._sendDebug("Converting path into unicode.")
-        return convertToUnicode(rawPath, self._sendDebug, logging)
+        return unicode(rawPath, "mbcs")

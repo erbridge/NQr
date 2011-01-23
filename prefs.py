@@ -1,11 +1,16 @@
-## Preference window
-##
-## TODO: create validation rules for text controls
+# Preference window
+#
+# TODO: Create validation rules for all text controls.
 
 import os
-from Util import wx
+
+import util
+
+wx = util.wx
+
 
 class PrefsFactory:
+    
     def __init__(self, filename, loggerFactory, modules, configParser):
         self._logger = loggerFactory.getLogger("NQr.Prefs", "debug")
         self._modules = modules
@@ -17,20 +22,22 @@ class PrefsFactory:
                            self._configParser, self._filename)
             
     def restoreDefaults(self, filename=None):
-        if not filename:
-            filename = self._filename+".backup"
+        if filename is None:
+            filename = self._filename + ".backup"
         os.rename(self._filename, filename)
         
     def writePrefs(self):
         with open(self._filename, 'w') as file:
             self._configParser.write(file)
 
+
 class PrefsWindow(wx.Frame):
+    
     def __init__(self, parent, logger, modules, configParser, filename):
         self._logger = logger
         self._gui = parent
         self._modules = modules
-        if self._modules[0] != parent:
+        if self._modules[0] == parent:
             self._modules.insert(0, parent)
         self._configParser = configParser
         self._filename = filename
@@ -54,7 +61,7 @@ class PrefsWindow(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self._onCancel, cancelButton)
 
         buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
-        ## FIXME: doesn't align right...
+        # FIXME: Doesn't align right...
         buttonSizer.Add(saveButton, 0, wx.ALIGN_RIGHT)
         buttonSizer.Add(cancelButton, 0, wx.ALIGN_RIGHT)
 
@@ -74,7 +81,7 @@ class PrefsWindow(wx.Frame):
 
     def addPage(self, page, pageName, position=None):
         self._logger.debug("Adding preference page.")
-        if position == None:
+        if position is None:
             position = len(self._pages)
         self._pages[pageName] = page
         self._prefs.InsertPage(position, page, pageName)
