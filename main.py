@@ -356,7 +356,7 @@ class _PrefsPage(util.BasePrefsPage):
     def _onLogAgeChange(self, e):
         if util.validateNumeric(self._logAgeControl):
             logAge = self._logAgeControl.GetLineText(0)
-            if logAge != "":
+            if logAge:
                 self._settings["logAge"] = int(logAge)
 
     def _setDefaults(self, defaultDebugMode, defaultNoQueue, defaultLogAge):

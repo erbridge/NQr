@@ -211,7 +211,7 @@ class _ConnectionMonitor(util.BaseThread):
         message = ""
         while byte != "\n":
             byte = self._conn.recv(1)
-            if byte == "":
+            if not byte:
                 raise RuntimeError("socket connection broken")
             message += byte
         return message
@@ -1765,6 +1765,13 @@ class MainWindow(wx.Frame, util.EventPoster):
 ##                        self.enqueueTrack(thirdTrack)
 
     def refreshSelectedTrack(self, traceCallback=None):
+        """Refresh the selected track's data in the track list.
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track, traceCallback=traceCallback)
         self._track.getScore(
@@ -1773,6 +1780,13 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.populateDetails(self._track, traceCallback=traceCallback)
 
     def refreshSelectedTrackScore(self, traceCallback=None):
+        """Refresh the selected track's score in the track list.
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         self.refreshScore(self._index, self._track, traceCallback=traceCallback)
         self._track.getScoreValue(
             lambda thisCallback, score: self.setScoreSliderPosition(score),
@@ -1780,6 +1794,20 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.populateDetails(self._track, traceCallback=traceCallback)
 
     def refreshTrack(self, index, track, traceCallback=None):
+        """Refresh the track's data at position `index` in the track list.
+        
+        Arguments:
+        
+        - index: the index of the track to refresh.
+        
+        - track: the track object to retrieve the data from.
+        
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         self.refreshArtist(index, track)
         self.refreshTitle(index, track)
         self.refreshScore(index, track, traceCallback=traceCallback)
@@ -1787,14 +1815,46 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.refreshPreviousPlay(index, track)
 
     def refreshArtist(self, index, track):
+        """Refresh the track's artist at position `index` in the track list.
+        
+        Arguments:
+        
+        - index: the index of the track to refresh.
+        
+        - track: the track object to retrieve the data from.
+        
+        """
         self._trackList.SetStringItem(index, 0, track.getArtist())
         self._trackList.RefreshItem(index)
 
     def refreshTitle(self, index, track):
+        """Refresh the track's title at position `index` in the track list.
+        
+        Arguments:
+        
+        - index: the index of the track to refresh.
+        
+        - track: the track object to retrieve the data from.
+        
+        """
         self._trackList.SetStringItem(index, 1, track.getTitle())
         self._trackList.RefreshItem(index)
 
     def refreshScore(self, index, track, traceCallback=None):
+        """Refresh the track's score at position `index` in the track list.
+        
+        Arguments:
+        
+        - index: the index of the track to refresh.
+        
+        - track: the track object to retrieve the data from.
+        
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         multicompletion = util.MultiCompletion(
             3,
             lambda isScored, scoreValue, score, index=index:
@@ -1823,6 +1883,21 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._trackList.RefreshItem(index)
         
     def refreshLastPlayed(self, index, track, traceCallback=None):
+        """Refresh the track's last played time at position `index`
+        in the track list.
+        
+        Arguments:
+        
+        - index: the index of the track to refresh.
+        
+        - track: the track object to retrieve the data from.
+        
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         track.getLastPlay(
             lambda thisCallback, lastPlayed, index=index:
                 self._refreshLastPlayedCompletion(index, lastPlayed),
@@ -1835,6 +1910,16 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._trackList.RefreshItem(index)
 
     def refreshPreviousPlay(self, index, track):
+        """Refresh the track's previous play time at position `index`
+        in the track list.
+        
+        Arguments:
+        
+        - index: the index of the track to refresh.
+        
+        - track: the track object to retrieve the data from.
+        
+        """
         previous = track.getPreviousPlay()
         if previous is not None:
             self._trackList.SetStringItem(index, 4,
@@ -1842,6 +1927,13 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._trackList.RefreshItem(index)
 
     def selectTrack(self, index):
+        """Select the track at position `index` in the track list.
+        
+        Arguments:
+        
+        - index: the index of the track to refresh.
+        
+        """
         self._logger.debug("Selecting track in position " + str(index) + ".")
         try:
             self._trackList.SetItemState(
@@ -1852,6 +1944,18 @@ class MainWindow(wx.Frame, util.EventPoster):
                 raise
         
     def populateDetails(self, track, traceCallback=None):
+        """Populate the details panel with `track`'s data.
+        
+        Arguments:
+        
+        - track: the track object to retrieve the data from.
+        
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         # FIXME: The first populateDetails seems to produce a larger font than
         #        subsequent calls in Mac OS.
         self._logger.debug("Collecting details for details panel.")
@@ -1898,7 +2002,7 @@ class MainWindow(wx.Frame, util.EventPoster):
             detailString += "    \tPlayed at:  \t" + lastPlayed
             
         tagString = self._updateTagMenu(tags)
-        if tagString != "":
+        if tagString:
             detailString += "\nTags:  \t" + tagString
             
         detailString += "\nFilepath:      " + track.getPath()
@@ -1910,18 +2014,54 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._details.SetInsertionPoint(0)
 
     def addToDetails(self, detail):
+        """Add text to the details panel.
+        
+        Arguments:
+        
+        - detail: the string to add to the end of the details panel.
+        
+        """
         self._details.AppendText(detail)
 
     def clearDetails(self):
+        """Empty the details panel."""
         self._logger.debug("Clearing details panel.")
         self._details.Clear()
 
     def setTag(self, track, tagID, traceCallback=None):
+        """Give a track a tag.
+        
+        Arguments:
+        
+        - track: the track object to tag.
+        
+        - tagID: the ID of the tag to attach to the track.
+        
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         self._logger.debug("Tagging track.")
         self._tagMenu.Check(tagID, True)
         track.setTag(self._allTags[tagID], traceCallback=traceCallback)
 
     def unsetTag(self, track, tagID, traceCallback=None):
+        """Remove a tag from a track.
+        
+        Arguments:
+        
+        - track: the track object to untag.
+        
+        - tagID: the ID of the tag to remove from the track.
+        
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         self._logger.info("Untagging track.")
         self._tagMenu.Check(tagID, False)
         track.unsetTag(self._allTags[tagID], traceCallback=traceCallback)
@@ -1937,7 +2077,7 @@ class MainWindow(wx.Frame, util.EventPoster):
             tagString += tag + ", "
             tagID = self._getTagID(tag)
             self._tagMenu.Check(tagID, True)
-        if tagString != "":
+        if tagString:
             tagString = tagString[:-2]
         return tagString
 
@@ -1972,13 +2112,23 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._prefsFactory.writePrefs()
 
     def getPrefsPage(self, parent, logger):
-        return PrefsPage(
+        """Return an instance of `_PrefsPage`.
+        
+        Arguments:
+        
+        - parent: the parent of the `wx.Panel` returned.
+        
+        - logger: the logger for the `_PrefsPage` to post to.
+        
+        """
+        return _PrefsPage(
             parent, self._configParser, logger, self._defaultPlayDelay,
             self._defaultInactivityTime, self._defaultIgnore,
             self._defaultHaveLogPanel, self._defaultRescanOnStartup,
             self._defaultDefaultDirectory, self._defaultTrackCheckDelay), "GUI"
 
     def loadSettings(self):
+        """Load preferences from file."""
         try:
             self._configParser.add_section("GUI")
         except ConfigParser.DuplicateSectionError:
@@ -2062,12 +2212,47 @@ class MainWindow(wx.Frame, util.EventPoster):
             self._weightWidth = 80
 
 
-class PrefsPage(util.BasePrefsPage):
+class _PrefsPage(util.BasePrefsPage):
+    
+    """Extend `util.BasePrefsPage` to hold advanced preference options."""
     
     def __init__(self, parent, configParser, logger, defaultPlayDelay,
                  defaultInactivityTime, defaultIgnore, defaultHaveLogPanel,
                  defaultRescanOnStartup, defaultDefaultDirectory,
                  defaultTrackCheckDelay):
+        """Extend `util.BasePrefsPage.__init__()` to create controls.
+        
+        Arguments:
+        
+        - parent: the parent of the `wx.Panel` created.
+        
+        - configParser: the `ConfigParser.SafeConfigParser()` configured
+          to read from the settings file.
+          
+        - logger: the logger to post log messages to.
+        
+        - defaultPlayDelay: the default delay between a track change and a
+          play record being added to the database.
+        
+        - defaultInactivityTime: the default number of milliseconds to
+          wait in between user action before assuming the user is inactive.
+                  
+        - defaultIgnore: True if, by default, tracks not in the database
+          should be ignored. False otherwise.
+          
+        - defaultHaveLogPanel: True if, by default, a panel containing
+          log messages should be created. False otherwise.
+          
+        - defaultRescanOnStartup: True if, by default, the watch list in the
+          database should be rescanned for changes on startup. False otherwise.
+          
+        - defaultDefaultDirectory: the default starting directory for
+          file/directory dialogs.
+        
+        - defaultTrackCheckDelay: the default delay between checks of
+          `player` for track changes and end of playlist.
+        
+        """
         util.BasePrefsPage.__init__(self, parent, configParser, logger, "GUI",
                                     defaultPlayDelay, defaultInactivityTime,
                                     defaultIgnore, defaultHaveLogPanel,
@@ -2204,19 +2389,19 @@ class PrefsPage(util.BasePrefsPage):
     def _onPlayDelayChange(self, e):
         if util.validateNumeric(self._playDelayControl):
             playDelay = self._playDelayControl.GetLineText(0)
-            if playDelay != "":
+            if playDelay:
                 self._settings["playDelay"] = int(playDelay)
 
     def _onInactivityTimeChange(self, e):
         if util.validateNumeric(self._inactivityTimeControl):
             inactivityTime = self._inactivityTimeControl.GetLineText(0)
-            if inactivityTime != "":
+            if inactivityTime:
                 self._settings["inactivityTime"] = int(inactivityTime)
                 
     def _onTrackCheckChange(self, e):
         if util.validateNumeric(self._trackCheckControl):
             trackCheckDelay = self._trackCheckControl.GetLineText(0)
-            if trackCheckDelay != "":
+            if trackCheckDelay:
                 self._settings["trackCheckDelay"] = float(trackCheckDelay/1000)
 
     def _onIgnoreChange(self, e):

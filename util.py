@@ -126,7 +126,7 @@ def _doRough(time, bigDivider, bigName, littleDivider, littleName):
     if big != 0:
         timeString = str(big) + " " + bigName + plural(big)
     if little != 0:
-        if timeString is not "":
+        if timeString:
             timeString  += " " + str(little) + " " + littleName + plural(little)
         else:
             timeString = str(little) + " " + littleName + plural(little)

@@ -89,9 +89,7 @@ class Randomizer:
                         pass
                     continue
                 newPart = ""
-            if newPart != "":
-                return False
-        return True
+        return not newPart
 
     def chooseTracks(self, number, exclude, completion, traceCallback=None,
                      tags=None):
@@ -311,13 +309,13 @@ class PrefsPage(util.BasePrefsPage):
 
     def _onWeightChange(self, e):
         weight = self._weightControl.GetLineText(0)
-        if weight != "":
+        if weight:
             self._settings["weightAlgorithm"] = weight
 
     def _onThresholdChange(self, e):
         if util.validateNumeric(self._thresholdControl):
             threshold = self._thresholdControl.GetLineText(0)
-            if threshold != "":
+            if threshold:
                 self._settings["scoreThreshold"] = int(threshold)
 
     def _setDefaults(self, defaultScoreThreshold, defaultWeight):
