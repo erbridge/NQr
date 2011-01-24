@@ -1062,7 +1062,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         settings = {}
         if self.IsMaximized():
             settings["maximize"] = True
-        else:
+        elif not self.IsIconized():
             settings["maximize"] = False
             windowRect = self.GetRect()
             settings["xCoord"] = windowRect.GetX()
@@ -1308,7 +1308,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         settings = {}
         if self.IsMaximized():
             settings["maximize"] = True
-        else:
+        elif not self.IsIconized():
             settings["maximize"] = False
             windowRect = self.GetRect()
             settings["height"] = windowRect.GetHeight()
