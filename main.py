@@ -115,8 +115,8 @@ class Main(wx.App):
             
         elif self._player == "XMMS":
             self._logger.debug("Loading XMMS module.")
-            import xmms
-            player = xmms.XMMS(self._loggerFactory, self._noQueue,
+            import xmmsunix
+            player = xmmsunix.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
                                self._safePlayers, trackFactory)
             
