@@ -1824,11 +1824,11 @@ class Database(_DatabaseEventHandler):
     def unsetTag(self, track, tagName, traceCallback=None):
         multicompletion = util.MultiCompletion(3, self._unsetTagCompletion)
         track.getID(
-            lambda trackID, multicompletion=multicompletion:
+            lambda thisCallback, trackID, multicompletion=multicompletion:
                 multicompletion(0, trackID))
         self.getTagNameID(
             tagName,
-            lambda tagNameID, multicompletion=multicompletion:
+            lambda thisCallback, tagNameID, multicompletion=multicompletion:
                 multicompletion(1, tagNameID))
         multicompletion(2, traceCallback)
         

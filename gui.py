@@ -13,7 +13,6 @@
 # TODO: Make keyboard shortcuts make sense for Macs
 #       (possibly default behaviour).
 # TODO: Make details resizable (splitter window?).
-# TODO: Add tags to right click menu (without new?).
 # TODO: Give scores a drop down menu in the track list.
 # TODO: Add requeue next.
 # TODO: Add keyboard commands for (user defined) common ratings: like, love,
@@ -349,7 +348,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._logger.debug("Creating status bar.")
         self.CreateStatusBar()
         self._initCreateMenuBar()
-        self._initCreateTrackRightClickMenu()
+#        self._initCreateTrackRightClickMenu()
         self._initCreateMainPanel()
 
         self._logger.debug("Creating play delay timer.")
@@ -601,6 +600,7 @@ class MainWindow(wx.Frame, util.EventPoster):
             self._allTags[tagID] = tag
             self._addMenuItem(menu, tag, " Tag track with \'" + tag + "\'",
                               self._onTag, id=tagID, checkItem=True)
+        self._initCreateTrackRightClickMenu()
 
     def _initCreateOptionsMenu(self):
         self._logger.debug("Creating options menu.")
@@ -629,6 +629,7 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def _initCreateTrackRightClickMenu(self):
         self._logger.debug("Creating track right click menu.")
+        self._initCreateRightClickTagMenu()
         self._initCreateRightClickRateMenu()
         
         self._trackRightClickMenu = wx.Menu()
@@ -641,6 +642,9 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._trackRightClickMenu.AppendMenu(wx.NewId(), "&Rate",
                                              self._rightClickRateMenu)
         self._trackRightClickMenu.AppendSeparator()
+        self._trackRightClickMenu.AppendMenu(wx.NewId(), "&Tag",
+                                             self._rightClickTagMenu)
+        self._trackRightClickMenu.AppendSeparator()
         self._addMenuItem(self._trackRightClickMenu, "Re&queue Track",
                           " Add the selected track to the playlist",
                           self._onRequeue)
@@ -652,6 +656,15 @@ class MainWindow(wx.Frame, util.EventPoster):
                           " Reset the score of the current track",
                           self._onResetScore)
         self._bindMouseAndKeyEvents(self._trackRightClickMenu)
+        
+    def _initCreateRightClickTagMenu(self):
+        self._logger.debug("Creating right click tag menu.")
+        self._rightClickTagMenu = wx.Menu()
+        for (tagID, tag) in self._allTags.iteritems():
+            self._addMenuItem(self._rightClickTagMenu, tag,
+                              " Tag track with \'" + tag + "\'", self._onTag,
+                              id=tagID, checkItem=True)
+        self._bindMouseAndKeyEvents(self._rightClickTagMenu)        
         
     def _initCreateRightClickRateMenu(self):
         self._logger.debug("Creating rate menu.")
@@ -848,6 +861,8 @@ class MainWindow(wx.Frame, util.EventPoster):
             priority=1)
         
     def _onAboutCompletion(self, number, numberUnplayed, totals, oldest):
+        # FIXME: Write new dialog using str.center() and a listctrl or grid
+        #        for the table.
         self._logger.debug("Opening about dialog.")
         text = "\t  For all your NQing needs!\n"
         text += "\thttp://nqr.googlecode.com/\n\n"
@@ -857,22 +872,22 @@ class MainWindow(wx.Frame, util.EventPoster):
         scoreTableTitle = "\t     score\t|       number\n\t\t|\n"
         scoreTable = ""
         numberScored = 0
-        for total in totals:
+        for total in totals[::-1]:
             numberScored += total[1]
             score = str(total[0])
             if score[0] != "-":
                 score = " " + score
-            scoreTable = ("\t       " + score + "\t|            "
-                          + str(total[1]) + "\n" + scoreTable)
+            scoreTable += ("\t       " + score + "\t|          " +
+                           str(total[1]) + "\n")
             
         text += "- " + str(number - numberScored) + " unscored\n"
         text += "- " + str(numberUnplayed) + " unplayed\n"
-        text += ("- oldest unplayed track is roughly "
-                 + str(util.roughAge(oldest)) + "\n          ("+str(oldest)
-                 + " seconds) old\n\n\n")
+        text += ("- oldest unplayed track is roughly " +
+                 str(util.roughAge(oldest)) +
+                 "\n          ("+str(oldest) + " seconds) old\n\n\n")
         text += scoreTableTitle + scoreTable
 
-        dialog = wx.MessageDialog(self, text, "NQr", wx.OK)
+        dialog = wx.MessageDialog(self, text, "About NQr", wx.OK)
         dialog.ShowModal()
         dialog.Destroy()
         
@@ -1081,13 +1096,13 @@ class MainWindow(wx.Frame, util.EventPoster):
                 self._db.addTagName(tag)
                 tagID = wx.NewId()
                 self._allTags[tagID] = tag
-                tagMenu = self._tagMenu.AppendCheckItem(
-                    tagID, tag, " Tag track with " + tag)
+                self._addMenuItem(self._tagMenu, tag, " Tag track with " + tag,
+                                  self._onTag, id=tagID, checkItem=True)
+                self._addMenuItem(self._rightClickTagMenu, tag,
+                                  " Tag track with " + tag, self._onTag,
+                                  id=tagID, checkItem=True)
                 self.setTag(self._track, tagID)
-                self.populateDetails(self._track)
-
-                self.Bind(wx.EVT_MENU, self._onTag, tagMenu)
-                
+                self.populateDetails(self._track)                
             dialog.Destroy()
             self.resetInactivityTimer()
         except AttributeError as err:
@@ -1401,7 +1416,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.resetInactivityTimer()
         try:
             tagID = e.GetId()
-            if self._tagMenu.IsChecked(tagID): # Since clicking checks.
+            if e.Checked(): # Since clicking checks.
                 self.setTag(self._track, tagID)
             else:
                 self.unsetTag(self._track, tagID)
@@ -1679,9 +1694,11 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._trackList.SetStringItem(index, 1, track.getTitle())
         self._trackList.SetStringItem(index, 2, score)
         self._trackList.SetStringItem(index, 3, playedAt)
-        if lastPlayed is not None:
-            self._trackList.SetStringItem(
-                index, 4, util.roughAge(time.time() - lastPlayed))
+        if lastPlayed is None:
+            sinceLastPlayed = "Never"
+        else:
+            sinceLastPlayed = util.roughAge(time.time() - lastPlayed)
+        self._trackList.SetStringItem(index, 4, sinceLastPlayed)
         weight = track.getWeight()
         if weight is not None:
             self._trackList.SetStringItem(index, 5, str(weight))
@@ -1965,9 +1982,11 @@ class MainWindow(wx.Frame, util.EventPoster):
             priority=1, traceCallback=traceCallback)
         
     def _refreshLastPlayedCompletion(self, lastPlayed, index):
-        if lastPlayed is not None:
-            self._trackList.SetStringItem(
-                index, 4, util.roughAge(time.time() - lastPlayed))
+        if lastPlayed is None:
+            sinceLastPlayed = "Never"
+        else:
+            sinceLastPlayed = util.roughAge(time.time() - lastPlayed)
+        self._trackList.SetStringItem(index, 4, sinceLastPlayed)
         self._trackList.RefreshItem(index)
 
     def selectTrack(self, index):
@@ -2086,6 +2105,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         """
         self._logger.debug("Tagging track.")
         self._tagMenu.Check(tagID, True)
+        self._rightClickTagMenu.Check(tagID, True)
         track.setTag(self._allTags[tagID], traceCallback=traceCallback)
 
     def unsetTag(self, track, tagID, traceCallback=None):
@@ -2105,11 +2125,13 @@ class MainWindow(wx.Frame, util.EventPoster):
         """
         self._logger.info("Untagging track.")
         self._tagMenu.Check(tagID, False)
+        self._rightClickTagMenu.Check(tagID, False)
         track.unsetTag(self._allTags[tagID], traceCallback=traceCallback)
 
     def _resetTagMenu(self):
-        for tagID in self._allTags.keys():
+        for tagID in self._allTags.iterkeys():
             self._tagMenu.Check(tagID, False)
+            self._rightClickTagMenu.Check(tagID, False)
             
     def _updateTagMenu(self, tags):
         self._resetTagMenu()
@@ -2118,6 +2140,7 @@ class MainWindow(wx.Frame, util.EventPoster):
             tagString += tag + ", "
             tagID = self._getTagID(tag)
             self._tagMenu.Check(tagID, True)
+            self._rightClickTagMenu.Check(tagID, True)
         if tagString:
             tagString = tagString[:-2]
         return tagString
