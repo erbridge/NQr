@@ -409,6 +409,9 @@ class MainWindow(wx.Frame, util.EventPoster):
         wx.CallAfter(self._onStart)
             
     def _onStart(self):
+        self.Bind(wx.EVT_SIZE, self._onResize, self)
+        self.Bind(wx.EVT_MOVE, self._onMove, self)
+        
         if util.getUpdate() is not None:
             util.doUpdate()
         self._trackMonitor.start_()
@@ -782,6 +785,8 @@ class MainWindow(wx.Frame, util.EventPoster):
                   self._trackList)
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._onTrackActivate,
                   self._trackList)
+        self.Bind(wx.EVT_LIST_COL_END_DRAG, self._onResizeColumns,
+                  self._trackList)
         self._bindMouseAndKeyEvents(self._trackList)
         
 #    def _compareTracksCompletion(self, firstTrack, firstTrackID, secondTrackID):
@@ -967,7 +972,6 @@ class MainWindow(wx.Frame, util.EventPoster):
             sys.stderr = self._stderr
             self._loggerFactory.refreshStreamHandler()
         self._socketMonitor.abort()
-        self._saveWindowAndColumnSizes()
         
         for lock in locks:
             lock.acquire()
@@ -1051,6 +1055,15 @@ class MainWindow(wx.Frame, util.EventPoster):
                 raise
         self._eventLogger("GUI Mouse or Key Press", e)
         self.resetInactivityTimer()
+        e.Skip()
+        
+    def _onMove(self, e):
+        self._eventLogger("GUI Move", e)
+        windowRect = self.GetRect()
+        settings = {}
+        settings["xCoord"] = windowRect.GetX()
+        settings["yCoord"] = windowRect.GetY()
+        self._saveSettings(settings)
         e.Skip()
         
     def _onNewTag(self, e):
@@ -1285,6 +1298,29 @@ class MainWindow(wx.Frame, util.EventPoster):
                 raise
             self._logger.error("No track selected.")
             return
+        
+    def _onResize(self, e):
+        # FIXME: Does not work as intended if window is maximized
+        #        (possibly use wx.EVT_MAXIMIZE).
+        self._eventLogger("GUI Resize", e)
+        windowRect = self.GetRect()
+        settings = {}
+        settings["height"] = windowRect.GetHeight()
+        settings["width"] = windowRect.GetWidth()
+        self._saveSettings(settings)
+        e.Skip()
+        
+    def _onResizeColumns(self, e):
+        self._eventLogger("GUI Resize Columns", e)
+        settings = {}
+        settings["artistWidth"] = self._trackList.GetColumnWidth(0)
+        settings["titleWidth"] = self._trackList.GetColumnWidth(1)
+        settings["scoreWidth"] = self._trackList.GetColumnWidth(2)
+        settings["playedAtWidth"] = self._trackList.GetColumnWidth(3)
+        settings["lastPlayedWidth"] = self._trackList.GetColumnWidth(4)
+        settings["weightWidth"] = self._trackList.GetColumnWidth(5)
+        self._saveSettings(settings)
+        e.Skip()
         
     def _onRestoreSettings(self, e):
         self._eventLogger("GUI Restore Settings", e)
@@ -2088,20 +2124,8 @@ class MainWindow(wx.Frame, util.EventPoster):
     def _setPositionAndSize(self):
         self.SetDimensions(self._xCoord, self._yCoord, self._width,
                            self._height, wx.SIZE_USE_EXISTING)
-            
-    def _saveWindowAndColumnSizes(self):
-        settings = {}
-        windowRect = self.GetScreenRect()
-        settings["height"] = windowRect.GetHeight()
-        settings["width"] = windowRect.GetWidth()
-        settings["xCoord"] = windowRect.GetX()
-        settings["yCoord"] = windowRect.GetY()
-        settings["artistWidth"] = self._trackList.GetColumnWidth(0)
-        settings["titleWidth"] = self._trackList.GetColumnWidth(1)
-        settings["scoreWidth"] = self._trackList.GetColumnWidth(2)
-        settings["playedAtWidth"] = self._trackList.GetColumnWidth(3)
-        settings["lastPlayedWidth"] = self._trackList.GetColumnWidth(4)
-        settings["weightWidth"] = self._trackList.GetColumnWidth(5)
+        
+    def _saveSettings(self, settings):
         try:
             self._configParser.add_section("GUI")
         except ConfigParser.DuplicateSectionError:
