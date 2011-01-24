@@ -1059,10 +1059,14 @@ class MainWindow(wx.Frame, util.EventPoster):
         
     def _onMove(self, e):
         self._eventLogger("GUI Move", e)
-        windowRect = self.GetRect()
         settings = {}
-        settings["xCoord"] = windowRect.GetX()
-        settings["yCoord"] = windowRect.GetY()
+        if self.IsMaximized():
+            settings["maximize"] = True
+        else:
+            settings["maximize"] = False
+            windowRect = self.GetRect()
+            settings["xCoord"] = windowRect.GetX()
+            settings["yCoord"] = windowRect.GetY()
         self._saveSettings(settings)
         e.Skip()
         
@@ -1300,13 +1304,15 @@ class MainWindow(wx.Frame, util.EventPoster):
             return
         
     def _onResize(self, e):
-        # FIXME: Does not work as intended if window is maximized
-        #        (possibly use wx.EVT_MAXIMIZE).
         self._eventLogger("GUI Resize", e)
-        windowRect = self.GetRect()
         settings = {}
-        settings["height"] = windowRect.GetHeight()
-        settings["width"] = windowRect.GetWidth()
+        if self.IsMaximized():
+            settings["maximize"] = True
+        else:
+            settings["maximize"] = False
+            windowRect = self.GetRect()
+            settings["height"] = windowRect.GetHeight()
+            settings["width"] = windowRect.GetWidth()
         self._saveSettings(settings)
         e.Skip()
         
@@ -2124,6 +2130,8 @@ class MainWindow(wx.Frame, util.EventPoster):
     def _setPositionAndSize(self):
         self.SetDimensions(self._xCoord, self._yCoord, self._width,
                            self._height, wx.SIZE_USE_EXISTING)
+        if self._maximize:
+            self.Maximize(True)
         
     def _saveSettings(self, settings):
         try:
@@ -2233,6 +2241,10 @@ class MainWindow(wx.Frame, util.EventPoster):
             self._weightWidth = self._configParser.getint("GUI", "weightWidth")
         except ConfigParser.NoOptionError:
             self._weightWidth = 80
+        try:
+            self._maximize = self._configParser.getboolean("GUI", "maximize")
+        except ConfigParser.NoOptionError:
+            self._maximize = False
 
 
 class _PrefsPage(util.BasePrefsPage):
