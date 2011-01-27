@@ -124,7 +124,7 @@ class iTunes(mediaplayer.MediaPlayer):
     def getShuffle(self):
         self.launchBackground()
         self._sendDebug("Retrieving shuffle status.")
-        return self._playlist.shuffle() # FIXME: Prob doesn't work.
+        return self._playlist.shuffle() # FIXME: Probably doesn't work.
 
     def setShuffle(self, status):
         self.launchBackground()

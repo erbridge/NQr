@@ -127,7 +127,8 @@ class Main(wx.App):
                                         self._configParser, self._defaultPlayer,
                                         self._safePlayers, trackFactory)
         
-        elif self._player == "iTunes" and util.SYSTEM_NAME in util.WINDOWS_NAMES:
+        elif self._player == "iTunes" and (util.SYSTEM_NAME in
+                                           util.WINDOWS_NAMES):
             self._logger.debug("Loading iTunes module.")
             import ituneswindows
             player = ituneswindows.iTunes(self._loggerFactory, self._noQueue,

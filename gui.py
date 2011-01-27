@@ -20,6 +20,7 @@
 # TODO: Swap some menu ids for stock items:
 #       http://docs.wxwidgets.org/2.9/page_stockitems.html
 # TODO: Change dialog buttons to say "import" rather than "open"/"choose"?
+# TODO: Add last played to details.
 #
 # FIXME: Track refreshes should only refresh things that will change - no
 #        longer necessary?
@@ -32,6 +33,8 @@
 # FIXME: Make all clicks/key presses reset inactivity timer (done,
 #        needs testing).
 # FIXME: ClearCache breaks references to tracks in cache.
+# FIXME: Make right click tag menu and main tag menu separator only appear
+#        when there are some tags.
 
 #from collections import deque
 import ConfigParser
@@ -587,6 +590,7 @@ class MainWindow(wx.Frame, util.EventPoster):
                           " Create new tag and tag track with it",
                           self._onNewTag)
         self._tagMenu.AppendSeparator()
+        # Note: this creates the right click menu.
         self._db.getAllTagNames(
             lambda thisCallback, tags, menu=self._tagMenu:
                 self._getAllTagsCompletion(menu, tags),
@@ -1416,7 +1420,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.resetInactivityTimer()
         try:
             tagID = e.GetId()
-            if e.Checked(): # Since clicking checks.
+            if e.IsChecked():
                 self.setTag(self._track, tagID)
             else:
                 self.unsetTag(self._track, tagID)
@@ -1697,7 +1701,8 @@ class MainWindow(wx.Frame, util.EventPoster):
         if lastPlayed is None:
             sinceLastPlayed = "Never"
         else:
-            sinceLastPlayed = util.roughAge(time.time() - lastPlayed)
+            sinceLastPlayed = (util.roughAge(time.time() - lastPlayed) +
+                               " earlier")
         self._trackList.SetStringItem(index, 4, sinceLastPlayed)
         weight = track.getWeight()
         if weight is not None:
@@ -1985,7 +1990,8 @@ class MainWindow(wx.Frame, util.EventPoster):
         if lastPlayed is None:
             sinceLastPlayed = "Never"
         else:
-            sinceLastPlayed = util.roughAge(time.time() - lastPlayed)
+            sinceLastPlayed = (util.roughAge(time.time() - lastPlayed) +
+                               " earlier")
         self._trackList.SetStringItem(index, 4, sinceLastPlayed)
         self._trackList.RefreshItem(index)
 

@@ -179,7 +179,7 @@ class iTunes(mediaplayer.MediaPlayer):
             self._sendDebug(
                 "Retrieving path of track at position " + str(trackPosition)
                 + ".")
-        # FIXME: prob doesn't work
+        # FIXME: Probably doesn't work.
         rawPath = self._getTrackAtPos(trackPosition).FilePath
         if logging:
             self._sendDebug("Converting path into unicode.")
