@@ -184,7 +184,7 @@ class _DatabaseEventHandler(wx.EvtHandler, util.EventPoster):
         - track: the track object to get the ID for.
         
         - completion: the closure which must take arguments of
-          (newTraceCallback, trackID).
+          (traceCallback, trackID).
         
         
         Keyword arguments:
@@ -388,7 +388,7 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
         - directory: the path of the directory to walk.
         
         - callback: the closure to call on all files in the directory.
-          Must take arguments of (newTraceCallback, path).
+          Must take arguments of (traceCallback, path).
                 
         
         Keyword arguments:
@@ -408,7 +408,7 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
         mycompletion = (lambda thisCallback, directoryID, directory=directory:
                             self._maybeAddToWatch(directory, directoryID,
                                                   thisCallback))
-        self.getDirectoryID(directory, mycompletion,
+        self._getDirectoryID(directory, mycompletion,
                             traceCallback=traceCallback)
         self.walkDirectoryNoWatch(directory, callback,
                                   traceCallback=traceCallback)
@@ -455,7 +455,7 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
         - directory: the path of the directory to walk.
         
         - callback: the closure to call on all files in the directory.
-          Must take arguments of (newTraceCallback, path).
+          Must take arguments of (traceCallback, path).
                 
         
         Keyword arguments:
@@ -480,32 +480,6 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
                 self.walkDirectoryNoWatch(path, callback, traceCallback)
             else:
                 callback(traceCallback, path)
-    
-    def getDirectoryID(self, directory, completion, traceCallback=None):
-        """Get a directory's ID from the watch list asynchronously.
-        
-        Arguments:
-        
-        - directory: the path of the directory to add.
-        
-        - completion: the closure which must take arguments of
-          (newTraceCallback, id). 
-        
-        
-        Keyword arguments:
-        
-        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
-        """
-        directory = os.path.realpath(directory)
-        self.queue(
-            lambda thisCallback, cursor, directory=directory,
-            completion=completion:
-                self._doGetDirectoryID(directory, completion, thisCallback),
-            traceCallback)
-
-    def _doGetDirectoryID(self, directory, completion, traceCallback):
-        self._getDirectoryID(directory, completion, traceCallback=traceCallback)
 
     def rescanDirectories(self, traceCallback=None):
         """Rescan the watch list for changes to tracks or new files
@@ -933,6 +907,25 @@ class Database(_DatabaseEventHandler):
 
     def addTrack(self, path=None, track=None, completion=None, priority=None,
                  traceCallback=None):
+        """Add a track to the database, if it is not already present.
+        
+        Keyword arguments:
+        
+        - path=None: the path of the track to add or None.
+          (One of `track` and `path` must not be None)
+        
+        - track=None: the track to add or None.
+          (One of `track` and `path` must not be None)
+        
+        - completion=None: the closure which must take arguments of
+          (traceCallback, id).
+        
+        - priority=None: the priority to put the completion in the queue.
+          If None, use the default for this thread.
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         if path is None:
             if track is None:
                 self._logger.error("No track has been identified.")
@@ -998,8 +991,18 @@ class Database(_DatabaseEventHandler):
     #        (trackid); with some select trackid, max(datetime) from plays
     #        group by trackid; thrown in.
     def getAllTrackIDs(self, completion, traceCallback=None):
-        """
-           Returns a list of tuples of the form (trackID, )
+        """Get a list of tuples of the form (trackID, ).
+        
+        Arguments:
+        
+        - completion: the closure which must take arguments of
+          (traceCallback, idTupleList).
+          
+          
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
         """
         self._logger.debug("Retrieving all track IDs.")
         self._executeAndFetchAll("select trackid from tracks", (), completion,
@@ -1018,30 +1021,78 @@ class Database(_DatabaseEventHandler):
         completion(traceCallback, trackID)
         
     def maybeGetIDFromPath(self, path, completion, traceCallback=None):
+        """Get the id of a track from the database, if it exists.
+        
+        Arguments:
+        
+        - path: the path of the track to add.
+        
+        - completion: the closure which must take arguments of
+          (traceCallback, id).
+
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         path = os.path.realpath(path)
         self._executeAndFetchOneOrNull(
             "select trackid from tracks where path = ?", (path, ), completion,
             traceCallback=traceCallback)
         
-    def getDirectoryID(self, directory, completion, traceCallback=None):
-        self._getDirectoryID(directory, completion,
-                             traceCallback=traceCallback)
-        
     def addDirectory(self, directory, traceCallback=None):
+        """Add a directory and all sub-directories to the database
+        (and watch list).
+        
+        Arguments:
+        
+        - directory: the path of the directory to add.
+                
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         self._directoryWalkThread.addDirectory(
             directory, traceCallback=traceCallback)
     
     def addDirectoryNoWatch(self, directory, traceCallback=None):
+        """Add a directory and all sub-directories to the database.
+        
+        Arguments:
+        
+        - directory: the path of the directory to add.
+                
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         self._directoryWalkThread.addDirectoryNoWatch(
             directory, traceCallback=traceCallback)
 
     def removeDirectory(self, directory, traceCallback=None):
+        """Remove a directory from the watch list.
+        
+        Arguments:
+        
+        - directory: the path of the directory to add.
+                
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         mycompletion = (lambda thisCallback, directoryID, directory=directory:
                             self._removeDirectoryCompletion(directory,
                                                             directoryID,
                                                             thisCallback))
-        self.getDirectoryID(directory, mycompletion,
-                            traceCallback=traceCallback)
+        self._getDirectoryID(directory, mycompletion,
+                             traceCallback=traceCallback)
                 
     def _removeDirectoryCompletion(self, directory, directoryID,
                                    traceCallback):
@@ -1062,11 +1113,19 @@ class Database(_DatabaseEventHandler):
                 "\'" + directory + "\' is not in the watch list.")
 
     def rescanDirectories(self, traceCallback=None):
+        """Rescan the watch list for changes to tracks or new files.
+        
+        Keyword arguments:
+        
+        - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
+        
+        """
         self._directoryWalkThread.rescanDirectories(
             traceCallback=traceCallback)
 
-    # FIXME: Needs to deal with two links using the same first or second track.
     def addLink(self, firstTrack, secondTrack, traceCallback=None):
+        # FIXME: Needs to deal with two links using the same first or
+        #        second track.
         self.getLinkID(
             firstTrack, secondTrack,
             lambda thisCallback, firstTrackID, secondTrackID, linkID:

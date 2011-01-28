@@ -5,6 +5,9 @@
 #       database when you spot a metadata change. (Ben)
 #       * but how would you get them to find out that their metadata
 #       has changed without querying the file all the time? (Felix)
+#
+# FIXME: Possibly change clear cache to update track metadata for all
+#        tracks in the cache?
 
 import os.path
 import time
