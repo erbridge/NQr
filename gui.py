@@ -1705,8 +1705,11 @@ class MainWindow(wx.Frame, util.EventPoster):
                                " earlier")
         self._trackList.SetStringItem(index, 4, sinceLastPlayed)
         weight = track.getWeight()
-        if weight is not None:
-            self._trackList.SetStringItem(index, 5, str(weight))
+        if weight is None:
+            weight = "-"
+        else:
+            weight = str(weight)
+        self._trackList.SetStringItem(index, 5, weight)
         self._trackList.SetItemData(index, trackID)
         if select:
             self.selectTrack(index)
