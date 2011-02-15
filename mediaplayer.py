@@ -81,11 +81,15 @@ class MediaPlayer(util.EventPoster):
             self.deleteTrack(0)
         
     def hasNextTrack(self, traceCallback=None):
-        try:
-            self.getTrackPathAtPos(self.getCurrentTrackPos() + 1, traceCallback)
-            return True
-        except errors.NoTrackError, TypeError:
+#        try:
+#            self.getTrackPathAtPos(self.getCurrentTrackPos() + 1, traceCallback)
+#            return True
+#        except errors.NoTrackError, TypeError:
+#            return False
+        if self.getPlaylistLength() <= (self.getCurrentTrackPos() + 1):
             return False
+        else:
+            return True
 
     # FIXME: Gets confused if the playlist is empty (in winamp): sets currently
     #        playing track to first track in the list, but continues to play the

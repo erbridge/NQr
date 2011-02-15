@@ -87,6 +87,7 @@ class Winamp(mediaplayer.MediaPlayer):
         
     def _insertTrack(self, filepath, position):
         self.launchBackground()
+        # FIXME: Has problems with unicode strings.
         self._sendInfo(
             "Inserting \'" + filepath + "\' into playlist position "
             + str(position) + ".")

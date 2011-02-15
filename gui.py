@@ -107,7 +107,7 @@ class _TrackMonitor(util.BaseThread):
                                                    self._currentTrackPath,
                                                    thisCallback))
             self._logging = True
-            self._enqueueing = True
+#            self._enqueueing = True
             
     def _checkHasNextTrack(self, thisCallback):
         try:
