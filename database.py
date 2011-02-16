@@ -1,5 +1,5 @@
-# Database Control
-#
+"""Database control class module."""
+
 # TODO: Use a hash as a track identifier instead of path to allow for path
 #       changes - maybe use path as backup reference?
 # TODO: Add a function to remove the last play record (to undo the play)?
@@ -401,7 +401,7 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
         self.queue(
             lambda thisCallback, cursor, directory=directory, callback=callback:
                 self._doWalkDirectory(directory, callback, thisCallback),
-            traceCallback=traceCallback)
+            traceCallback)
 
     def _doWalkDirectory(self, directory, callback, traceCallback):
         self.postDebugLog("Adding \'" + directory + "\' to the watch list.")
@@ -409,7 +409,7 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
                             self._maybeAddToWatch(directory, directoryID,
                                                   thisCallback))
         self._getDirectoryID(directory, mycompletion,
-                            traceCallback=traceCallback)
+                             traceCallback=traceCallback)
         self.walkDirectoryNoWatch(directory, callback,
                                   traceCallback=traceCallback)
 
