@@ -37,7 +37,7 @@ class PrefsWindow(wx.Frame):
         self._logger = logger
         self._gui = parent
         self._modules = modules
-        if self._modules[0] == parent:
+        if self._modules[0] != parent:
             self._modules.insert(0, parent)
         self._configParser = configParser
         self._filename = filename
