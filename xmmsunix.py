@@ -34,6 +34,16 @@ class XMMS(mediaplayer.MediaPlayer):
     def _addTrack(self, filepath):
         xmms.control.playlist_add([filepath])
 
+    def _insertTrack(self, filepath, pos):
+        # XMMS doesn't have an insert, so do this the hard way...
+        n = self.getPlaylistLength()
+        tracks = [self._getTrackPathAtPos(i) for i in range(0, n)]
+        tracks.insert(pos, filepath)
+        xmms.control.playlist(tracks, False)
+
+    def playAtPosition(self, pos):
+        xmms.control.set_playlist_pos(pos)
+
     def deleteTrack(self, position):
         xmms.control.playlist_delete(position)
 
