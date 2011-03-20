@@ -65,3 +65,5 @@ class XMMS(mediaplayer.MediaPlayer):
     def previousTrack(self):
         xmms.control.playlist_prev()
 
+    def close(self):
+        xmms.control.quit()
