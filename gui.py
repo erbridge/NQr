@@ -873,7 +873,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         text += "\t              Version - " + util.VERSION_NUMBER + "\n\n\n"
         text += str(number) + " tracks in library:\n\n"
         
-        scoreTableTitle = "\t     score\t|       number\n\t\t|\n"
+        scoreTableTitle = "\t     score\t|       number\n\t          \t|\n"
         scoreTable = ""
         numberScored = 0
         for total in totals[::-1]:
