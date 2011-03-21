@@ -115,6 +115,13 @@ class Main(wx.App):
             
         elif self._player == "XMMS":
             self._logger.debug("Loading XMMS module.")
+            
+            # Launch if its not running. Note that if it is launched,
+            # then ctl-c will kill it. Use close_fds or it inherits
+            # the socket and we then can't restart nqr.
+            import subprocess
+            subprocess.Popen("xmms", close_fds=True)
+            
             import xmmsunix
             player = xmmsunix.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
