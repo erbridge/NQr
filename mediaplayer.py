@@ -110,6 +110,8 @@ class MediaPlayer(util.EventPoster):
         if trackPosition is None:
             raise errors.NoTrackError(trace=util.getTrace(traceCallback))
         path = self._getTrackPathAtPos(trackPosition, traceCallback, logging)
+        if path is None:
+            return None
         return os.path.realpath(path)
         
     def getUnplayedTrackIDs(self, db, completion, traceCallback=None):
