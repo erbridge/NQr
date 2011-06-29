@@ -1874,8 +1874,8 @@ class Database(_DatabaseEventHandler):
                           traceCallback):
         if tagName not in tagNames:
             mycompletion = (lambda thisCallback, tagName=tagName:
-                                self._logger.info("Tagging track with '" +
-                                                  tagName + "'."))
+                                self._logger.debug("Tagging track with '" +
+                                                   tagName + "'."))
             self._execute("insert into tags (trackid, tagnameid) values (?, ?)",
                           (trackID, tagNameID), mycompletion,
                           traceCallback=traceCallback)
