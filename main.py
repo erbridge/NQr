@@ -126,6 +126,15 @@ class Main(wx.App):
             player = xmmsunix.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
                                self._safePlayers, trackFactory)
+
+        elif self._player == "Squeeze":
+            self._logger.debug("Loading Squeezebox module,")
+
+            import squeeze
+            player = squeeze.Squeezebox(self._loggerFactory, self._noQueue,
+                                        self._configParser, self._defaultPlayer,
+                                        self._safePlayers, trackFactory)
+            
             
         elif self._player == "iTunes" and util.SYSTEM_NAME in util.MAC_NAMES:
             self._logger.debug("Loading iTunes module.")
@@ -212,7 +221,7 @@ class Main(wx.App):
             self._safePlayers = ["Winamp", "iTunes"]
             self._defaultPlayer = "Winamp"
         elif util.SYSTEM_NAME in util.FREEBSD_NAMES:
-            self._safePlayers = ["XMMS"]
+            self._safePlayers = ["XMMS", "Squeeze"]
             self._defaultPlayer = "XMMS"
         elif util.SYSTEM_NAME in util.MAC_NAMES:
             self._safePlayers = ["iTunes"]
