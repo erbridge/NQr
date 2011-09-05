@@ -50,6 +50,9 @@ class Player:
     def previousTrack(self):
         self.tellPlaylist('index', '-1')
 
+    def playlistAddTrack(self, filepath):
+        self.tellPlaylist('add', filepath)
+
 class SQDriver:
     def __init__(self):
         self.__telnet = telnetlib.Telnet('localhost', 9090)
@@ -130,6 +133,9 @@ class SQDriver:
     def previousTrack(self):
         self.__player.previousTrack()
 
+    def playlistAddTrack(self, filepath):
+        self.__player.playlistAddTrack(filepath)
+
 class Squeezebox(mediaplayer.MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
@@ -176,6 +182,9 @@ class Squeezebox(mediaplayer.MediaPlayer):
 
     def previousTrack(self):
         self.__driver.previousTrack()
+
+    def addTrack(self, filepath):
+        self.__driver.playlistAddTrack(filepath)
     
 if __name__ == '__main__':
     box = SQDriver()
