@@ -36,7 +36,19 @@ class Player:
         return int(self.askPlaylist('tracks'))
 
     def getPlaylistPath(self, index):
-        return  self.askPlaylist('path', str(index))
+        return self.askPlaylist('path', str(index))
+
+    def play(self):
+        self.__tell(['play', '2'])
+
+    def pause(self):
+        self.__tell(['pause'])
+
+    def nextTrack(self):
+        self.tellPlaylist('index', '+1')
+
+    def previousTrack(self):
+        self.tellPlaylist('index', '-1')
 
 class SQDriver:
     def __init__(self):
@@ -48,9 +60,12 @@ class SQDriver:
         self.__telnet.write(quoted + "\n")
         
         ret = self.__telnet.read_until("\n")
-        print "recv:", ret[:-1]
+        # Sometimes there are trailing spaces - presumably a bug (e.g. pause)
+        # and in any case we need to get rid of the '\n'
+        ret = ret.rstrip()
+        print "recv:", ret
 
-        return [urllib.unquote(part) for part in ret[:-1].split(' ')]
+        return [urllib.unquote(part) for part in ret.split(' ')]
 
     def ask(self, cmd):
         cmd.append('?')
@@ -102,7 +117,18 @@ class SQDriver:
     def getPlaylistPath(self, index):
         ret = self.__player.getPlaylistPath(index)
         return ret
-        
+
+    def play(self):
+        self.__player.play()
+
+    def pause(self):
+        self.__player.pause()
+
+    def nextTrack(self):
+        self.__player.nextTrack()
+
+    def previousTrack(self):
+        self.__player.previousTrack()
 
 class Squeezebox(mediaplayer.MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
@@ -138,6 +164,18 @@ class Squeezebox(mediaplayer.MediaPlayer):
         path = urllib.unquote(path[7:])
         print 'path:', path
         return path
+
+    def play(self):
+        self.__driver.play()
+
+    def pause(self):
+        self.__driver.pause()
+
+    def nextTrack(self):
+        self.__driver.nextTrack()
+
+    def previousTrack(self):
+        self.__driver.previousTrack()
     
 if __name__ == '__main__':
     box = SQDriver()
