@@ -53,34 +53,37 @@ class Player:
     def playlistAddTrack(self, filepath):
         self.tellPlaylist('add', filepath)
 
+    def playlistDeleteTrack(self, position):
+        self.tellPlaylist('delete', str(position))
+
 class SQDriver:
     def __init__(self):
         self.__telnet = telnetlib.Telnet('localhost', 9090)
 
     def __send(self, cmd):
         quoted = ' '.join([urllib.quote(part) for part in cmd])
-        print "send:", quoted
+#        print "send:", quoted
         self.__telnet.write(quoted + "\n")
         
         ret = self.__telnet.read_until("\n")
         # Sometimes there are trailing spaces - presumably a bug (e.g. pause)
         # and in any case we need to get rid of the '\n'
         ret = ret.rstrip()
-        print "recv:", ret
+#        print "recv:", ret
 
         return [urllib.unquote(part) for part in ret.split(' ')]
 
     def ask(self, cmd):
         cmd.append('?')
         ret = self.__send(cmd)
-        print "ret=", ret
+#        print "ret=", ret
         assert ret[:-1] == cmd[:-1]
         assert ret[-1] != '?'
         return ret[-1]
 
     def tell(self, cmd):
         ret = self.__send(cmd)
-        print "ret=", ret
+#        print "ret=", ret
         assert ret == cmd
 
     def askPlayer(self, *cmd):
@@ -136,6 +139,9 @@ class SQDriver:
     def playlistAddTrack(self, filepath):
         self.__player.playlistAddTrack(filepath)
 
+    def playlistDeleteTrack(self, position):
+        self.__player.playlistDeleteTrack(position)
+
 class Squeezebox(mediaplayer.MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
@@ -143,7 +149,7 @@ class Squeezebox(mediaplayer.MediaPlayer):
                                          noQueue, configParser, defaultPlayer,
                                          safePlayers, trackFactory)
         self.__driver = SQDriver()
-        self.__driver.choose('Squeezeslave')
+        self.__driver.choose('Office')
 
     def getShuffle(self):
         return self.__driver.getShuffle()
@@ -168,7 +174,7 @@ class Squeezebox(mediaplayer.MediaPlayer):
         path = self.__driver.getPlaylistPath(index)
         assert path.startswith('file://')
         path = urllib.unquote(path[7:])
-        print 'path:', path
+#        print 'path:', path
         return path
 
     def play(self):
@@ -185,6 +191,9 @@ class Squeezebox(mediaplayer.MediaPlayer):
 
     def addTrack(self, filepath):
         self.__driver.playlistAddTrack(filepath)
+
+    def deleteTrack(self, position):
+        self.__driver.playlistDeleteTrack(position)
     
 if __name__ == '__main__':
     box = SQDriver()
