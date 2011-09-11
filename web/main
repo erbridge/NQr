@@ -1,0 +1,54 @@
+<html>
+<head>
+
+<title>NQr</title>
+
+<script src="/jquery"></script>
+
+<script>
+$(document).ready(function() {
+    $('#pause').click(function(e) {
+	e.preventDefault();
+	$.get('pause');
+    });
+    $('#xx').everyTime("1s", function(e) {
+	function item(xml, name) {
+	    return '<td>' + $(name, xml).text() + '</td>'
+	}
+	$.get('trackInfo', function(xml) {
+	    id = $('trackID', xml).text()
+	    if ($('#' + id).length == 0) {
+		$('#listHead').after('<tr id="' + id + '">'
+				     + item(xml, 'artist')
+				     + item(xml, 'title')
+				     + item(xml, 'score')
+				     + item(xml, 'playedAt')
+				     + item(xml, 'lastPlayed')
+				     + item(xml, 'weight')
+				     + '</tr>');
+	    }
+	})
+    })
+});
+</script>
+
+</head>
+<body>
+
+<h1>NQr</h1>
+
+<a href="#" id="pause">Pause</a>
+
+<table id="xx">
+  <tr id="listHead">
+    <th>Artist</th>
+    <th>Title</th>
+    <th>Score</th>
+    <th>Played At</th>
+    <th>LastPlayed</th>
+    <th>Weight</th>
+  </tr>
+</table>
+
+</body>
+</html>

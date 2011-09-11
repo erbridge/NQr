@@ -51,6 +51,53 @@ import util
 
 wx = util.wx
 
+"""What is nominally stored in SharedTrackRecord"""
+class SharedTrack:
+    def __init__(self, hash):
+        self._info = hash
+
+    def info(self, item):
+        v = self._info[item]
+        if v is None:
+            v = '-'
+        else:
+            v = str(v)
+        return '<' + item + '>' + v + '</' + item + '>'
+
+    def xml(self):
+        s = ''
+        for tag in self._info:
+            s += self.info(tag)
+        return '<info>' + s + '</info>'
+
+"""A list of all tracks played and their info, with locking so it can
+be used cross-thread"""
+class SharedTrackRecord:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._tracks = []
+
+    def addTrack(self, index, track, score, lastPlayed, sinceLastPlayed,
+                 weight, trackID):
+        print "Insert at", index, track.getArtist(), track.getTitle()
+        entry = [track.getArtist(), track.getTitle(), score,
+                 track.getPlayedAt(), lastPlayed, sinceLastPlayed, weight,
+                 trackID]
+        with self._lock:
+            self._tracks.insert(index, entry)
+
+    def getTrack(self, index):
+        with self._lock:
+            entry = self._tracks[index]
+            entry = { "artist": entry[0],
+                      "title": entry[1],
+                      "score": entry[2],
+                      "playedAt": entry[3],
+                      "lastPlayed": entry[4],
+                      "sinceLastPlayed": entry[5],
+                      "weight": entry[6],
+                      "trackID": entry[7] }
+        return SharedTrack(entry)
 
 class _TrackMonitor(util.BaseThread):
     
@@ -313,6 +360,8 @@ class MainWindow(wx.Frame, util.EventPoster):
         """
         self._ID_TOGGLENQR = wx.NewId()
 
+        self._shared = SharedTrackRecord()
+
         self._db = db
         self._randomizer = randomizer
         self._player = player
@@ -409,6 +458,9 @@ class MainWindow(wx.Frame, util.EventPoster):
         self.Show(True)
         
         wx.CallAfter(self._onStart)
+
+    def getSharedTrackRecord(self):
+        return self._shared
             
     def _onStart(self):
         self.Bind(wx.EVT_SIZE, self._onResize, self)
@@ -1715,6 +1767,8 @@ class MainWindow(wx.Frame, util.EventPoster):
             self.selectTrack(index)
         elif self._index >= index:
             self._index += 1
+        self._shared.addTrack(index, track, score, lastPlayed, sinceLastPlayed,
+                              weight, trackID)
 
     def enqueueTrack(self, track, traceCallback=None):
         """Add a track to the player's playlist.

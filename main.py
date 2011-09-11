@@ -29,6 +29,7 @@ import randomizer
 import database
 import tracks
 import util
+import web
 
 wx = util.wx
 
@@ -186,6 +187,9 @@ class Main(wx.App):
                              self._defaultIgnoreNewTracks,
                              self._defaultTrackCheckDelay,
                              self._defaultDumpPath, eventLogger)
+        _web = web.WebThread(_gui.getSharedTrackRecord(), _gui)
+        _web.start()
+        
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
         # TODO: Remove command window at this point and stop logging to stream
