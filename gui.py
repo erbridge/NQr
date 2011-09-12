@@ -61,7 +61,7 @@ class SharedTrack:
         if v is None:
             v = '-'
         else:
-            v = str(v)
+            v = unicode(v)
         return '<' + item + '>' + v + '</' + item + '>'
 
     def xml(self):
@@ -79,7 +79,7 @@ class SharedTrackRecord:
 
     def addTrack(self, index, track, score, lastPlayed, sinceLastPlayed,
                  weight, trackID):
-        print "Insert at", index, track.getArtist(), track.getTitle()
+#        print "Insert at", index, track.getArtist(), track.getTitle()
         entry = [track.getArtist(), track.getTitle(), score,
                  track.getPlayedAt(), lastPlayed, sinceLastPlayed, weight,
                  trackID]
@@ -88,6 +88,8 @@ class SharedTrackRecord:
 
     def getTrack(self, index):
         with self._lock:
+            if index >= len(self._tracks):
+                return None
             entry = self._tracks[index]
             entry = { "artist": entry[0],
                       "title": entry[1],

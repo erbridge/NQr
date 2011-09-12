@@ -7,8 +7,11 @@ import events
 import util
 
 class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+  def log_message(self, fmt, *args):
+    pass
+  
   def do_GET(self):
-    print 'GET', self.path
+    #print 'GET', self.path
     if self.path == '/':
       self.mainPage()
     elif self.path == '/jquery':
@@ -36,7 +39,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   def sendFiles(self, files, type='text/html'):
     content = ''
     for file in files:
-      content += open(file).read() + '\n'
+      content += open(file).read()
     self.send(content, type=type)
 
   def pause(self):
@@ -45,7 +48,10 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def trackInfo(self):
     track = self.server.shared.getTrack(0)
-    self.send(track.xml())
+    if track is None:
+      self.send('')
+      return
+    self.send(track.xml().encode('utf-8'), type='text/xml')
 
   def mainPage(self):
     self.sendFile('web/main')
