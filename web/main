@@ -13,7 +13,7 @@ $(document).ready(function() {
     });
     $('#xx').everyTime("1s", function(e) {
 	function item(xml, name) {
-	    return '<td>' + $(name, xml).text() + '</td>'
+	    return '<td id="' + name + '">' + $(name, xml).text() + '</td>'
 	}
 	$.get('trackInfo', function(xml) {
 	    id = $('trackID', xml).text()
@@ -26,6 +26,16 @@ $(document).ready(function() {
 				     + item(xml, 'lastPlayed')
 				     + item(xml, 'weight')
 				     + '</tr>');
+		$('#score:first').click(function() {
+		    html = '<select>'
+		    for (i = 10 ; i > -11 ; --i) {
+			html += '<option>' + i + '</option>'
+		    }
+		    html += '</select>'
+		    $(this).html(html).change(function() {
+			alert('changed to ' + $(':selected', this).text());
+		    });
+		});
 	    }
 	})
     })
