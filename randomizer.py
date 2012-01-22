@@ -139,16 +139,44 @@ class Randomizer:
                                   completion, traceCallback):
         trackIDs = []
         for n in range(number):
-            trackID, weight = self._selectTrackID(trackWeightList, totalWeight,
-                                                  trackIDs)
+            trackID, weight, raked = self._selectTrackID(trackWeightList,
+                                                         totalWeight,
+                                                         trackIDs)
             norm = float(weight) * len(trackWeightList) / totalWeight
             self._logger.debug("Selected " + str(trackID) + " with weight: " +
                                str(weight) + " of a total: " +
                                str(totalWeight) + " (norm " + str(norm) + ").")
+            if raked:
+                self._logger.info("Raked " + str(trackID) + " with weight: " +
+                                  str(weight) + " (norm " + str(norm) + ").")
             trackIDs.append([trackID, norm])
         completion(traceCallback, trackIDs)
+
+    def _rake(self, trackWeightList, trackIDs):
+        maxWeight = 0
+        count = 0
+        for [trackID, weight] in trackWeightList:
+            if trackID in trackIDs:
+                continue
+            if weight > maxWeight:
+                maxWeight = weight
+                count = 0
+            if weight == maxWeight:
+                count += 1
+        selector = random.randrange(count)
+        count = 0
+        for [trackID, weight] in trackWeightList:
+            if trackID in trackIDs:
+                continue
+            if weight == maxWeight:
+                if count == selector:
+                    return trackID, weight, True
+                count += 1
+        assert False
         
     def _selectTrackID(self, trackWeightList, totalWeight, trackIDs):
+        if random.random() < .3:
+            return self._rake(trackWeightList, trackIDs)
         selector = random.random() * totalWeight
         for [trackID, weight] in trackWeightList:
             selector -= weight
@@ -156,8 +184,7 @@ class Randomizer:
                 if trackID in trackIDs:
                     return self._selectTrackID(trackWeightList, totalWeight,
                                                trackIDs)
-                return trackID, weight
-        
+                return trackID, weight, False
         
     def _createLists(self, exclude, completion, traceCallback, tags=None):
         multicompletion = util.MultiCompletion(
