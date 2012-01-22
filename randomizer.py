@@ -102,7 +102,7 @@ class Randomizer:
 
     def _chooseTracksCompletion(self, trackIDs, completion, traceCallback):
         self._tracks = [] # FIXME: Possibly clears list before posting it.
-        for [trackID, weight] in trackIDs:
+        for [trackID, weight, raked] in trackIDs:
             errcompletion = util.ErrorCompletion(
                 errors.NoTrackError,
                 lambda thisCallback, trackID=trackID:
@@ -111,16 +111,17 @@ class Randomizer:
                 traceCallback)
             self._trackFactory.getTrackFromID(
                 self._db, trackID,
-                lambda thisCallback, track, weight=weight:
-                    self._addTrackToListCallback(track, weight),
+                lambda thisCallback, track, weight=weight, raked=raked:
+                    self._addTrackToListCallback(track, weight, raked),
                 errcompletion=errcompletion, traceCallback=traceCallback)
         self._db.complete(
             lambda thisCallback, completion=completion:
                 completion(thisCallback, self._tracks),
             traceCallback=traceCallback)
         
-    def _addTrackToListCallback(self, track, weight):
+    def _addTrackToListCallback(self, track, weight, raked):
         track.setWeight(weight)
+        track.setRaked(raked)
         self._tracks.append(track)
     
     # FIXME: Will throw exception if database is empty?
@@ -149,7 +150,7 @@ class Randomizer:
             if raked:
                 self._logger.info("Raked " + str(trackID) + " with weight: " +
                                   str(weight) + " (norm " + str(norm) + ").")
-            trackIDs.append([trackID, norm])
+            trackIDs.append([trackID, norm, raked])
         completion(traceCallback, trackIDs)
 
     def _rake(self, trackWeightList, trackIDs):

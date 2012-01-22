@@ -255,6 +255,12 @@ class Track:
     def getWeight(self):
         return self._weight
 
+    def setRaked(self, raked):
+        self._raked = raked
+
+    def getRaked(self):
+        return self._raked
+
     def setScore(self, score, traceCallback=None):
         self._db.setScore(self, score, traceCallback=traceCallback)
         self._score = score

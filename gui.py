@@ -1763,6 +1763,8 @@ class MainWindow(wx.Frame, util.EventPoster):
             weight = "-"
         else:
             weight = str(weight)
+            if track.getRaked():
+                weight = 'R' + weight
         self._trackList.SetStringItem(index, 5, weight)
         self._trackList.SetItemData(index, trackID)
         if select:
