@@ -157,7 +157,7 @@ class Randomizer:
         maxWeight = 0
         count = 0
         for [trackID, weight] in trackWeightList:
-            if trackID in trackIDs:
+            if trackID in [x for [x, _, _] in trackIDs]:
                 continue
             if weight > maxWeight:
                 maxWeight = weight
@@ -167,7 +167,7 @@ class Randomizer:
         selector = random.randrange(count)
         count = 0
         for [trackID, weight] in trackWeightList:
-            if trackID in trackIDs:
+            if trackID in [x for [x, _, _] in trackIDs]:
                 continue
             if weight == maxWeight:
                 if count == selector:
@@ -182,7 +182,7 @@ class Randomizer:
         for [trackID, weight] in trackWeightList:
             selector -= weight
             if selector < 0:
-                if trackID in trackIDs:
+                if trackID in [x for [x, _, _] in trackIDs]:
                     return self._selectTrackID(trackWeightList, totalWeight,
                                                trackIDs)
                 return trackID, weight, False
