@@ -356,6 +356,7 @@ class AudioTrack(Track):
             # FIXME: What is key for artist?
             if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'",
                                 "'TIT2'"):
+                print self._path
                 raise
             return "-"
 

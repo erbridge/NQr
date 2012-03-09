@@ -475,6 +475,8 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
         self.postDebugLog("Finding files from \'" + directory + "\'.")
         contents = os.listdir(directory)
         for n in range(len(contents)):
+            if contents[n][0] == '.':
+                continue
             path = os.path.realpath(directory + '/' + contents[n])
             if os.path.isdir(path):
                 self.walkDirectoryNoWatch(path, callback, traceCallback)
@@ -1529,7 +1531,7 @@ class Database(_DatabaseEventHandler):
     def getRandomizerList(self, completion, traceCallback=None):
         self._executeAndFetchAll("""select trackid, strftime('%s', 'now') - 
                                     strftime('%s', lastplayed), score, unscored
-                                    from tracks""", (),
+                                    from tracks where missing is null""", (),
                                  completion, traceCallback=traceCallback)
         
     def getNumberOfTracks(self, completion, priority=None, traceCallback=None):
