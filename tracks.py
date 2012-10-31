@@ -149,6 +149,9 @@ class Track:
     def getPath(self):
         return self._path
 
+    def maybeGetID(self):
+        return self._id
+
     def getID(self, completion, priority=None, traceCallback=None):
         # FIXME: Possibly should add to cache?
         if self._id is None:

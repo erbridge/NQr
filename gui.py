@@ -1789,6 +1789,9 @@ class MainWindow(wx.Frame, util.EventPoster):
         """
         path = track.getPath()
         self._logger.debug("Enqueueing \'" + path + "\'.")
+        with open("weightlog", "a") as f:
+            f.write(str(track.maybeGetID()) + ':' + str(track.getWeight()) + ':'
+                    + str(time.time()) + '\n')
         self.trackMonitorQueue(
             lambda thisCallback: self._player.addTrack(path), traceCallback)
 
@@ -1797,7 +1800,7 @@ class MainWindow(wx.Frame, util.EventPoster):
         
         Arguments:
         
-        - number: the number of track to add.
+        - number: the number of tracks to add.
         
         
         Keyword arguments:

@@ -56,6 +56,15 @@ class Player:
     def playlistDeleteTrack(self, position):
         self.tellPlaylist('delete', str(position))
 
+    def playlistInsertTrack(self, filepath, position):
+        # if we ever want to insert anywhere else an add followed by a
+        # move should work
+        assert position == self.getPlaylistIndex() + 1
+        self.tellPlaylist('insert', filepath)
+
+    def playlistPlayAtPosition(self, position):
+        self.tellPlaylist('index', str(position))
+
 class SQDriver:
     def __init__(self):
         self.__telnet = telnetlib.Telnet('localhost', 9090)
@@ -142,6 +151,13 @@ class SQDriver:
     def playlistDeleteTrack(self, position):
         self.__player.playlistDeleteTrack(position)
 
+    def playlistInsertTrack(self, filepath, position):
+        self.__player.playlistInsertTrack(filepath, position)
+
+    def playlistPlayAtPosition(self, position):
+        self.__player.playlistPlayAtPosition(position)
+
+
 class Squeezebox(mediaplayer.MediaPlayer):
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
@@ -194,6 +210,12 @@ class Squeezebox(mediaplayer.MediaPlayer):
 
     def deleteTrack(self, position):
         self.__driver.playlistDeleteTrack(position)
+
+    def _insertTrack(self, filepath, position):
+        self.__driver.playlistInsertTrack(filepath, position)
+
+    def playAtPosition(self, position):
+        self.__driver.playlistPlayAtPosition(position)
     
 if __name__ == '__main__':
     box = SQDriver()
