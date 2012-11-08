@@ -67,11 +67,18 @@ class Player:
 
 class SQDriver:
     def __init__(self):
-        self.__telnet = telnetlib.Telnet('localhost', 9090)
+        #self.__telnet = telnetlib.Telnet('localhost', 9090)
+        self.__telnet = telnetlib.Telnet('euphrates.home', 9090)
 
     def __send(self, cmd):
-        quoted = ' '.join([urllib.quote(part) for part in cmd])
+        quoted = ' '.join([urlib.quote(part) for part in cmd])
+	# it is possible that |quoted| somehow gets marked as unicode, and
+	# then when telnet tries to detect IAC (chr(255)) stuff breaks. So,
+	# force it to ASCII, which it should be anyway, being quoted.
+        quoted = quoted.encode('ascii');
 #        print "send:", quoted
+#	import sys
+#	sys.stdout.flush()
         self.__telnet.write(quoted + "\n")
         
         ret = self.__telnet.read_until("\n")
