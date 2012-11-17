@@ -71,7 +71,7 @@ class SQDriver:
         self.__telnet = telnetlib.Telnet('euphrates.home', 9090)
 
     def __send(self, cmd):
-        quoted = ' '.join([urlib.quote(part) for part in cmd])
+        quoted = ' '.join([urllib.quote(part) for part in cmd])
 	# it is possible that |quoted| somehow gets marked as unicode, and
 	# then when telnet tries to detect IAC (chr(255)) stuff breaks. So,
 	# force it to ASCII, which it should be anyway, being quoted.
