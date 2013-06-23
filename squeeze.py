@@ -172,7 +172,7 @@ class Squeezebox(mediaplayer.MediaPlayer):
                                          noQueue, configParser, defaultPlayer,
                                          safePlayers, trackFactory)
         self.__driver = SQDriver()
-        self.__driver.choose('Office')
+        self.__driver.choose('Office 2')
 
     def getShuffle(self):
         return self.__driver.getShuffle()
