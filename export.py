@@ -12,7 +12,7 @@ def main():
 #                      where scores.trackid = tracks.trackid
 #                      group by scores.trackid order by scoreid""")
     cursor.execute("""select score, path from tracks
-                      where score is not null""")
+                      where score is not null and missing is not 1""")
     results = cursor.fetchall()
     for result in results:
         print str(result[0]) + "\t" + result[1]
