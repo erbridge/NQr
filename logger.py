@@ -60,15 +60,20 @@ class LoggerFactory:
             return
         now = datetime.datetime.utcnow()
         limit = now - datetime.timedelta(days=days)
-        for log in os.listdir("logs"):
-            name, ext = os.path.splitext(log)
-            if ext != ".log":
-                continue
-            time = datetime.datetime.strptime(
-                    name.split("_")[1] + name.split("_")[2], '%Y%m%d%H%M%S')
-            path = os.path.join("logs", log)
-            if time < limit:
-                os.remove(path)
+        try:
+            for log in os.listdir("logs"):
+                name, ext = os.path.splitext(log)
+                if ext != ".log":
+                    continue
+                time = datetime.datetime.strptime(
+                        name.split("_")[1] + name.split("_")[2], '%Y%m%d%H%M%S')
+                path = os.path.join("logs", log)
+                if time < limit:
+                    os.remove(path)
+        except OSError as (errno, msg):
+            if errno != 2:
+                raise
+            os.mkdir("logs")
 
     def getLogger(self, name, level):
         logger = logging.getLogger(name)
