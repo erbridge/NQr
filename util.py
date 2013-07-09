@@ -24,6 +24,7 @@ SYSTEM_NAME = platform.system()
 MAC_NAMES = ["Mac OS X", "Darwin"]
 WINDOWS_NAMES = ["Windows"]
 FREEBSD_NAMES = ["FreeBSD"]
+LINUX_NAMES = ["Linux"]
 
 
 def plural(count):

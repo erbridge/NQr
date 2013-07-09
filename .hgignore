@@ -12,3 +12,5 @@ syntax: regexp
 ^dumps$
 syntax: regexp
 \.backup$
+syntax: regexp
+^\.project$

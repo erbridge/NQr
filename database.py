@@ -737,13 +737,14 @@ class Database(_DatabaseEventHandler):
     def _initMaybeCreateTrackTable(self):
         self._logger.debug("Looking for track table.")
         try:
+            # FIXME: combine missing and historical
             self._cursor.execute(
                 """create table tracks (trackid integer primary key
                                         autoincrement, path text, artist text,
                                         album text, title text, tracknumber
                                         text, unscored integer, length real, bpm
                                         integer, historical integer, score
-                                        integer, lastplayed datetime)""")
+                                        integer, lastplayed datetime, missing integer)""")
             self._logger.debug("Track table created.")
         except sqlite3.OperationalError as err:
             if str(err) != "table tracks already exists":

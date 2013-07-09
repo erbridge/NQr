@@ -3,6 +3,7 @@
 # TODO: work out what weights should be (poss make sliders)
 # TODO: use tags to limit track selection
 # TODO: make oldest not include tracks below threshold
+# FIXME: very small databases cause lots of problems
 
 import ConfigParser
 import random

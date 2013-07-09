@@ -108,6 +108,7 @@ class Main(wx.App):
         player = None
         if self._player == "Winamp":
             self._logger.debug("Loading Winamp module.")
+            
             import winampwindows
             player = winampwindows.Winamp(self._loggerFactory, self._noQueue,
                                           self._configParser,
@@ -127,6 +128,14 @@ class Main(wx.App):
             player = xmmsunix.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
                                self._safePlayers, trackFactory)
+            
+        elif self._player == "Audacious":
+            self._logger.debug("Loading Audacious module.")
+            
+            import audaciouslinux
+            player = audaciouslinux.Audacious(
+                self._loggerFactory, self._noQueue, self._configParser,
+                self._defaultPlayer, self._safePlayers, trackFactory)
 
         elif self._player == "Squeeze":
             self._logger.debug("Loading Squeezebox module,")
@@ -136,9 +145,9 @@ class Main(wx.App):
                                         self._configParser, self._defaultPlayer,
                                         self._safePlayers, trackFactory)
             
-            
         elif self._player == "iTunes" and util.SYSTEM_NAME in util.MAC_NAMES:
             self._logger.debug("Loading iTunes module.")
+            
             import itunesmacos
             player = itunesmacos.iTunes(self._loggerFactory, self._noQueue,
                                         self._configParser, self._defaultPlayer,
@@ -147,6 +156,7 @@ class Main(wx.App):
         elif self._player == "iTunes" and (util.SYSTEM_NAME in
                                            util.WINDOWS_NAMES):
             self._logger.debug("Loading iTunes module.")
+            
             import ituneswindows
             player = ituneswindows.iTunes(self._loggerFactory, self._noQueue,
                                           self._configParser,
@@ -230,6 +240,9 @@ class Main(wx.App):
         elif util.SYSTEM_NAME in util.MAC_NAMES:
             self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
+        elif util.SYSTEM_NAME in util.LINUX_NAMES:
+            self._safePlayers = ["Audacious"]
+            self._defaultPlayer = "Audacious"
         self._defaultDefaultScore = 10
         self._defaultRestorePlaylist = False
         self._defaultEnqueueOnStartup = True
