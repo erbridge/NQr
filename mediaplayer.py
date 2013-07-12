@@ -243,6 +243,18 @@ class PrefsPage(util.BasePrefsPage):
                 
             if not util.getIsInstalled("iTunes"):
                 self._iTunesButton.Enable(False)
+                
+        elif util.SYSTEM_NAME in util.LINUX_NAMES:
+            self._audaciousButton = wx.RadioButton(self, ID_PLAYER,
+                                                   "Audacious  \t",
+                                                   style=wx.RB_GROUP)
+            self._playerSizer.Add(self._audaciousButton, 0, wx.TOP|wx.BOTTOM, 3)
+
+            if self._settings["player"] == "Audacious":
+                self._iTunesButton.SetValue(True)
+                
+            if not util.getIsInstalled("Audacious"):
+                self._iTunesButton.Enable(False)
 
         wx.EVT_RADIOBUTTON(self, ID_PLAYER, self._onPlayerChange)
         
@@ -260,6 +272,10 @@ class PrefsPage(util.BasePrefsPage):
         elif util.SYSTEM_NAME in util.MAC_NAMES:
             if self._iTunesButton.GetValue():
                 self._settings["player"] = "iTunes"
+        
+        elif util.SYSTEM_NAME in util.LINUX_NAMES:
+            if self._audaciousButton.GetValue():
+                self._settings["player"] = "Audacious"
         
     def _setDefaults(self, safePlayers, defaultPlayer):
         self._safePlayers = safePlayers

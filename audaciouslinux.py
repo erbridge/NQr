@@ -30,7 +30,7 @@ class Audacious(mediaplayer.MediaPlayer):
         root = self._bus.get_object("org.mpris.audacious", "/")
         player = self._bus.get_object("org.mpris.audacious", "/Player")
         tracklist  = self._bus.get_object("org.mpris.audacious", "/TrackList")
-        print player.Introspect()
+#         print player.Introspect()
         org = self._bus.get_object("org.mpris.audacious",
                                   "/org/atheme/audacious")
         

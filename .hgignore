@@ -18,3 +18,8 @@ syntax: regexp
 ^test$
 syntax: regexp
 ^\.pydevproject$
+
+syntax: regexp
+^weightlog$
+syntax: regexp
+^\.settings$
