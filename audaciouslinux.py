@@ -69,6 +69,7 @@ class Audacious(mediaplayer.MediaPlayer):
     
     def nextTrack(self):
         self._player.Next()
+        self._player.Play()
     
     def pause(self):
         self._player.Pause()
@@ -78,6 +79,7 @@ class Audacious(mediaplayer.MediaPlayer):
         
     def previousTrack(self):
         self._player.Prev()
+        self._player.Play()
     
     def setShuffle(self, status):
         self._tracklist.Random(status)
