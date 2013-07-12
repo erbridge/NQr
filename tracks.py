@@ -369,13 +369,13 @@ class AudioTrack(Track):
         return length
 
     def getArtist(self):
-        return self._artist
+        return util.de_utf8(self._artist)
 
     def getAlbum(self):
-        return self._album
+        return util.de_utf8(self._album)
 
     def getTitle(self):
-        return self._title
+        return util.de_utf8(self._title)
 
     def getTrackNumber(self):
         return self._trackNumber

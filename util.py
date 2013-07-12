@@ -26,6 +26,13 @@ WINDOWS_NAMES = ["Windows"]
 FREEBSD_NAMES = ["FreeBSD"]
 LINUX_NAMES = ["Linux"]
 
+def de_utf8(u):
+    try:
+        return ''.join([chr(ord(x)) for x in u]).decode('utf-8')
+    except:
+        pass
+    return u
+
 
 def plural(count):
     if count == 1:
