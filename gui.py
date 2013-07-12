@@ -38,6 +38,7 @@
 
 #from collections import deque
 import ConfigParser
+import json
 import os
 import socket
 import sys
@@ -53,26 +54,20 @@ wx = util.wx
 
 """What is nominally stored in SharedTrackRecord"""
 class SharedTrack:
-    def __init__(self, hash):
-        self._info = hash
+    
+    def __init__(self, info):
+        self._info = info
+        for (key, value) in info.items():
+            if value is None:
+                info[key] = "-"
 
-    def info(self, item):
-        v = self._info[item]
-        if v is None:
-            v = '-'
-        else:
-            v = unicode(v)
-        return '<' + item + '>' + v + '</' + item + '>'
-
-    def xml(self):
-        s = ''
-        for tag in self._info:
-            s += self.info(tag)
-        return '<info>' + s + '</info>'
+    def getJson(self):
+        return json.dumps(self._info)
 
 """A list of all tracks played and their info, with locking so it can
 be used cross-thread"""
 class SharedTrackRecord:
+    
     def __init__(self):
         self._lock = threading.Lock()
         self._tracks = []
@@ -285,7 +280,7 @@ class MainWindow(wx.Frame, util.EventPoster):
                  defaultInactivityTime=30000,
                  wildcards=("Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|" +
                             "*.*"), defaultDefaultDirectory="",
-                 defaultHaveLogPanel=True):
+                 defaultHaveLogPanel=False):
         """Extend `wx.Frame.__init__()` and `util.EventPoster.__init__()`
         to populate the frame.
         
