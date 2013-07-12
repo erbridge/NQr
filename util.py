@@ -25,6 +25,9 @@ MAC_NAMES = ["Mac OS X", "Darwin"]
 WINDOWS_NAMES = ["Windows"]
 FREEBSD_NAMES = ["FreeBSD"]
 
+def de_utf8(u):
+    return ''.join([chr(ord(x)) for x in u]).decode('utf-8')
+
 
 def plural(count):
     if count == 1:
