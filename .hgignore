@@ -14,3 +14,7 @@ syntax: regexp
 \.backup$
 syntax: regexp
 ^\.project$
+syntax: regexp
+^test$
+syntax: regexp
+^\.pydevproject$

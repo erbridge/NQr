@@ -30,7 +30,7 @@ class Audacious(mediaplayer.MediaPlayer):
         root = self._bus.get_object("org.mpris.audacious", "/")
         player = self._bus.get_object("org.mpris.audacious", "/Player")
         tracklist  = self._bus.get_object("org.mpris.audacious", "/TrackList")
-#         print tracklist.Introspect()
+        print player.Introspect()
         org = self._bus.get_object("org.mpris.audacious",
                                   "/org/atheme/audacious")
         
@@ -67,5 +67,20 @@ class Audacious(mediaplayer.MediaPlayer):
         status = self._player.GetStatus()
         return bool(status[1])
     
+    def nextTrack(self):
+        self._player.Next()
+    
+    def pause(self):
+        self._player.Pause()
+    
+    def play(self):
+        self._player.Play()
+        
+    def previousTrack(self):
+        self._player.Prev()
+    
     def setShuffle(self, status):
         self._tracklist.Random(status)
+        
+    def stop(self):
+        self._player.Stop()
