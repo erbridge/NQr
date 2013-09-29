@@ -12,7 +12,7 @@
 import os.path
 import time
 
-#import mutagen
+# import mutagen
 import mutagen.mp3
 
 import errors
@@ -20,7 +20,7 @@ import util
 
 
 class TrackFactory:
-    
+
     def __init__(self, loggerFactory, configParser, debugMode):
         self._logger = loggerFactory.getLogger("NQr.Track", "debug")
         self._configParser = configParser
@@ -44,6 +44,9 @@ class TrackFactory:
         return track
 
     def getTrackFromPathNoID(self, db, path, useCache=True, traceCallback=None):
+        if path is None:
+            self._logger.error("No track has been identified.")
+            raise errors.NoTrackError(trace=util.getTrace(traceCallback))
         path = os.path.realpath(path)
         if useCache:
             track = self._trackPathCache.get(path)
@@ -71,7 +74,7 @@ class TrackFactory:
             self._logger.error(str(trackID) + " is not a valid track ID")
             raise errors.InvalidIDError(trace=util.getTrace(traceCallback))
         return self._trackCache.get(trackID, None)
-    
+
     def getTrackFromID(self, db, trackID, completion, priority=None,
                        errcompletion=None, traceCallback=None):
         track = self._getTrackFromCache(trackID, traceCallback)
@@ -86,7 +89,7 @@ class TrackFactory:
                 priority=priority, traceCallback=traceCallback)
         else:
             completion(traceCallback, track)
-    
+
     def _getTrackFromIDCompletion(self, db, path, completion, traceCallback,
                                   errcompletion=None):
         try:
@@ -96,13 +99,13 @@ class TrackFactory:
             if errcompletion is None:
                 raise
             errcompletion(err)
-            
+
     def addTrackToCache(self, track, traceCallback=None):
         track.getID(
             lambda thisCallback, id, track=track:
                 self._addTrackToCacheCompletion(track, id),
             traceCallback=traceCallback)
-    
+
     def _addTrackToCacheCompletion(self, track, id):
         self._logger.debug("Adding track to cache.")
         if len(self._trackCache) > 10000:
@@ -112,7 +115,7 @@ class TrackFactory:
             self._trackIDList.append(id)
         else:
             assert track is self._trackCache[id]
-            
+
         if len(self._trackPathCache) > 10000:
             del self._trackPathCache[self._trackPathList.pop(0)]
         path = track.getPath()
@@ -121,7 +124,7 @@ class TrackFactory:
             self._trackPathList.append(path)
         else:
             assert track is self._trackPathCache[path]
-        
+
     def clearCache(self):
         self._logger.debug("Clearing track cache.")
         self._trackCache = {}
@@ -131,7 +134,7 @@ class TrackFactory:
 
 
 class Track:
-    
+
     def __init__(self, db, path, logger, useCache=True):
         self._path = os.path.realpath(path)
         self._db = db
@@ -162,7 +165,7 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._id)
-        
+
     def _getIDCompletion(self, id, completion, traceCallback):
         self._id = id
         completion(traceCallback, id)
@@ -182,7 +185,7 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._tags)
-        
+
     def _getTagsCompletion(self, tags, completion, traceCallback):
         self._tags = tags
         completion(traceCallback, tags)
@@ -206,7 +209,7 @@ class Track:
             lambda thisCallback, playedAt, completion=completion:
                 self._addPlayCompletion(playedAt, completion, thisCallback),
             priority=priority, traceCallback=traceCallback)
-        
+
     def _addPlayCompletion(self, playedAt, completion, traceCallback):
         if self._playedAt is not None:
             self._lastPlayed = time.mktime(self._playedAt.timetuple())
@@ -226,12 +229,12 @@ class Track:
                 track=self, priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._playCount)
-        
+
     def _getPlayCountCompletion(self, playCount, completion, traceCallback):
         self._playCount = playCount
         if completion is not None:
             completion(traceCallback, playCount)
-        
+
     def getPlayedAt(self):
         if self._playedAt is None:
             return None
@@ -247,7 +250,7 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._lastPlayed)
-        
+
     def _getLastPlayedCompletion(self, lastPlayed, completion, traceCallback):
         self._lastPlayed = lastPlayed
         completion(traceCallback, lastPlayed)
@@ -268,7 +271,7 @@ class Track:
         self._db.setScore(self, score, traceCallback=traceCallback)
         self._score = score
         self._isScored = True
-        
+
     def getScore(self, completion, priority=None, traceCallback=None):
         self.getIsScored(
             lambda thisCallback, isScored, completion=completion,
@@ -276,7 +279,7 @@ class Track:
                 self._getScoreCompletion(isScored, completion, thisCallback,
                                          priority=priority),
             traceCallback=traceCallback)
-        
+
     def _getScoreCompletion(self, isScored, completion, traceCallback,
                             priority=None):
         if not isScored:
@@ -295,7 +298,7 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._score)
-        
+
     def _getScoreValueCompletion(self, score, completion, traceCallback):
         self._score = score
         completion(traceCallback, score)
@@ -315,14 +318,14 @@ class Track:
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._isScored)
-        
+
     def _getIsScoredCompletion(self, isScored, completion, traceCallback):
         self._isScored = isScored
         completion(traceCallback, isScored)
 
 
 class AudioTrack(Track):
-    
+
     def __init__(self, db, path, logger, useCache=True, traceCallback=None):
         Track.__init__(self, db, path, logger, useCache=useCache)
         try:
@@ -357,7 +360,7 @@ class AudioTrack(Track):
             #        which is an error we should not accept - so for now, die.
             #        Possibly should die on no title not no artist?
             # FIXME: What is key for artist?
-            if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'",
+            if str(err) not in ("'TRCK'", "'TALB'", "'TPE1'", "'TBPM'",
                                 "'TIT2'"):
                 print self._path
                 raise
@@ -385,14 +388,14 @@ class AudioTrack(Track):
 
     def getLength(self):
         return self._length
-    
+
     def getLengthString(self):
         self._lengthString = util.formatLength(self._length)
         return self._lengthString
 
 
 class PrefsPage(util.BasePrefsPage):
-    
+
     def __init__(self, parent, configParser, logger):
         util.BasePrefsPage.__init__(self, parent, configParser, logger, "Track")
 
