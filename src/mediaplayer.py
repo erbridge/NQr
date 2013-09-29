@@ -127,6 +127,8 @@ class MediaPlayer(util.EventPoster):
                 self.getPlaylistLength()):
                     path = self.getTrackPathAtPos(pos,
                                                   traceCallback=traceCallback)
+                    if not path:
+                        continue
                     db.maybeGetIDFromPath(
                         path,
                         lambda thisCallback, id, db=db, path=path:
