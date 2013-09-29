@@ -2,6 +2,7 @@
 
 database
 logs
+settings
 
 .project
 .pydevproject

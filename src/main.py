@@ -224,10 +224,10 @@ class Main(wx.App):
         return self._port
         
     def _setDefaults(self):
-        self._port = 35636 # FIXME: Ensure this port is not used on this system.
-        self._prefsFile = "settings"
-        self._databaseFile = "database"
-        self._defaultDumpPath = "dumps/"
+        self._port = 35636  # FIXME: Ensure this port is not used on this system.
+        self._prefsFile = "../settings"
+        self._databaseFile = "../database"
+        self._defaultDumpPath = "../dumps/"
         self._title = "NQr"
         self._defaultNoQueue = False
         self._defaultDebugMode = False
@@ -289,6 +289,8 @@ class Main(wx.App):
             self._configParser.add_section("Player")
         except ConfigParser.DuplicateSectionError:
             pass
+        # FIXME: If the default player isn't installed, this causes a crash.
+        #        We should exit more gracefully.
         try:
             self._player = self._configParser.get("Player", "player")
             if self._player not in self._safePlayers:
