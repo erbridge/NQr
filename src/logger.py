@@ -6,19 +6,19 @@ import os.path
 
 
 class LoggerFactory:
-    
+
     def __init__(self, logAge, debugMode):
         self._debugMode = debugMode
 
         dateString = str(
             datetime.datetime.strftime(datetime.datetime.utcnow(),
                                        '%Y%m%d_%H%M%S'))
-        
+
         self.cleanDirectory(logAge)
 
-        debugLogFilename = "logs/debug_" + dateString + ".log"
-        infoLogFilename = "logs/info_" + dateString + ".log"
-        errorLogFilename = "logs/error_" + dateString + ".log"
+        debugLogFilename = "../logs/debug_" + dateString + ".log"
+        infoLogFilename = "../logs/info_" + dateString + ".log"
+        errorLogFilename = "../logs/error_" + dateString + ".log"
 
         self._formatter = logging.Formatter(
             "%(asctime)s.%(msecs)03d   %(name)-17s %(levelname)-10s "
@@ -49,7 +49,7 @@ class LoggerFactory:
         logging.getLogger("NQr").addHandler(errorFileHandler)
 
         self._logger = self.getLogger("NQr.Logger", "debug")
-        
+
     def cleanDirectory(self, days):
         """
            Removes log except those in the last |days| days.
@@ -61,19 +61,19 @@ class LoggerFactory:
         now = datetime.datetime.utcnow()
         limit = now - datetime.timedelta(days=days)
         try:
-            for log in os.listdir("logs"):
+            for log in os.listdir("../logs"):
                 name, ext = os.path.splitext(log)
                 if ext != ".log":
                     continue
                 time = datetime.datetime.strptime(
                         name.split("_")[1] + name.split("_")[2], '%Y%m%d%H%M%S')
-                path = os.path.join("logs", log)
+                path = os.path.join("../logs", log)
                 if time < limit:
                     os.remove(path)
         except OSError as (errno, msg):
             if errno != 2:
                 raise
-            os.mkdir("logs")
+            os.mkdir("../logs")
 
     def getLogger(self, name, level):
         logger = logging.getLogger(name)
@@ -91,7 +91,7 @@ class LoggerFactory:
 
     def refreshStreamHandler(self):
         logging.getLogger("NQr").removeHandler(self._commandLineHandler)
-        
+
         self._commandLineHandler = logging.StreamHandler()
         if self._debugMode:
             self._commandLineHandler.setLevel(logging.DEBUG)
