@@ -5,7 +5,7 @@
 # TODO: ORGANIZE CODE
 # TODO: Add track with tag retrieval?
 # TODO: Populate prefs window including customizable score range (with
-#	     database converter)?
+# 	     database converter)?
 # TODO: Make refocussing on window reselect current track?
 # TODO: Build HTTP server/Android app for remote control.
 # TODO: Add undo function.
@@ -35,9 +35,9 @@ wx = util.wx
 
 
 class Main(wx.App):
-    
+
     """The main application class. Start with `self.run()`."""
-    
+
     def __init__(self):
         """Initialize NQr."""
         wx.App.__init__(self, False)
@@ -45,9 +45,9 @@ class Main(wx.App):
 
         self._configParser = ConfigParser.SafeConfigParser()
         self._configParser.read(self._prefsFile)
-        
+
         self.loadSettings()
-        
+
         self._loggerFactory = logger.LoggerFactory(self._logAge,
                                                    self._debugMode)
         self._logger = self._loggerFactory.getLogger("NQr", "debug")
@@ -61,7 +61,7 @@ class Main(wx.App):
             else:
                 self._usage()
                 sys.exit()
-        
+
     def _usage(self):
         print sys.argv[0], "[-h|--help] [-n|--no-queue]"
         print
@@ -86,7 +86,7 @@ class Main(wx.App):
             self._logger.critical("Uncaught exception:\n\n" + "".join([
                 line for line in traceback.format_exception(type, value,
                                                             traceBack)]))
-        sys.exit(1) # FIXME: Possibly remove for non-dev versions?
+        sys.exit(1)  # FIXME: Possibly remove for non-dev versions?
 
     def run(self, sock, address):
         """Start NQr.
@@ -100,40 +100,48 @@ class Main(wx.App):
         
         """
         self._logger.debug("Running on " + util.SYSTEM_NAME + ".")
-        
+
         self._logger.debug("Initializing track factory.")
         trackFactory = tracks.TrackFactory(self._loggerFactory,
                                            self._configParser, self._debugMode)
-        
+
         player = None
         if self._player == "Winamp":
             self._logger.debug("Loading Winamp module.")
-            
+
             import winampwindows
             player = winampwindows.Winamp(self._loggerFactory, self._noQueue,
                                           self._configParser,
                                           self._defaultPlayer,
                                           self._safePlayers, trackFactory)
-            
+
         elif self._player == "XMMS":
             self._logger.debug("Loading XMMS module.")
-            
+
             # Launch if its not running. Note that if it is launched,
             # then ctl-c will kill it. Use close_fds or it inherits
             # the socket and we then can't restart nqr.
             import subprocess
             subprocess.Popen("xmms", close_fds=True)
-            
+
             import xmmsunix
             player = xmmsunix.XMMS(self._loggerFactory, self._noQueue,
                                self._configParser, self._defaultPlayer,
                                self._safePlayers, trackFactory)
-            
+
         elif self._player == "Audacious":
             self._logger.debug("Loading Audacious module.")
-            
+
             import audaciouslinux
             player = audaciouslinux.Audacious(
+                self._loggerFactory, self._noQueue, self._configParser,
+                self._defaultPlayer, self._safePlayers, trackFactory)
+
+        elif self._player == "Clementine":
+            self._logger.debug("Loading Clementine module.")
+
+            import clementinelinux
+            player = clementinelinux.Clementine(
                 self._loggerFactory, self._noQueue, self._configParser,
                 self._defaultPlayer, self._safePlayers, trackFactory)
 
@@ -144,25 +152,25 @@ class Main(wx.App):
             player = squeeze.Squeezebox(self._loggerFactory, self._noQueue,
                                         self._configParser, self._defaultPlayer,
                                         self._safePlayers, trackFactory)
-            
+
         elif self._player == "iTunes" and util.SYSTEM_NAME in util.MAC_NAMES:
             self._logger.debug("Loading iTunes module.")
-            
+
             import itunesmacos
             player = itunesmacos.iTunes(self._loggerFactory, self._noQueue,
                                         self._configParser, self._defaultPlayer,
                                         self._safePlayers, trackFactory)
-        
+
         elif self._player == "iTunes" and (util.SYSTEM_NAME in
                                            util.WINDOWS_NAMES):
             self._logger.debug("Loading iTunes module.")
-            
+
             import ituneswindows
             player = ituneswindows.iTunes(self._loggerFactory, self._noQueue,
                                           self._configParser,
                                           self._defaultPlayer,
                                           self._safePlayers, trackFactory)
-            
+
         eventLogger = util.EventLogger()
 
         self._logger.debug("Initializing database.")
@@ -181,7 +189,7 @@ class Main(wx.App):
         modules = [player, trackFactory, db, _randomizer, self]
         prefsFactory = prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
                                           modules, self._configParser)
-        
+
         self._logger.debug("Initializing gui.")
         if self._noQueue:
             self._title += " (no queue)"
@@ -199,7 +207,7 @@ class Main(wx.App):
                              self._defaultDumpPath, eventLogger)
         _web = web.WebThread(_gui.getSharedTrackRecord(), _gui)
         _web.start()
-        
+
         self._logger.info("Initialization complete.")
         self._logger.info("Starting main loop.")
         # TODO: Remove command window at this point and stop logging to stream
@@ -208,7 +216,7 @@ class Main(wx.App):
         self.MainLoop()
         self._logger.info("Main loop stopped.")
         eventLogger.done()
-        
+
     def criticalLog(self, message):
         """Send a critical log message to the logger.
         
@@ -218,11 +226,11 @@ class Main(wx.App):
         
         """
         self._logger.critical(message)
-        
+
     def getPort(self):
         """Return the port the socket is bound to."""
         return self._port
-        
+
     def _setDefaults(self):
         self._port = 35636  # FIXME: Ensure this port is not used on this system.
         self._prefsFile = "../settings"
@@ -241,8 +249,8 @@ class Main(wx.App):
             self._safePlayers = ["iTunes"]
             self._defaultPlayer = "iTunes"
         elif util.SYSTEM_NAME in util.LINUX_NAMES:
-            self._safePlayers = ["Audacious"]
-            self._defaultPlayer = "Audacious"
+            self._safePlayers = ["Audacious", "Clementine"]
+            self._defaultPlayer = "Clementine"
         self._defaultDefaultScore = 10
         self._defaultRestorePlaylist = False
         self._defaultEnqueueOnStartup = True
@@ -252,7 +260,7 @@ class Main(wx.App):
         self._defaultIgnoreNewTracks = False
         self._defaultTrackCheckDelay = 0.5
         self._defaultLogAge = 30
-        
+
     def getPrefsPage(self, parent, logger):
         """Return an instance of `_PrefsPage`.
         
@@ -302,9 +310,9 @@ class Main(wx.App):
 
 
 class _PrefsPage(util.BasePrefsPage):
-    
+
     """Extend `util.BasePrefsPage` to hold advanced preference options."""
-    
+
     def __init__(self, parent, configParser, logger, defaultDebugMode,
                  defaultNoQueue, defaultLogAge):
         """Extend `util.BasePrefsPage.__init__()` to create controls.
@@ -331,18 +339,18 @@ class _PrefsPage(util.BasePrefsPage):
         util.BasePrefsPage.__init__(self, parent, configParser, logger, "Main",
                                     defaultDebugMode, defaultNoQueue,
                                     defaultLogAge)
-        
+
         self._initCreateLogAgeSizer()
         self._initCreateDebugCheckBox()
         self._initCreateQueueCheckBox()
-        
+
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         mainSizer.Add(self._logAgeSizer, 0)
         mainSizer.Add(self._debugCheckBox, 0)
         mainSizer.Add(self._queueCheckBox, 0)
-        
+
         self.SetSizer(mainSizer)
-        
+
     def _initCreateDebugCheckBox(self):
         self._debugCheckBox = wx.CheckBox(self, wx.NewId(), "Debug Mode")
         if self._settings["debugMode"]:
@@ -351,7 +359,7 @@ class _PrefsPage(util.BasePrefsPage):
             self._debugCheckBox.SetValue(False)
 
         self.Bind(wx.EVT_CHECKBOX, self._onDebugChange, self._debugCheckBox)
-        
+
     def _initCreateQueueCheckBox(self):
         self._queueCheckBox = wx.CheckBox(self, wx.NewId(), "No Queue Mode")
         if self._settings["noQueue"]:
@@ -360,35 +368,35 @@ class _PrefsPage(util.BasePrefsPage):
             self._queueCheckBox.SetValue(False)
 
         self.Bind(wx.EVT_CHECKBOX, self._onQueueChange, self._queueCheckBox)
-        
+
     def _initCreateLogAgeSizer(self):
         self._logAgeSizer = wx.BoxSizer(wx.HORIZONTAL)
 
         logAgeLabel = wx.StaticText(self, wx.NewId(), "Keep old logs for ")
-        self._logAgeSizer.Add(logAgeLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
-        
+        self._logAgeSizer.Add(logAgeLabel, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 3)
+
         self._logAgeControl = wx.TextCtrl(
-            self, wx.NewId(), str(self._settings["logAge"]), size=(40,-1))
+            self, wx.NewId(), str(self._settings["logAge"]), size=(40, -1))
         self._logAgeSizer.Add(self._logAgeControl, 0)
 
         logAgeUnits = wx.StaticText(self, wx.NewId(), " days")
-        self._logAgeSizer.Add(logAgeUnits, 0, wx.RIGHT|wx.TOP|wx.BOTTOM, 3)
+        self._logAgeSizer.Add(logAgeUnits, 0, wx.RIGHT | wx.TOP | wx.BOTTOM, 3)
 
         self.Bind(wx.EVT_TEXT, self._onLogAgeChange,
                   self._logAgeControl)
-        
+
     def _onDebugChange(self, e):
         if self._debugCheckBox.IsChecked():
             self._settings["debugMode"] = True
         else:
             self._settings["debugMode"] = False
-        
+
     def _onQueueChange(self, e):
         if self._queueCheckBox.IsChecked():
             self._settings["noQueue"] = True
         else:
             self._settings["noQueue"] = False
-            
+
     def _onLogAgeChange(self, e):
         if util.validateNumeric(self._logAgeControl):
             logAge = self._logAgeControl.GetLineText(0)
@@ -445,4 +453,3 @@ if __name__ == '__main__':
         dialog = wx.MessageDialog(None, "NQr is already running", "NQr", wx.OK)
         dialog.ShowModal()
         dialog.Destroy()
-    

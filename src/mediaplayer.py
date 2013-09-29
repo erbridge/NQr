@@ -149,7 +149,7 @@ class MediaPlayer(util.EventPoster):
             db.getTrackID(
                 self._trackFactory.getTrackFromPathNoID(
                     db, path, traceCallback=traceCallback), mycompletion,
-            traceCallback=traceCallback)
+                traceCallback=traceCallback)
             return
         mycompletion(traceCallback, id)
 
@@ -256,7 +256,7 @@ class MprisMediaPlayer(MediaPlayer):
         self._player.Play()
 
     def setShuffle(self, status):
-        self._tracklist.Random(status)
+        self._tracklist.SetRandom(status)
 
     def stop(self):
         self._player.Stop()

@@ -10,3 +10,6 @@ class Audacious(mediaplayer.MprisMediaPlayer):
                 self, loggerFactory, "NQr.Audacious", noQueue, configParser,
                 defaultPlayer, safePlayers, trackFactory, "org.mpris.audacious",
                 "audacious")
+
+    def setShuffle(self, status):
+        self._tracklist.Random(status)
