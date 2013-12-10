@@ -66,14 +66,19 @@ class _DatabaseEventHandler(wx.EvtHandler, util.EventPoster):
         self._dbThread = dbThread
         self._priority = priority
         self._eventLogger = eventLogger
+        self._onEmptyDatabaseEvent = util.doNothing
 
         events.EVT_DATABASE(self, self._onDatabaseEvent)
         events.EVT_EXCEPTION(self, self._onExceptionEvent)
 
     def _onDatabaseEvent(self, e):
         self.postDebugLog("Got event.")
-        e.complete()
-        self._eventLogger("DB Complete", e)
+        try:
+            e.complete()
+            self._eventLogger("DB Complete", e)
+        except errors.EmptyDatabaseError as err:
+            self._eventLogger("DB Caught EmptyDatabaseError", e)
+            self._onEmptyDatabaseEvent()
 
     def _onExceptionEvent(self, e):
         self._eventLogger("DB Exception", e)
@@ -294,6 +299,9 @@ class _DatabaseEventHandler(wx.EvtHandler, util.EventPoster):
         self._execute("update tracks set historical = ? where trackID = ?",
                       (historical, trackID), mycompletion,
                       traceCallback=traceCallback)
+
+    def setOnEmptyDatabaseCallback(self, callback):
+        self._onEmptyDatabaseEvent = callback
 
 
 class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):

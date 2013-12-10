@@ -439,6 +439,8 @@ class MainWindow(wx.Frame, util.EventPoster):
         events.EVT_ENQUEUE_RANDOM(self, self._onEnqueueRandomTracks)
         events.EVT_CHOOSE_TRACKS(self, self._onChooseTracks)
 
+        self._db.setOnEmptyDatabaseCallback(self._onEmptyDatabase)
+
         self.Bind(wx.EVT_CLOSE, self._onClose, self)
         self._bindMouseAndKeyEvents(self)
 
@@ -1568,6 +1570,16 @@ class MainWindow(wx.Frame, util.EventPoster):
     def _onNoNextTrack(self, e):
         self._eventLogger("GUI No Next Track", e)
         self.maintainPlaylist(traceCallback=e.getCallback())
+
+    def _onEmptyDatabase(self):
+        dialog = wx.MessageDialog(
+            self,
+            "You don't appear to have added any tracks to the database.\n" +
+            "Try adding some.",
+            "Empty Database",
+            wx.OK)
+        dialog.ShowModal()
+        dialog.Destroy()
 
     def _onPlayTimerDing(self, e):
         self._eventLogger("GUI Play Timer Ding", e)

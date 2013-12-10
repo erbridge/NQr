@@ -214,7 +214,6 @@ class Randomizer:
 #                    1, list))
             pass
 
-    # FIXME: EmptyDatabaseError needs to be caught.
     def _createListsCompletion(self, exclude, oldest, list, completion,
                                traceCallback):
         self._logger.debug("Creating weighted list of tracks.")
