@@ -19,7 +19,7 @@ class Randomizer:
        Tracks with a |score| >= |scoreThreshold| get played. By default, -10s
        are not played.
     """
-    
+
     def __init__(self, db, trackFactory, loggerFactory, configParser,
                  defaultDefaultScore, defaultScoreThreshold=-9,
                  defaultWeight="(score ** 2) * (time ** 2)"):
@@ -33,7 +33,7 @@ class Randomizer:
         self._defaultWeight = defaultWeight
         self._defaultDefaultScore = defaultDefaultScore
         self.loadSettings()
-        
+
     def getPrefsPage(self, parent, logger):
         return PrefsPage(
             parent, self._configParser, logger, self._defaultScoreThreshold,
@@ -45,7 +45,7 @@ class Randomizer:
         except ConfigParser.DuplicateSectionError:
             pass
         try:
-            rawWeightAlgorithm = self._configParser.get("Randomizer", 
+            rawWeightAlgorithm = self._configParser.get("Randomizer",
                                                         "weightAlgorithm")
         except ConfigParser.NoOptionError:
             rawWeightAlgorithm = self._defaultWeight
@@ -71,7 +71,7 @@ class Randomizer:
                                                            "defaultScore")
         except ConfigParser.NoOptionError:
             self._defaultScore = self._defaultDefaultScore
-            
+
     def _isSafeAlgorithmPart(self, part):
         if part not in self._safeOperations:
             try:
@@ -102,7 +102,7 @@ class Randomizer:
         self._chooseTrackIDs(number, exclude, mycompletion, traceCallback, tags)
 
     def _chooseTracksCompletion(self, trackIDs, completion, traceCallback):
-        self._tracks = [] # FIXME: Possibly clears list before posting it.
+        self._tracks = []  # FIXME: Possibly clears list before posting it.
         for [trackID, weight, raked] in trackIDs:
             errcompletion = util.ErrorCompletion(
                 errors.NoTrackError,
@@ -119,12 +119,12 @@ class Randomizer:
             lambda thisCallback, completion=completion:
                 completion(thisCallback, self._tracks),
             traceCallback=traceCallback)
-        
+
     def _addTrackToListCallback(self, track, weight, raked):
         track.setWeight(weight)
         track.setRaked(raked)
         self._tracks.append(track)
-    
+
     # FIXME: Will throw exception if database is empty?
     def _chooseTrackIDs(self, number, exclude, completion, traceCallback,
                         tags=None):
@@ -140,7 +140,7 @@ class Randomizer:
     def _chooseTrackIDsCompletion(self, number, trackWeightList, totalWeight,
                                   completion, traceCallback):
         trackIDs = []
-        for n in range(number):
+        for _ in range(number):
             trackID, weight, raked = self._selectTrackID(trackWeightList,
                                                          totalWeight,
                                                          trackIDs)
@@ -175,7 +175,7 @@ class Randomizer:
                     return trackID, weight, True
                 count += 1
         assert False
-        
+
     def _selectTrackID(self, trackWeightList, totalWeight, trackIDs):
         if random.random() < .3:
             return self._rake(trackWeightList, trackIDs)
@@ -187,7 +187,7 @@ class Randomizer:
                     return self._selectTrackID(trackWeightList, totalWeight,
                                                trackIDs)
                 return trackID, weight, False
-        
+
     def _createLists(self, exclude, completion, traceCallback, tags=None):
         multicompletion = util.MultiCompletion(
             3,
@@ -237,31 +237,31 @@ class Randomizer:
             if score < self._scoreThreshold:
                 score = 0
             else:
-                score += 11 # creates a positive score
+                score += 11  # creates a positive score
             weight = self.getWeight(score, time)
             trackWeightList.append([trackID, weight])
             totalWeight += weight
         completion(traceCallback, trackWeightList, totalWeight)
-        
+
     def _setWeightAlgorithm(self, rawWeightAlgorithm):
         self._weightAlgorithm = eval("lambda score, time: " +
                                      rawWeightAlgorithm)
 
     def getWeight(self, score, time):
-##        weight = time ** (score/50.)
-##        weight = score**2 * time**2
-##        weight = score * time
+# #        weight = time ** (score/50.)
+# #        weight = score**2 * time**2
+# #        weight = score * time
         return self._weightAlgorithm(score, time)
 
 
 class PrefsPage(util.BasePrefsPage):
-    
+
     def __init__(self, parent, configParser, logger,
                  defaultScoreThreshold, defaultWeight):
         util.BasePrefsPage.__init__(self, parent, configParser, logger,
                                     "Randomizer", defaultScoreThreshold,
                                     defaultWeight)
-        
+
         self._initCreateWeightSizer()
         self._initCreateThresholdSizer()
 
@@ -277,8 +277,8 @@ class PrefsPage(util.BasePrefsPage):
         weightAlgorithmSizer = wx.BoxSizer(wx.HORIZONTAL)
 
         weightLabel = wx.StaticText(self, wx.NewId(), "Weight Algorithm: ")
-        weightAlgorithmSizer.Add(weightLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM
-                                 |wx.ALIGN_CENTER_VERTICAL, 3)
+        weightAlgorithmSizer.Add(weightLabel, 0, wx.LEFT | wx.TOP | wx.BOTTOM
+                                 | wx.ALIGN_CENTER_VERTICAL, 3)
 
         self._weightControl = wx.TextCtrl(
             self, wx.NewId(), self._settings["weightAlgorithm"], size=(-1, -1))
@@ -326,11 +326,11 @@ class PrefsPage(util.BasePrefsPage):
         self._thresholdSizer = wx.BoxSizer(wx.HORIZONTAL)
 
         thresholdLabel = wx.StaticText(self, wx.NewId(), "Minimum Play Score: ")
-        self._thresholdSizer.Add(thresholdLabel, 0, wx.LEFT|wx.TOP|wx.BOTTOM, 3)
+        self._thresholdSizer.Add(thresholdLabel, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 3)
 
         self._thresholdControl = wx.TextCtrl(
             self, wx.NewId(), str(self._settings["scoreThreshold"]),
-            size=(25,-1))
+            size=(25, -1))
         self._thresholdSizer.Add(self._thresholdControl, 0)
 
         self.Bind(wx.EVT_TEXT, self._onThresholdChange,

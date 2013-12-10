@@ -90,14 +90,14 @@ class Main(wx.App):
 
     def run(self, sock, address):
         """Start NQr.
-        
+
         Arguments:
-        
+
         - sock: the `socket.socket()` bound to `address`.
-        
+
         - address: a (host, port) tuple representing the address assigned
           to NQr to prevent running of multiple instances.
-        
+
         """
         self._logger.debug("Running on " + util.SYSTEM_NAME + ".")
 
@@ -219,11 +219,11 @@ class Main(wx.App):
 
     def criticalLog(self, message):
         """Send a critical log message to the logger.
-        
+
         Arguments:
-        
+
         - message: the message to be sent to the logger.
-        
+
         """
         self._logger.critical(message)
 
@@ -263,13 +263,13 @@ class Main(wx.App):
 
     def getPrefsPage(self, parent, logger):
         """Return an instance of `_PrefsPage`.
-        
+
         Arguments:
-        
+
         - parent: the parent of the `wx.Panel` returned.
-        
+
         - logger: the logger for the `_PrefsPage` to post to.
-        
+
         """
         return _PrefsPage(parent, self._configParser, logger,
                          self._defaultDebugMode, self._defaultNoQueue,
@@ -316,25 +316,25 @@ class _PrefsPage(util.BasePrefsPage):
     def __init__(self, parent, configParser, logger, defaultDebugMode,
                  defaultNoQueue, defaultLogAge):
         """Extend `util.BasePrefsPage.__init__()` to create controls.
-        
+
         Arguments:
-        
+
         - parent: the parent of the `wx.Panel` created.
-        
+
         - configParser: the `ConfigParser.SafeConfigParser()` configured
           to read from the settings file.
-          
+
         - logger: the logger to post log messages to.
-        
+
         - defaultDebugMode: True if, by default, debug messages should be
           posted from anywhere in NQr. False otherwise.
-          
+
         - defaultNoQueue: True if, by default, NQr should not be able to
           enqueue tracks in the player. False otherwise.
-          
+
         - defaultLogAge: the default number of days to keep logs. A value of
           -1 means to keep them forever.
-        
+
         """
         util.BasePrefsPage.__init__(self, parent, configParser, logger, "Main",
                                     defaultDebugMode, defaultNoQueue,
