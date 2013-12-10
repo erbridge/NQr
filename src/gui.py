@@ -268,7 +268,7 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     """The main window of the GUI. Inherit from `wx.Frame` and
     `util.EventPoster`.
-    
+
     """
 
     def __init__(self, parent, db, randomizer, player, trackFactory,
@@ -283,77 +283,77 @@ class MainWindow(wx.Frame, util.EventPoster):
                  defaultHaveLogPanel=False):
         """Extend `wx.Frame.__init__()` and `util.EventPoster.__init__()`
         to populate the frame.
-        
+
         Arguments:
-        
+
         - parent: the parent of this frame or None.
-        
+
         - db: the database.
-        
+
         - randomizer: the randomizer.
-        
+
         - player: the player.
-        
+
         - trackFactory: the track factory.
-        
+
         - loggerFactory: the logger factory.
-        
+
         - prefsFactory: the preference window factory
-        
+
         - configParser: the `ConfigParser.SafeConfigParser()` configured
           to read from the settings file.
-        
+
         - sock: the `socket.socket()` bound to `address`.
-        
+
         - address: a (host, port) tuple representing the address assigned
           to NQr to prevent running of multiple instances.
-        
+
         - title: the title of the window.
-        
+
         - threadLock: the `threading.Lock()` shared by all threads with this
           frame as parent to prevent concurrency issues when calling
           `wx.PostEvent()`.
-        
+
         - defaultRestorePlaylist: True if, by default, the playlist should be
           restored when enqueuing is turned off. False otherwise.
-        
+
         - defaultEnqueueOnStartup: True if, by default, NQr should start
           enqueueing on startup. False otherwise.
-        
+
         - defaultRescanOnStartup: True if, by default, the watch list in the
           database should be rescanned for changes on startup. False otherwise.
-        
+
         - defaultPlaylistLength: the default playlist length to be maintained.
-        
+
         - defaultPlayDelay: the default delay between a track change and a
           play record being added to the database.
-        
+
         - defaultIgnore: True if, by default, tracks not in the database
           should be ignored. False otherwise.
-        
+
         - defaultTrackCheckDelay: the default delay between checks of
           `player` for track changes and end of playlist.
-        
+
         - defaultDumpPath: the default path for queue dumps.
-        
+
         - eventLogger: an `util.EventLogger` instance for recording handled
           events.
-        
-        
+
+
         Keyword arguments:
-        
+
         - defaultInactivityTime=30000: the default number of milliseconds to
           wait in between user action before assuming the user is inactive.
-        
+
         - wildcards="Music files (*.mp3;*.mp4)|*.mp3;*.mp4|All files|*.*": the
           wildcards in file dialogs.
-        
+
         - defaultDefaultDirectory="": the default starting directory for
           file/directory dialogs.
-        
+
         - defaultHaveLogPanel=True: True if, by default, a panel containing
           log messages should be created. False otherwise.
-        
+
         """
         self._ID_TOGGLENQR = wx.NewId()
 
@@ -1071,17 +1071,17 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def trackMonitorQueue(self, completion, traceCallbackOrList=None):
         """Queue completion in the track monitor's queue.
-        
+
         Arguments:
-        
+
         - completion: a closure to be completed in the track monitor.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallbackOrList=None: an `util.BaseCallback` instance or a
           traceback list in the style of `traceback.extract_stack()`.
-        
+
         """
         self._trackMonitor.queue(completion, traceCallbackOrList)
 
@@ -1452,11 +1452,11 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def setScoreSliderPosition(self, score):
         """Set score slider position to `score`.
-        
+
         Arguments:
-        
+
         - score: an integer value to set the score slider to.
-        
+
         """
         self._logger.debug("Setting score slider to " + str(score) + ".")
         self._scoreSlider.SetValue(score)
@@ -1551,12 +1551,12 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def resetInactivityTimer(self, time=None):
         """Restart the inactivity timer.
-        
+
         Keyword arguments:
-        
+
         - time=None: the time in milliseconds to set the timer for. If None,
           the normal inactivity time is used.
-        
+
         """
         self._logger.debug("Restarting inactivity timer.")
         if time is None:
@@ -1651,11 +1651,11 @@ class MainWindow(wx.Frame, util.EventPoster):
     def maintainPlaylist(self, traceCallback=None):
         """Crop and enqueue random tracks into the player's playlist
         (if enabled).
-        
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         if self._toggleNQr:
             self._logger.debug("Maintaining playlist.")
@@ -1683,37 +1683,37 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def addTrack(self, track, select=False, traceCallback=None):
         """Add a track to the top of the track list.
-        
+
         Arguments:
-        
+
         - track: the `tracks.Track` instance to be added to the track list.
-        
-        
+
+
         Keyword arguments:
-        
+
         - select=False: if True select the track after adding it.
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self.addTrackAtPos(track, 0, select=select, traceCallback=traceCallback)
 
     def addTrackAtPos(self, track, index, select=False, traceCallback=None):
         """Add a track to the track list at a given position.
-        
+
         Arguments:
-        
+
         - track: the `tracks.Track` instance to be added to the track list.
-        
+
         - index: the row in which to insert the track.
-        
-        
+
+
         Keyword arguments:
-        
+
         - select=False: if True select the track after adding it.
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         multicompletion = util.MultiCompletion(
             5,
@@ -1783,16 +1783,16 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def enqueueTrack(self, track, traceCallback=None):
         """Add a track to the player's playlist.
-        
+
         Arguments:
-        
+
         - track: the `tracks.Track` instance to be added to the track list.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         path = track.getPath()
         self._logger.debug("Enqueueing \'" + path + "\'.")
@@ -1804,19 +1804,19 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def enqueueRandomTracks(self, number, traceCallback=None, tags=None):
         """Add random tracks to the track list.
-        
+
         Arguments:
-        
+
         - number: the number of tracks to add.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         - tags=None: limit selection to tracks with these tags, unless None,
-          in which case, do not limit the search. 
-        
+          in which case, do not limit the search.
+
         """
         if self._enqueueing:
             self._logger.debug("Already enqueuing")
@@ -1903,11 +1903,11 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def refreshSelectedTrack(self, traceCallback=None):
         """Refresh the selected track's data in the track list.
-        
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._logger.debug("Refreshing selected track.")
         self.refreshTrack(self._index, self._track, traceCallback=traceCallback)
@@ -1918,11 +1918,11 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def refreshSelectedTrackScore(self, traceCallback=None):
         """Refresh the selected track's score in the track list.
-        
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self.refreshScore(self._index, self._track, traceCallback=traceCallback)
         self._track.getScoreValue(
@@ -1932,18 +1932,18 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def refreshTrack(self, index, track, traceCallback=None):
         """Refresh the track's data at position `index` in the track list.
-        
+
         Arguments:
-        
+
         - index: the index of the track to refresh.
-        
+
         - track: the track object to retrieve the data from.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self.refreshArtist(index, track)
         self.refreshTitle(index, track)
@@ -1953,44 +1953,44 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def refreshArtist(self, index, track):
         """Refresh the track's artist at position `index` in the track list.
-        
+
         Arguments:
-        
+
         - index: the index of the track to refresh.
-        
+
         - track: the track object to retrieve the data from.
-        
+
         """
         self._trackList.SetStringItem(index, 0, track.getArtist())
         self._trackList.RefreshItem(index)
 
     def refreshTitle(self, index, track):
         """Refresh the track's title at position `index` in the track list.
-        
+
         Arguments:
-        
+
         - index: the index of the track to refresh.
-        
+
         - track: the track object to retrieve the data from.
-        
+
         """
         self._trackList.SetStringItem(index, 1, track.getTitle())
         self._trackList.RefreshItem(index)
 
     def refreshScore(self, index, track, traceCallback=None):
         """Refresh the track's score at position `index` in the track list.
-        
+
         Arguments:
-        
+
         - index: the index of the track to refresh.
-        
+
         - track: the track object to retrieve the data from.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         multicompletion = util.MultiCompletion(
             3,
@@ -2022,13 +2022,13 @@ class MainWindow(wx.Frame, util.EventPoster):
     def refreshPlayedAt(self, index, track):
         """Refresh the track's played at time at position `index`
         in the track list.
-        
+
         Arguments:
-        
+
         - index: the index of the track to refresh.
-        
+
         - track: the track object to retrieve the data from.
-        
+
         """
         playedAt = track.getPlayedAt()
         if playedAt is None:
@@ -2039,18 +2039,18 @@ class MainWindow(wx.Frame, util.EventPoster):
     def refreshLastPlayed(self, index, track, traceCallback=None):
         """Refresh the track's last played time at position `index`
         in the track list.
-        
+
         Arguments:
-        
+
         - index: the index of the track to refresh.
-        
+
         - track: the track object to retrieve the data from.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         track.getLastPlayed(
             lambda thisCallback, lastPlayed, index=index:
@@ -2068,11 +2068,11 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def selectTrack(self, index):
         """Select the track at position `index` in the track list.
-        
+
         Arguments:
-        
+
         - index: the index of the track to refresh.
-        
+
         """
         self._logger.debug("Selecting track in position " + str(index) + ".")
         try:
@@ -2085,16 +2085,16 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def populateDetails(self, track, traceCallback=None):
         """Populate the details panel with `track`'s data.
-        
+
         Arguments:
-        
+
         - track: the track object to retrieve the data from.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         # FIXME: The first populateDetails seems to produce a larger font than
         #        subsequent calls in Mac OS.
@@ -2152,11 +2152,11 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def addToDetails(self, detail):
         """Add text to the details panel.
-        
+
         Arguments:
-        
+
         - detail: the string to add to the end of the details panel.
-        
+
         """
         self._details.AppendText(detail)
 
@@ -2167,18 +2167,18 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def setTag(self, track, tagID, traceCallback=None):
         """Give a track a tag.
-        
+
         Arguments:
-        
+
         - track: the track object to tag.
-        
+
         - tagID: the ID of the tag to attach to the track.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._logger.debug("Tagging track.")
         self._tagMenu.Check(tagID, True)
@@ -2187,18 +2187,18 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def unsetTag(self, track, tagID, traceCallback=None):
         """Remove a tag from a track.
-        
+
         Arguments:
-        
+
         - track: the track object to untag.
-        
+
         - tagID: the ID of the tag to remove from the track.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._logger.info("Untagging track.")
         self._tagMenu.Check(tagID, False)
@@ -2244,13 +2244,13 @@ class MainWindow(wx.Frame, util.EventPoster):
 
     def getPrefsPage(self, parent, logger):
         """Return an instance of `_PrefsPage`.
-        
+
         Arguments:
-        
+
         - parent: the parent of the `wx.Panel` returned.
-        
+
         - logger: the logger for the `_PrefsPage` to post to.
-        
+
         """
         return _PrefsPage(
             parent, self._configParser, logger, self._defaultPlayDelay,
@@ -2356,37 +2356,37 @@ class _PrefsPage(util.BasePrefsPage):
                  defaultRescanOnStartup, defaultDefaultDirectory,
                  defaultTrackCheckDelay):
         """Extend `util.BasePrefsPage.__init__()` to create controls.
-        
+
         Arguments:
-        
+
         - parent: the parent of the `wx.Panel` created.
-        
+
         - configParser: the `ConfigParser.SafeConfigParser()` configured
           to read from the settings file.
-          
+
         - logger: the logger to post log messages to.
-        
+
         - defaultPlayDelay: the default delay between a track change and a
           play record being added to the database.
-        
+
         - defaultInactivityTime: the default number of milliseconds to
           wait in between user action before assuming the user is inactive.
-                  
+
         - defaultIgnore: True if, by default, tracks not in the database
           should be ignored. False otherwise.
-          
+
         - defaultHaveLogPanel: True if, by default, a panel containing
           log messages should be created. False otherwise.
-          
+
         - defaultRescanOnStartup: True if, by default, the watch list in the
           database should be rescanned for changes on startup. False otherwise.
-          
+
         - defaultDefaultDirectory: the default starting directory for
           file/directory dialogs.
-        
+
         - defaultTrackCheckDelay: the default delay between checks of
           `player` for track changes and end of playlist.
-        
+
         """
         util.BasePrefsPage.__init__(self, parent, configParser, logger, "GUI",
                                     defaultPlayDelay, defaultInactivityTime,

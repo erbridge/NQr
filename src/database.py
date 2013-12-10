@@ -107,19 +107,19 @@ class _DatabaseEventHandler(wx.EvtHandler, util.EventPoster):
 
     def complete(self, completion, priority=None, traceCallback=None):
         """Complete a closure asynchronously.
-        
+
         Arguments:
-        
+
         - completion: the closure to complete.
-                
-        
+
+
         Keyword arguments:
-        
+
         - priority=None: the priority to put the completion in the queue.
           If None, use the default for this thread.
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         if priority is None:
             priority = self._priority
@@ -183,22 +183,22 @@ class _DatabaseEventHandler(wx.EvtHandler, util.EventPoster):
     def getTrackID(self, track, completion, priority=None,
                    traceCallback=None):
         """Get a track's ID asynchronously.
-        
+
         Arguments:
-        
+
         - track: the track object to get the ID for.
-        
+
         - completion: the closure which must take arguments of
           (traceCallback, trackID).
-        
-        
+
+
         Keyword arguments:
-        
+
         - priority=None: the priority to put the completion in the queue.
           If None, use the default for this thread.
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         mycompletion = (lambda thisCallback, trackID, track=track,
                         completion=completion, priority=priority:
@@ -274,19 +274,19 @@ class _DatabaseEventHandler(wx.EvtHandler, util.EventPoster):
 
     def setHistorical(self, historical, trackID, traceCallback=None):
         """Set the historical status of a track.
-        
+
         Arguments:
-        
+
         - historical: True if the track is/should no longer
           accessible/be accessible. False otherwise.
-        
+
         - trackID: the ID of the track.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         if historical:
             mycompletion = (lambda thisCallback:
@@ -375,16 +375,16 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
     def addDirectory(self, directory, traceCallback=None):
         """Add a directory and all sub-directories to the database
         (and watch list) asynchronously.
-        
+
         Arguments:
-        
+
         - directory: the path of the directory to add.
-                
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         mycallback = (lambda thisCallback, path:
                           self._addTrack(path, thisCallback))
@@ -393,19 +393,19 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
     def walkDirectory(self, directory, callback, traceCallback=None):
         """Walk a directory (and add it to watch list) and all sub-directories
         and perform `callback` on all files asynchronously.
-        
+
         Arguments:
-        
+
         - directory: the path of the directory to walk.
-        
+
         - callback: the closure to call on all files in the directory.
           Must take arguments of (traceCallback, path).
-                
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._working = True
         directory = os.path.realpath(directory)
@@ -441,16 +441,16 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
     def addDirectoryNoWatch(self, directory, traceCallback=None):
         """Add a directory and all sub-directories to the database
         asynchronously.
-        
+
         Arguments:
-        
+
         - directory: the path of the directory to add.
-                
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         mycallback = (lambda thisCallback, path:
                           self._addTrack(path, thisCallback))
@@ -460,19 +460,19 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
     def walkDirectoryNoWatch(self, directory, callback, traceCallback=None):
         """Walk a directory and all sub-directories and perform `callback`
         on all files asynchronously.
-        
+
         Arguments:
-        
+
         - directory: the path of the directory to walk.
-        
+
         - callback: the closure to call on all files in the directory.
           Must take arguments of (traceCallback, path).
-                
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._working = True
         directory = os.path.realpath(directory)
@@ -497,11 +497,11 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
     def rescanDirectories(self, traceCallback=None):
         """Rescan the watch list for changes to tracks or new files
         asynchronously.
-        
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self.queue(
             lambda thisCallback, cursor:
@@ -527,16 +527,16 @@ class _DirectoryWalkThread(_Thread, _DatabaseEventHandler):
 
     def maybeUpdateTrackDetails(self, track, traceCallback=None):
         """Update the track details in the database.
-        
+
         Arguments:
-        
+
         - track: the track object to update.
-        
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._updateTrackDetails(track, infoLogging=False,
                                  traceCallback=traceCallback)
@@ -675,31 +675,31 @@ class Database(_DatabaseEventHandler):
     def __init__(self, threadLock, trackFactory, loggerFactory, configParser,
                  debugMode, databasePath, defaultDefaultScore, eventLogger):
         """Create the database manager and its worker threads.
-        
+
         Arguments:
-        
+
         - threadLock: the `threading.Lock()` shared by all threads with the
           same parent to prevent concurrency issues when calling
           `wx.PostEvent()`.
-        
+
         - trackFactory: the track factory.
-        
+
         - loggerFactory: the logger factory.
-        
+
         - configParser: the `ConfigParser.SafeConfigParser()` configured
           to read from the settings file.
-        
+
         - debugMode: True if debug messages should always be posted.
           False otherwise.
-        
+
         - databasePath: the path of the database.
-        
+
         - defaultDefaultScore: the default default score to give unscored
           tracks.
-        
+
         - eventLogger: an `util.EventLogger` instance for recording handled
           events.
-        
+
         """
         self._logger = loggerFactory.getLogger("NQr.Database", "debug")
         _DatabaseEventHandler.__init__(
@@ -922,23 +922,23 @@ class Database(_DatabaseEventHandler):
     def addTrack(self, path=None, track=None, completion=None, priority=None,
                  traceCallback=None):
         """Add a track to the database, if it is not already present.
-        
+
         Keyword arguments:
-        
+
         - path=None: the path of the track to add or None.
           (One of `track` and `path` must not be None)
-        
+
         - track=None: the track to add or None.
           (One of `track` and `path` must not be None)
-        
+
         - completion=None: the closure which must take arguments of
           (traceCallback, id).
-        
+
         - priority=None: the priority to put the completion in the queue.
           If None, use the default for this thread.
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         if path is None:
             if track is None:
@@ -1006,17 +1006,17 @@ class Database(_DatabaseEventHandler):
     #        group by trackid; thrown in.
     def getAllTrackIDs(self, completion, traceCallback=None):
         """Get a list of tuples of the form (trackID, ).
-        
+
         Arguments:
-        
+
         - completion: the closure which must take arguments of
           (traceCallback, idTupleList).
-          
-          
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._logger.debug("Retrieving all track IDs.")
         self._executeAndFetchAll("select trackid from tracks", (), completion,
@@ -1039,19 +1039,19 @@ class Database(_DatabaseEventHandler):
 
     def maybeGetIDFromPath(self, path, completion, traceCallback=None):
         """Get the id of a track from the database, if it exists.
-        
+
         Arguments:
-        
+
         - path: the path of the track to add.
-        
+
         - completion: the closure which must take arguments of
           (traceCallback, id).
 
-        
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         if path is None:
             self._logger.error("No track has been identified.")
@@ -1064,48 +1064,48 @@ class Database(_DatabaseEventHandler):
     def addDirectory(self, directory, traceCallback=None):
         """Add a directory and all sub-directories to the database
         (and watch list).
-        
+
         Arguments:
-        
+
         - directory: the path of the directory to add.
-                
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._directoryWalkThread.addDirectory(
             directory, traceCallback=traceCallback)
 
     def addDirectoryNoWatch(self, directory, traceCallback=None):
         """Add a directory and all sub-directories to the database.
-        
+
         Arguments:
-        
+
         - directory: the path of the directory to add.
-                
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._directoryWalkThread.addDirectoryNoWatch(
             directory, traceCallback=traceCallback)
 
     def removeDirectory(self, directory, traceCallback=None):
         """Remove a directory from the watch list.
-        
+
         Arguments:
-        
+
         - directory: the path of the directory to add.
-                
-        
+
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         mycompletion = (lambda thisCallback, directoryID, directory=directory:
                             self._removeDirectoryCompletion(directory,
@@ -1134,11 +1134,11 @@ class Database(_DatabaseEventHandler):
 
     def rescanDirectories(self, traceCallback=None):
         """Rescan the watch list for changes to tracks or new files.
-        
+
         Keyword arguments:
-        
+
         - traceCallback=None: an `util.BaseCallback` instance for tracebacks.
-        
+
         """
         self._directoryWalkThread.rescanDirectories(
             traceCallback=traceCallback)
@@ -1547,7 +1547,7 @@ class Database(_DatabaseEventHandler):
                             traceCallback=traceCallback)
 
     def getRandomizerList(self, completion, traceCallback=None):
-        self._executeAndFetchAll("""select trackid, strftime('%s', 'now') - 
+        self._executeAndFetchAll("""select trackid, strftime('%s', 'now') -
                                     strftime('%s', lastplayed), score, unscored
                                     from tracks where missing is null""", (),
                                  completion, traceCallback=traceCallback)

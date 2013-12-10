@@ -195,16 +195,16 @@ class Main(wx.App):
             self._title += " (no queue)"
             self._defaultEnqueueOnStartup = False
         _gui = gui.MainWindow(None, db, _randomizer, player, trackFactory,
-                             self._loggerFactory, prefsFactory,
-                             self._configParser, sock, address, self._title,
-                             threadLock, self._defaultRestorePlaylist,
-                             self._defaultEnqueueOnStartup,
-                             self._defaultRescanOnStartup,
-                             self._defaultPlaylistLength,
-                             self._defaultPlayDelay,
-                             self._defaultIgnoreNewTracks,
-                             self._defaultTrackCheckDelay,
-                             self._defaultDumpPath, eventLogger)
+                              self._loggerFactory, prefsFactory,
+                              self._configParser, sock, address, self._title,
+                              threadLock, self._defaultRestorePlaylist,
+                              self._defaultEnqueueOnStartup,
+                              self._defaultRescanOnStartup,
+                              self._defaultPlaylistLength,
+                              self._defaultPlayDelay,
+                              self._defaultIgnoreNewTracks,
+                              self._defaultTrackCheckDelay,
+                              self._defaultDumpPath, eventLogger)
         _web = web.WebThread(_gui.getSharedTrackRecord(), _gui)
         _web.start()
 

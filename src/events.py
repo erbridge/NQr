@@ -18,7 +18,7 @@ def EVT_TRACK_CHANGE(window, func):
 
 
 class TrackChangeEvent(wx.PyEvent):
-    
+
     def __init__(self, db, trackFactory, path, callback):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_TRACK_CHANGE)
@@ -29,7 +29,7 @@ class TrackChangeEvent(wx.PyEvent):
 
     def getTrack(self):
         return self._trackFactory.getTrackFromPath(self._db, self._path)
-    
+
     def getCallback(self):
         return self._callback
 
@@ -42,12 +42,12 @@ def EVT_NO_NEXT_TRACK(window, func):
 
 
 class NoNextTrackEvent(wx.PyEvent):
-    
+
     def __init__(self, callback):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_NO_NEXT_TRACK)
         self._callback = callback
-        
+
     def getCallback(self):
         return self._callback
 
@@ -60,7 +60,7 @@ def EVT_REQUEST_ATTENTION(window, func):
 
 
 class RequestAttentionEvent(wx.PyEvent):
-    
+
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_REQUEST_ATTENTION)
@@ -74,7 +74,7 @@ def EVT_PAUSE(window, func):
 
 
 class PauseEvent(wx.PyEvent):
-    
+
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_PAUSE)
@@ -88,7 +88,7 @@ def EVT_PLAY(window, func):
 
 
 class PlayEvent(wx.PyEvent):
-    
+
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_PLAY)
@@ -102,7 +102,7 @@ def EVT_STOP(window, func):
 
 
 class StopEvent(wx.PyEvent):
-    
+
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_STOP)
@@ -116,7 +116,7 @@ def EVT_NEXT(window, func):
 
 
 class NextEvent(wx.PyEvent):
-    
+
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_NEXT)
@@ -130,7 +130,7 @@ def EVT_PREV(window, func):
 
 
 class PreviousEvent(wx.PyEvent):
-    
+
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_PREV)
@@ -144,7 +144,7 @@ def EVT_RATE_UP(window, func):
 
 
 class RateUpEvent(wx.PyEvent):
-    
+
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_RATE_UP)
@@ -158,12 +158,12 @@ def EVT_RATE_DOWN(window, func):
 
 
 class RateDownEvent(wx.PyEvent):
-    
+
     def __init__(self):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_RATE_DOWN)
 
-   
+
 _ID_EVT_DATABASE = wx.NewId()
 
 
@@ -172,7 +172,7 @@ def EVT_DATABASE(handler, func):
 
 
 class DatabaseEvent(wx.PyEvent):
-    
+
     def __init__(self, completion, callback, result=None, returnData=True):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_DATABASE)
@@ -180,13 +180,13 @@ class DatabaseEvent(wx.PyEvent):
         self._completion = completion
         self._returnData = returnData
         self._callback = callback
-        
+
     def complete(self):
         if self._returnData:
             self._completion(self._callback, self._result)
         else:
             self._completion(self._callback)
-            
+
     def getCallback(self):
         return self._callback
 
@@ -199,12 +199,12 @@ def EVT_EXCEPTION(handler, func):
 
 
 class ExceptionEvent(wx.PyEvent):
-    
+
     def __init__(self, err):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_EXCEPTION)
         self._err = err
-        
+
     def getException(self):
         return self._err
 
@@ -217,14 +217,14 @@ def EVT_LOG(handler, func):
 
 
 class LogEvent(wx.PyEvent):
-    
+
     def __init__(self, logger, level, message):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_LOG)
         self._logger = logger
         self._level = level
         self._message = message
-        
+
     def doLog(self):
         if self._level == "debug":
             self._logger.debug(self._message)
@@ -244,17 +244,17 @@ def EVT_ENQUEUE_RANDOM(handler, func):
 
 
 class EnqueueRandomEvent(wx.PyEvent):
-    
+
     def __init__(self, number, callback, tags=None):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_ENQUEUE_RANDOM)
         self._number = number
         self._tags = tags
         self._callback = callback
-        
+
     def getNumber(self):
         return self._number
-    
+
     def getCallback(self):
         return self._callback
 
@@ -270,7 +270,7 @@ def EVT_CHOOSE_TRACKS(handler, func):
 
 
 class ChooseTracksEvent(wx.PyEvent):
-    
+
     def __init__(self, number, exclude, completion, callback, tags=None):
         wx.PyEvent.__init__(self)
         self.SetEventType(_ID_EVT_CHOOSE_TRACKS)
@@ -279,7 +279,7 @@ class ChooseTracksEvent(wx.PyEvent):
         self._completion = completion
         self._callback = callback
         self._tags = tags
-        
+
     def getNumber(self):
         return self._number
 
@@ -288,7 +288,7 @@ class ChooseTracksEvent(wx.PyEvent):
 
     def getCompletion(self):
         return self._completion
-    
+
     def getCallback(self):
         return self._callback
 
