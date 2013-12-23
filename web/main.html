@@ -1,54 +1,11 @@
+<!DOCTYPE html>
 <html>
 <head>
 
-<title>NQr</title>
+    <title>NQr</title>
 
-<script src="/jquery"></script>
-
-<script src="/nqr.js"></script>
-
-<script>
-$(document).ready(function() {
-	
-	$("#prev").click(prev);
-	$("#play").click(play);
-	$("#pause").click(pause);
-	$("#stop").click(stop);
-	$("#next").click(next);
-	
-	$("#queue").everyTime("1s", function(e) {
-		$.getJSON("trackInfo", function(track) {
-			// FIXME: display duplicate tracks
-			if ($("#" + track.trackID).length == 0) {
-				buildQueueEntry("#queueHead", track.trackID, track)
-			}
-		});
-	});
-	
-});
-</script>
+    <script data-main="scripts/main" src="scripts/lib/require/require.js"></script>
 
 </head>
-<body>
-
-<h1>NQr</h1>
-
-<a href="" id="prev">Prev</a>
-<a href="" id="play">Play</a>
-<a href="" id="pause">Pause</a>
-<a href="" id="stop">Stop</a>
-<a href="" id="next">Next</a>
-
-<table id="queue">
-  <tr id="queueHead">
-    <th>Artist</th>
-    <th>Title</th>
-    <th>Score</th>
-    <th>Played At</th>
-    <th>LastPlayed</th>
-    <th>Weight</th>
-  </tr>
-</table>
-
-</body>
+<body></body>
 </html>
