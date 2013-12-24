@@ -1,4 +1,4 @@
-/* global define, alert */
+/* global define */
 
 define(function(require) {
     "use strict";
@@ -28,10 +28,11 @@ define(function(require) {
                     $dropdown.append($("<option>").html(i));
                 }
                 $(this).html($dropdown).change(function() {
-                    alert("Changed to " + $(":selected", this).text());
+                    var score = parseInt($(":selected", this).text());
                     $.post("changeScore", JSON.stringify({
-                        score: parseInt($(":selected", this).text())
+                        score: score
                     }));
+                    $(this).html(score).unbind("change");
                 });
             });
 

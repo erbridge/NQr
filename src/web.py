@@ -20,8 +20,6 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/":
             self.mainPage()
-        elif self.path == "/test":
-            self.testPage()
         elif self.path == "/trackInfo":
             self.trackInfo()
         elif self.path == "/prev":
@@ -92,9 +90,6 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     def mainPage(self):
         self.sendFile(os.path.join(self.webDir, "main.html"))
-
-    def testPage(self):
-        self.sendFile(os.path.join(self.webDir, "test.html"))
 
     def changeScore(self):
         score = self.receiveJson()["score"]
