@@ -24,11 +24,14 @@ define(function(require) {
 
             this.$(".score").click(function() {
                 var $dropdown = $("<select>");
-                for (var i = 10 ; i > -11 ; --i) {
+                for (var i = 10; i > -11; i--) {
                     $dropdown.append($("<option>").html(i));
                 }
                 $(this).html($dropdown).change(function() {
                     alert("Changed to " + $(":selected", this).text());
+                    $.post("changeScore", JSON.stringify({
+                        score: parseInt($(":selected", this).text())
+                    }));
                 });
             });
 

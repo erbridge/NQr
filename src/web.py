@@ -1,6 +1,7 @@
 #!/usr/local/bin/python
 
 import BaseHTTPServer
+import json
 import mimetypes
 import os.path
 import threading
@@ -36,6 +37,14 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         else:
             self.sendFile(
                 os.path.join(self.webDir, *self.path.split("/")))
+
+    def do_POST(self):
+        if self.path == "/changeScore":
+            self.changeScore()
+
+    def receiveJson(self):
+        contentLength = int(self.headers.getheader('content-length'))
+        return json.loads(self.rfile.read(contentLength))
 
     def send(self, page, error=200, mimeType=None):
         self.send_response(error)
@@ -86,6 +95,10 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     def testPage(self):
         self.sendFile(os.path.join(self.webDir, "test.html"))
+
+    def changeScore(self):
+        score = self.receiveJson()["score"]
+        print score
 
 
 class NQrServer(BaseHTTPServer.HTTPServer, util.EventPoster):
