@@ -126,8 +126,8 @@ class Main(wx.App):
 
             import xmmsunix
             player = xmmsunix.XMMS(self._loggerFactory, self._noQueue,
-                               self._configParser, self._defaultPlayer,
-                               self._safePlayers, trackFactory)
+                                   self._configParser, self._defaultPlayer,
+                                   self._safePlayers, trackFactory)
 
         elif self._player == "Audacious":
             self._logger.debug("Loading Audacious module.")
@@ -182,9 +182,9 @@ class Main(wx.App):
 
         self._logger.debug("Initializing randomizer.")
         _randomizer = randomizer.Randomizer(db, trackFactory,
-                                           self._loggerFactory,
-                                           self._configParser,
-                                           self._defaultDefaultScore)
+                                            self._loggerFactory,
+                                            self._configParser,
+                                            self._defaultDefaultScore)
 
         modules = [player, trackFactory, db, _randomizer, self]
         prefsFactory = prefs.PrefsFactory(self._prefsFile, self._loggerFactory,
@@ -232,7 +232,8 @@ class Main(wx.App):
         return self._port
 
     def _setDefaults(self):
-        self._port = 35636  # FIXME: Ensure this port is not used on this system.
+        # FIXME: Ensure this port is not used on this system.
+        self._port = 35636
         self._prefsFile = "../settings"
         self._databaseFile = "../database"
         self._defaultDumpPath = "../dumps/"
@@ -272,8 +273,8 @@ class Main(wx.App):
 
         """
         return _PrefsPage(parent, self._configParser, logger,
-                         self._defaultDebugMode, self._defaultNoQueue,
-                         self._defaultLogAge), "Dev"
+                          self._defaultDebugMode, self._defaultNoQueue,
+                          self._defaultLogAge), "Dev"
 
     def loadSettings(self):
         """Load preferences from file."""
@@ -282,7 +283,8 @@ class Main(wx.App):
         except ConfigParser.DuplicateSectionError:
             pass
         try:
-            self._debugMode = self._configParser.getboolean("Main", "debugMode")
+            self._debugMode = self._configParser.getboolean(
+                "Main", "debugMode")
         except ConfigParser.NoOptionError:
             self._debugMode = self._defaultDebugMode
         try:

@@ -7,7 +7,7 @@ import mutagen
 
 
 class TrackTrier:
-    
+
     def __init__(self, path):
         self.path_ = path
         self.track_ = mutagen.File(path, easy=True)
@@ -16,12 +16,12 @@ class TrackTrier:
         title = self.getAttr('title')
         trackNumber = self.getAttr('tracknumber')
         bpm = self.getAttr('bpm')
-        
+
     def getAttr(self, attr):
         try:
             got = self.track_[attr]
         except KeyError as err:
-            if str(err) not in ("'TRCK'", "'TALB'","'TPE1'", "'TBPM'",
+            if str(err) not in ("'TRCK'", "'TALB'", "'TPE1'", "'TBPM'",
                                 "'TIT2'"):
                 print self.path_
                 print self.track_

@@ -38,7 +38,7 @@ _IPC_GETWND_PE = 1
 
 
 class Winamp(mediaplayer.MediaPlayer):
-    
+
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
         mediaplayer.MediaPlayer.__init__(self, loggerFactory, "NQr.Winamp",
@@ -46,7 +46,7 @@ class Winamp(mediaplayer.MediaPlayer):
                                          safePlayers, trackFactory)
         self._winamp = winampImport.Winamp()
         self.launchBackground()
-        
+
     def launch(self):
         self._sendDebug("Launching Winamp.")
         if not self._winamp.getRunning():
@@ -84,7 +84,7 @@ class Winamp(mediaplayer.MediaPlayer):
         # FIXME: Has problems with unicode strings.
         self._sendInfo("Adding \'" + filepath + "\' to playlist.")
         self._winamp.enqueue(filepath)
-        
+
     def _insertTrack(self, filepath, position):
         self.launchBackground()
         # FIXME: Has problems with unicode strings.
@@ -98,7 +98,7 @@ class Winamp(mediaplayer.MediaPlayer):
         self._winamp.enqueue(filepath)
         for path in playlist[position:]:
             self._winamp.enqueue(path)
-            
+
 #    def playTrack(self, filepath):
 
     def deleteTrack(self, position):
@@ -131,7 +131,7 @@ class Winamp(mediaplayer.MediaPlayer):
         self.launchBackground()
         self._sendDebug("Resuming playback or restarting current track.")
         self._winamp.play()
-        
+
     def playAtPosition(self, position):
         self.launchBackground()
         self._sendDebug("Playing track at position.")

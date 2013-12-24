@@ -33,7 +33,8 @@ class LoggerFactory:
         logging.getLogger("NQr").addHandler(self._commandLineHandler)
 
         if self._debugMode:
-            debugFileHandler = logging.FileHandler(debugLogFilename, delay=True)
+            debugFileHandler = logging.FileHandler(
+                debugLogFilename, delay=True)
             debugFileHandler.setLevel(logging.DEBUG)
             debugFileHandler.setFormatter(self._formatter)
             logging.getLogger("NQr").addHandler(debugFileHandler)
@@ -66,7 +67,7 @@ class LoggerFactory:
                 if ext != ".log":
                     continue
                 time = datetime.datetime.strptime(
-                        name.split("_")[1] + name.split("_")[2], '%Y%m%d%H%M%S')
+                    name.split("_")[1] + name.split("_")[2], '%Y%m%d%H%M%S')
                 path = os.path.join("../logs", log)
                 if time < limit:
                     os.remove(path)

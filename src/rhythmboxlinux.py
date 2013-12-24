@@ -4,6 +4,7 @@ import dbus
 
 import mediaplayer
 
+
 class Rhythmbox(mediaplayer.MediaPlayer):
 
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,

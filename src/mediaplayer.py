@@ -71,7 +71,8 @@ class MediaPlayer(util.EventPoster):
     #        continues to play the old track (fixed with work-around).
     def loadPlaylist(self, playlist, traceCallback=None):
         self._sendDebug("Restoring playlist.")
-        currentTrackPath = self.getCurrentTrackPath(traceCallback=traceCallback)
+        currentTrackPath = self.getCurrentTrackPath(
+            traceCallback=traceCallback)
         self.clearPlaylist()
         self.addTrack(currentTrackPath)
         for filepath in playlist:
@@ -106,9 +107,9 @@ class MediaPlayer(util.EventPoster):
                           logging=True):
         """
            Gets filename of track at |trackPosition|.
-           
+
            If |logging| is False, the debug log is not updated.
-           
+
            Result should always be turned into a track object.
         """
         if trackPosition is None:
@@ -123,25 +124,25 @@ class MediaPlayer(util.EventPoster):
         count = 0
         try:
             for pos in range(
-                self.getCurrentTrackPos(traceCallback=traceCallback),
-                self.getPlaylistLength()):
-                    path = self.getTrackPathAtPos(pos,
-                                                  traceCallback=traceCallback)
-                    if not path:
-                        continue
-                    db.maybeGetIDFromPath(
-                        path,
-                        lambda thisCallback, id, db=db, path=path:
-                            self._getUnplayedTrackIDsCallback(db, id, path,
-                                                              thisCallback),
-                        traceCallback=traceCallback)
-                    count += 1
+                    self.getCurrentTrackPos(traceCallback=traceCallback),
+                    self.getPlaylistLength()):
+                path = self.getTrackPathAtPos(pos,
+                                              traceCallback=traceCallback)
+                if not path:
+                    continue
+                db.maybeGetIDFromPath(
+                    path,
+                    lambda thisCallback, id, db=db, path=path:
+                    self._getUnplayedTrackIDsCallback(db, id, path,
+                                                      thisCallback),
+                    traceCallback=traceCallback)
+                count += 1
         except TypeError:
             pass
         db.complete(
             lambda thisCallback, db=db, count=count, completion=completion:
-                self._getUnplayedTrackIDListCompletion(db, count, completion,
-                                                       thisCallback),
+            self._getUnplayedTrackIDListCompletion(db, count, completion,
+                                                   thisCallback),
             traceCallback=traceCallback)
 
     def _getUnplayedTrackIDsCallback(self, db, id, path, traceCallback):
@@ -160,9 +161,9 @@ class MediaPlayer(util.EventPoster):
         if len(self._ids) != count:
             db.complete(
                 lambda thisCallback, db=db, count=count, completion=completion:
-                    self._getUnplayedTrackIDListCompletion(db, count,
-                                                           completion,
-                                                           thisCallback),
+                self._getUnplayedTrackIDListCompletion(db, count,
+                                                       completion,
+                                                       thisCallback),
                 traceCallback=traceCallback)
             return
         completion(traceCallback, self._ids)
@@ -331,7 +332,8 @@ class PrefsPage(util.BasePrefsPage):
             self._audaciousButton = wx.RadioButton(self, ID_PLAYER,
                                                    "Audacious  \t",
                                                    style=wx.RB_GROUP)
-            self._playerSizer.Add(self._audaciousButton, 0, wx.TOP | wx.BOTTOM, 3)
+            self._playerSizer.Add(
+                self._audaciousButton, 0, wx.TOP | wx.BOTTOM, 3)
 
             if self._settings["player"] == "Audacious":
                 self._iTunesButton.SetValue(True)

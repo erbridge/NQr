@@ -4,8 +4,9 @@ import xmms.control
 
 import mediaplayer
 
+
 class XMMS(mediaplayer.MediaPlayer):
-    
+
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
         mediaplayer.MediaPlayer.__init__(self, loggerFactory, "NQr.XMMS",

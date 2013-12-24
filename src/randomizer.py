@@ -15,6 +15,7 @@ wx = util.wx
 
 
 class Randomizer:
+
     """
        Tracks with a |score| >= |scoreThreshold| get played. By default, -10s
        are not played.
@@ -97,9 +98,10 @@ class Randomizer:
         self._logger.debug("Selecting " + str(number) + " track" +
                            util.plural(number) + ".")
         mycompletion = (lambda thisCallback, trackIDs, completion=completion:
-                            self._chooseTracksCompletion(trackIDs, completion,
-                                                         thisCallback))
-        self._chooseTrackIDs(number, exclude, mycompletion, traceCallback, tags)
+                        self._chooseTracksCompletion(trackIDs, completion,
+                                                     thisCallback))
+        self._chooseTrackIDs(
+            number, exclude, mycompletion, traceCallback, tags)
 
     def _chooseTracksCompletion(self, trackIDs, completion, traceCallback):
         self._tracks = []  # FIXME: Possibly clears list before posting it.
@@ -107,17 +109,17 @@ class Randomizer:
             errcompletion = util.ErrorCompletion(
                 errors.NoTrackError,
                 lambda thisCallback, trackID=trackID:
-                    self._db.setHistorical(True, trackID,
-                                           traceCallback=thisCallback),
+                self._db.setHistorical(True, trackID,
+                                       traceCallback=thisCallback),
                 traceCallback)
             self._trackFactory.getTrackFromID(
                 self._db, trackID,
                 lambda thisCallback, track, weight=weight, raked=raked:
-                    self._addTrackToListCallback(track, weight, raked),
+                self._addTrackToListCallback(track, weight, raked),
                 errcompletion=errcompletion, traceCallback=traceCallback)
         self._db.complete(
             lambda thisCallback, completion=completion:
-                completion(thisCallback, self._tracks),
+            completion(thisCallback, self._tracks),
             traceCallback=traceCallback)
 
     def _addTrackToListCallback(self, track, weight, raked):
@@ -130,11 +132,11 @@ class Randomizer:
                         tags=None):
         mycompletion = (lambda thisCallback, trackWeightList, totalWeight,
                         number=number, completion=completion:
-                            self._chooseTrackIDsCompletion(number,
-                                                           trackWeightList,
-                                                           totalWeight,
-                                                           completion,
-                                                           thisCallback))
+                        self._chooseTrackIDsCompletion(number,
+                                                       trackWeightList,
+                                                       totalWeight,
+                                                       completion,
+                                                       thisCallback))
         self._createLists(exclude, mycompletion, traceCallback, tags)
 
     def _chooseTrackIDsCompletion(self, number, trackWeightList, totalWeight,
@@ -193,18 +195,18 @@ class Randomizer:
             3,
             lambda oldest, list, thisCallback, exclude=exclude,
             completion=completion:
-                self._createListsCompletion(exclude, oldest, list, completion,
-                                            thisCallback),
+            self._createListsCompletion(exclude, oldest, list, completion,
+                                        thisCallback),
             traceCallback)
         self._db.getOldestLastPlayed(
             lambda thisCallback, oldest, multicompletion=multicompletion:
-                multicompletion(0, oldest),
+            multicompletion(0, oldest),
             traceCallback=traceCallback)
         multicompletion(2, traceCallback)
         if tags is None:
             self._db.getRandomizerList(
                 lambda thisCallback, list, multicompletion=multicompletion:
-                    multicompletion(1, list),
+                multicompletion(1, list),
                 traceCallback=traceCallback)
         else:
             # FIXME: Support tags.
@@ -247,9 +249,9 @@ class Randomizer:
                                      rawWeightAlgorithm)
 
     def getWeight(self, score, time):
-# #        weight = time ** (score/50.)
-# #        weight = score**2 * time**2
-# #        weight = score * time
+# weight = time ** (score/50.)
+# weight = score**2 * time**2
+# weight = score * time
         return self._weightAlgorithm(score, time)
 
 
@@ -324,8 +326,10 @@ class PrefsPage(util.BasePrefsPage):
     def _initCreateThresholdSizer(self):
         self._thresholdSizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        thresholdLabel = wx.StaticText(self, wx.NewId(), "Minimum Play Score: ")
-        self._thresholdSizer.Add(thresholdLabel, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 3)
+        thresholdLabel = wx.StaticText(
+            self, wx.NewId(), "Minimum Play Score: ")
+        self._thresholdSizer.Add(
+            thresholdLabel, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 3)
 
         self._thresholdControl = wx.TextCtrl(
             self, wx.NewId(), str(self._settings["scoreThreshold"]),

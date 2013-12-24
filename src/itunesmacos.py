@@ -1,6 +1,6 @@
 # Mac OS, iTunes interface
 #
-# FIXME: Needs to somehow select playlist (possibly see shuffle for hint). 
+# FIXME: Needs to somehow select playlist (possibly see shuffle for hint).
 
 import time
 
@@ -10,7 +10,7 @@ import mediaplayer
 
 
 class iTunes(mediaplayer.MediaPlayer):
-    
+
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory, playlistName="NQr"):
         mediaplayer.MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes",
@@ -19,28 +19,29 @@ class iTunes(mediaplayer.MediaPlayer):
         self._playlistName = playlistName
         self._iTunes = app("iTunes")
         self.launchBackground()
-    
+
     def _getRunning(self):
         try:
             if not self._iTunes.exists(
-                self._iTunes.user_playlists[self._playlistName]):
-                    self._playlist = self._iTunes.make(
-                        new=k.user_playlist,
-                        with_properties={k.name: self._playlistName})
+                    self._iTunes.user_playlists[self._playlistName]):
+                self._playlist = self._iTunes.make(
+                    new=k.user_playlist,
+                    with_properties={k.name: self._playlistName})
             else:
-                self._playlist = self._iTunes.user_playlists[self._playlistName]
+                self._playlist = self._iTunes.user_playlists[
+                    self._playlistName]
             self._tracks = self._playlist.tracks
             return True
         except CommandError:
             return False
-        
+
     def launch(self):
         self._sendDebug("Launching iTunes.")
         if not self._getRunning():
             self._iTunes.launch()
         else:
             self._sendInfo("iTunes is already running.")
-            self._iTunes.Focus() # FIXME: Does this work?
+            self._iTunes.Focus()  # FIXME: Does this work?
 
     def launchBackground(self):
         if not self._getRunning():
@@ -52,7 +53,7 @@ class iTunes(mediaplayer.MediaPlayer):
                     self._sendInfo("iTunes has been launched.")
                     self._iTunes.reveal(self._playlist)
                     return
-                
+
     def close(self):
         self._sendDebug("Closing iTunes.")
         if self._getRunning():
@@ -64,7 +65,7 @@ class iTunes(mediaplayer.MediaPlayer):
                     return
         else:
             self._sendDebug("iTunes is not running.")
-            
+
     def _addTrack(self, filepath):
         self.launchBackground()
         self._sendInfo("Adding \'" + filepath + "\' to playlist.")
@@ -76,8 +77,8 @@ class iTunes(mediaplayer.MediaPlayer):
         self._sendInfo(
             "Inserting \'" + filepath + "\' into playlist position "
             + str(position) + ".")
-        self._playlist.Insert(filepath, position) # FIXME: Doesn't work.
-        
+        self._playlist.Insert(filepath, position)  # FIXME: Doesn't work.
+
     def deleteTrack(self, position):
         self.launchBackground()
         self._sendDebug(
@@ -105,7 +106,7 @@ class iTunes(mediaplayer.MediaPlayer):
         if self._iTunes.player_state() == k.playing:
             self._iTunes.stop()
         self._iTunes.play()
-        
+
     def playAtPosition(self, position):
         self.launchBackground()
         self._sendDebug("Playing track at position.")
@@ -124,7 +125,7 @@ class iTunes(mediaplayer.MediaPlayer):
     def getShuffle(self):
         self.launchBackground()
         self._sendDebug("Retrieving shuffle status.")
-        return self._playlist.shuffle() # FIXME: Probably doesn't work.
+        return self._playlist.shuffle()  # FIXME: Probably doesn't work.
 
     def setShuffle(self, status):
         self.launchBackground()
@@ -150,17 +151,17 @@ class iTunes(mediaplayer.MediaPlayer):
         for pos in range(self.getPlaylistLength()):
             if currentTrack == self._getTrackAtPos(pos):
                 return pos
-        return None # Track is not in "NQr" playlist.
-    
+        return None  # Track is not in "NQr" playlist.
+
     def _getTrackAtPos(self, trackPosition):
         return self._tracks[trackPosition + 1]()
-    
+
     def _getTrackPathAtPos(self, trackPosition, logging=True):
         """
            Gets filename of track at |trackPosition|.
-           
+
            If |logging| is False, the debug log is not updated.
-           
+
            Result should always be turned into a track object.
         """
         if logging:

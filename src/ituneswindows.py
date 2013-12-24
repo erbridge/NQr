@@ -9,7 +9,7 @@ import mediaplayer
 
 
 class iTunes(mediaplayer.MediaPlayer):
-    
+
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory, playlistName="\"NQr\""):
         mediaplayer.MediaPlayer.__init__(self, loggerFactory, "NQr.iTunes",
@@ -17,7 +17,7 @@ class iTunes(mediaplayer.MediaPlayer):
                                          safePlayers, trackFactory)
         self._playlistName = playlistName
         self.launchBackground()
-    
+
     def _getRunning(self):
         try:
             self._iTunes = win32com.client.gencache.EnsureDispatch(
@@ -27,8 +27,9 @@ class iTunes(mediaplayer.MediaPlayer):
                     self._iTunes.LibrarySource.Playlists.ItemByName(
                         self._playlistName))
             except AttributeError as err:
-                print err # FIXME: Find specific error.
-                self._playlist = self._iTunes.CreatePlaylist(self._playlistName)
+                print err  # FIXME: Find specific error.
+                self._playlist = self._iTunes.CreatePlaylist(
+                    self._playlistName)
 #                self._playlist = win32com.client.CastTo(self._playlist,
 #                                                        "IITUserPlaylist")
             self._tracks = self._playlist.Tracks
@@ -37,7 +38,7 @@ class iTunes(mediaplayer.MediaPlayer):
             if str(err) != "(-2147221005, 'Invalid class string', None, None)":
                 raise
             return False
-        
+
     def launch(self):
         self._sendDebug("Launching iTunes.")
         if not self._getRunning():
@@ -51,7 +52,7 @@ class iTunes(mediaplayer.MediaPlayer):
                     return
         else:
             self._sendInfo("iTunes is already running.")
-            self._iTunes.Focus() # FIXME: Does this work?
+            self._iTunes.Focus()  # FIXME: Does this work?
 
     def launchBackground(self):
         if not self._getRunning():
@@ -64,11 +65,11 @@ class iTunes(mediaplayer.MediaPlayer):
                 if self._getRunning():
                     self._sendInfo("iTunes has been launched.")
                     return
-                
+
     def close(self):
         self._sendDebug("Closing iTunes.")
         if self._getRunning():
-            self._iTunes.close() # FIXME: Does this work?
+            self._iTunes.close()  # FIXME: Does this work?
             while True:
                 time.sleep(.25)
                 if not self._getRunning():
@@ -76,32 +77,33 @@ class iTunes(mediaplayer.MediaPlayer):
                     return
         else:
             self._sendDebug("iTunes is not running.")
-            
+
     def _addTrack(self, filepath):
         self.launchBackground()
         self._sendInfo("Adding \'" + filepath + "\' to playlist.")
-        self._playlist.AddTrack(filepath) # FIXME: Possibly needs track object.
-        
+        # FIXME: Possibly needs track object.
+        self._playlist.AddTrack(filepath)
+
     def _insertTrack(self, filepath, position):
         self.launchBackground()
         self._sendInfo(
-            "Inserting \'" + filepath+"\' into playlist position "
+            "Inserting \'" + filepath + "\' into playlist position "
             + str(position) + ".")
         # FIXME: Probably doesn't work.
         self._playlist.Insert(filepath, position)
-            
+
 #    def playTrack(self, filepath):
 
     def deleteTrack(self, position):
         self.launchBackground()
         self._sendDebug(
             "Deleting track in position " + str(position) + " from playlist.")
-        self._playlist.Delete(position) # FIXME: Probably doesn't work.
+        self._playlist.Delete(position)  # FIXME: Probably doesn't work.
 
     def clearPlaylist(self):
         self.launchBackground()
         self._sendDebug("Clearing playlist.")
-        self._playlist.Clear() # FIXME: Probably doesn't work.
+        self._playlist.Clear()  # FIXME: Probably doesn't work.
 
     def nextTrack(self):
         self.launchBackground()
@@ -117,11 +119,11 @@ class iTunes(mediaplayer.MediaPlayer):
         self.launchBackground()
         self._sendDebug("Resuming playback or restarting current track.")
         self._iTunes.Play()
-        
+
     def playAtPosition(self, position):
         self.launchBackground()
         self._sendDebug("Playing track at position.")
-        self._iTunes.setCurrentTrack(position) # FIXME: Probably doesn't work.
+        self._iTunes.setCurrentTrack(position)  # FIXME: Probably doesn't work.
         self._iTunes.Play()
 
     def previousTrack(self):
@@ -137,16 +139,16 @@ class iTunes(mediaplayer.MediaPlayer):
     def getShuffle(self):
         self.launchBackground()
         self._sendDebug("Retrieving shuffle status.")
-        return self._iTunes.GetShuffle() # FIXME: Probably doesn't work.
+        return self._iTunes.GetShuffle()  # FIXME: Probably doesn't work.
 
     def setShuffle(self, status):
         self.launchBackground()
         self._sendDebug("Setting shuffle status.")
         if status:
-            self._iTunes.SetShuffle(1) # FIXME: Probably doesn't work.
+            self._iTunes.SetShuffle(1)  # FIXME: Probably doesn't work.
             self._sendInfo("Shuffle turned on.")
         else:
-            self._iTunes.SetShuffle(0) # FIXME: Probably doesn't work.
+            self._iTunes.SetShuffle(0)  # FIXME: Probably doesn't work.
             self._sendInfo("Shuffle turned off.")
 
     def getPlaylistLength(self):
@@ -157,13 +159,13 @@ class iTunes(mediaplayer.MediaPlayer):
     def getCurrentTrackPos(self):
         self.launchBackground()
         currentTrack = self._iTunes.CurrentTrack
-        # currentTrack = win32com.client.CastTo(self._iTunes.CurrentTrack, 
+        # currentTrack = win32com.client.CastTo(self._iTunes.CurrentTrack,
         #                                       "IITFileOrCDTrack")
         for pos in range(self.getPlaylistLength()):
             if currentTrack == self._getTrackAtPos(pos):
                 return pos
-        return None # Track is not in "NQr" playlist.
-    
+        return None  # Track is not in "NQr" playlist.
+
     def _getTrackAtPos(self, trackPosition):
         return self._tracks.Item(trackPosition + 1)
 

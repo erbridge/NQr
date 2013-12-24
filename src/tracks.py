@@ -39,7 +39,8 @@ class TrackFactory:
         pass
 
     def getTrackFromPath(self, db, path, traceCallback=None):
-        track = self.getTrackFromPathNoID(db, path, traceCallback=traceCallback)
+        track = self.getTrackFromPathNoID(
+            db, path, traceCallback=traceCallback)
         self.addTrackToCache(track, traceCallback=traceCallback)
         return track
 
@@ -84,8 +85,8 @@ class TrackFactory:
                 trackID,
                 lambda thisCallback, path, db=db, completion=completion,
                 errcompletion=errcompletion:
-                    self._getTrackFromIDCompletion(db, path, completion,
-                                                   thisCallback, errcompletion),
+                self._getTrackFromIDCompletion(db, path, completion,
+                                               thisCallback, errcompletion),
                 priority=priority, traceCallback=traceCallback)
         else:
             completion(traceCallback, track)
@@ -93,7 +94,8 @@ class TrackFactory:
     def _getTrackFromIDCompletion(self, db, path, completion, traceCallback,
                                   errcompletion=None):
         try:
-            track = self.getTrackFromPath(db, path, traceCallback=traceCallback)
+            track = self.getTrackFromPath(
+                db, path, traceCallback=traceCallback)
             completion(traceCallback, track)
         except errors.NoTrackError as err:
             if errcompletion is None:
@@ -103,7 +105,7 @@ class TrackFactory:
     def addTrackToCache(self, track, traceCallback=None):
         track.getID(
             lambda thisCallback, id, track=track:
-                self._addTrackToCacheCompletion(track, id),
+            self._addTrackToCacheCompletion(track, id),
             traceCallback=traceCallback)
 
     def _addTrackToCacheCompletion(self, track, id):
@@ -161,7 +163,7 @@ class Track:
             self._db.getTrackID(
                 self,
                 lambda thisCallback, id, completion=completion:
-                    self._getIDCompletion(id, completion, thisCallback),
+                self._getIDCompletion(id, completion, thisCallback),
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._id)
@@ -181,7 +183,7 @@ class Track:
             self._db.getTags(
                 self,
                 lambda thisCallback, tags, completion=completion:
-                    self._getTagsCompletion(tags, completion, thisCallback),
+                self._getTagsCompletion(tags, completion, thisCallback),
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._tags)
@@ -207,7 +209,7 @@ class Track:
         self._db.addPlay(
             self, delay,
             lambda thisCallback, playedAt, completion=completion:
-                self._addPlayCompletion(playedAt, completion, thisCallback),
+            self._addPlayCompletion(playedAt, completion, thisCallback),
             priority=priority, traceCallback=traceCallback)
 
     def _addPlayCompletion(self, playedAt, completion, traceCallback):
@@ -224,8 +226,8 @@ class Track:
         if self._playCount is None:
             self._db.getPlayCount(
                 lambda thisCallback, playCount, completion=completion:
-                    self._getPlayCountCompletion(playCount, completion,
-                                                 thisCallback),
+                self._getPlayCountCompletion(playCount, completion,
+                                             thisCallback),
                 track=self, priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._playCount)
@@ -245,8 +247,8 @@ class Track:
             self._db.getLastPlayedInSeconds(
                 self,
                 lambda thisCallback, lastPlayed, completion=completion:
-                    self._getLastPlayedCompletion(lastPlayed, completion,
-                                                  thisCallback),
+                self._getLastPlayedCompletion(lastPlayed, completion,
+                                              thisCallback),
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._lastPlayed)
@@ -276,8 +278,8 @@ class Track:
         self.getIsScored(
             lambda thisCallback, isScored, completion=completion,
             priority=priority:
-                self._getScoreCompletion(isScored, completion, thisCallback,
-                                         priority=priority),
+            self._getScoreCompletion(isScored, completion, thisCallback,
+                                     priority=priority),
             traceCallback=traceCallback)
 
     def _getScoreCompletion(self, isScored, completion, traceCallback,
@@ -293,8 +295,8 @@ class Track:
             self._db.getScoreValue(
                 self,
                 lambda thisCallback, score, completion=completion:
-                    self._getScoreValueCompletion(score, completion,
-                                                  thisCallback),
+                self._getScoreValueCompletion(score, completion,
+                                              thisCallback),
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._score)
@@ -313,8 +315,8 @@ class Track:
             self._db.getIsScored(
                 self,
                 lambda thisCallback, isScored, completion=completion:
-                    self._getIsScoredCompletion(isScored, completion,
-                                                thisCallback),
+                self._getIsScoredCompletion(isScored, completion,
+                                            thisCallback),
                 priority=priority, traceCallback=traceCallback)
             return
         completion(traceCallback, self._isScored)
@@ -397,11 +399,11 @@ class AudioTrack(Track):
 class PrefsPage(util.BasePrefsPage):
 
     def __init__(self, parent, configParser, logger):
-        util.BasePrefsPage.__init__(self, parent, configParser, logger, "Track")
+        util.BasePrefsPage.__init__(
+            self, parent, configParser, logger, "Track")
 
 
 if __name__ == '__main__':
     from mutagen.easyid3 import EasyID3
 
     print EasyID3.valid_keys.keys()
-

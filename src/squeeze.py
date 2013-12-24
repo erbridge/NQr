@@ -5,7 +5,9 @@ import urllib
 
 import mediaplayer
 
+
 class Player:
+
     def __init__(self, name, server):
         self.__name = name
         self.__server = server
@@ -65,28 +67,30 @@ class Player:
     def playlistPlayAtPosition(self, position):
         self.tellPlaylist('index', str(position))
 
+
 class SQDriver:
+
     def __init__(self):
         self.__telnet = telnetlib.Telnet('localhost', 9090)
         #self.__telnet = telnetlib.Telnet('euphrates.home', 9090)
 
     def __send(self, cmd):
         quoted = ' '.join([urllib.quote(part) for part in cmd])
-	# it is possible that |quoted| somehow gets marked as unicode, and
-	# then when telnet tries to detect IAC (chr(255)) stuff breaks. So,
-	# force it to ASCII, which it should be anyway, being quoted.
-        quoted = quoted.encode('ascii');
-        #print "send:", quoted
-	#import sys
-	#sys.stdout.flush()
+        # it is possible that |quoted| somehow gets marked as unicode, and
+        # then when telnet tries to detect IAC (chr(255)) stuff breaks. So,
+        # force it to ASCII, which it should be anyway, being quoted.
+        quoted = quoted.encode('ascii')
+        # print "send:", quoted
+        #import sys
+        # sys.stdout.flush()
         self.__telnet.write(quoted + "\n")
-        
+
         ret = self.__telnet.read_until("\n", 10)
         # Sometimes there are trailing spaces - presumably a bug (e.g. pause)
         # and in any case we need to get rid of the '\n'
         ret = ret.rstrip()
-        #print "recv:", ret
-	#sys.stdout.flush()
+        # print "recv:", ret
+        # sys.stdout.flush()
 
         return [urllib.unquote(part) for part in ret.split(' ')]
 
@@ -110,13 +114,13 @@ class SQDriver:
         return int(self.askPlayer('count'))
 
     def playerName(self, n):
-        return self.askPlayer('name', str(n));
+        return self.askPlayer('name', str(n))
 
     def playerNames(self):
         return [self.playerName(n) for n in range(0, self.playerCount())]
 
     def playerId(self, n):
-        return self.askPlayer('id', str(n));
+        return self.askPlayer('id', str(n))
 
     def choose(self, player):
         names = self.playerNames()
@@ -167,6 +171,7 @@ class SQDriver:
 
 
 class Squeezebox(mediaplayer.MediaPlayer):
+
     def __init__(self, loggerFactory, noQueue, configParser, defaultPlayer,
                  safePlayers, trackFactory):
         mediaplayer.MediaPlayer.__init__(self, loggerFactory, "NQr.Squeezebox",
@@ -189,7 +194,7 @@ class Squeezebox(mediaplayer.MediaPlayer):
 
     def getCurrentTrackPos(self, traceCallback=None):
         return self.__driver.getPlaylistIndex()
-        
+
     def getPlaylistLength(self):
         return self.__driver.getPlaylistTracks()
 
@@ -224,7 +229,7 @@ class Squeezebox(mediaplayer.MediaPlayer):
 
     def playAtPosition(self, position):
         self.__driver.playlistPlayAtPosition(position)
-    
+
 if __name__ == '__main__':
     box = SQDriver()
     players = box.playerNames()

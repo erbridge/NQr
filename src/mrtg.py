@@ -6,15 +6,19 @@ import os
 import sqlite3
 import sys
 
+
 def scored(cursor, score):
     cursor.execute("""select count(trackid) from tracks
                       where score=""" + score)
 
+
 def unscored(cursor):
     cursor.execute("select count(trackid) from tracks where score is null")
 
+
 def total(cursor):
     cursor.execute("select count(trackid) from tracks")
+
 
 def stat(conn, score):
     cursor = conn.cursor()
@@ -27,7 +31,7 @@ def stat(conn, score):
     results = cursor.fetchall()
     for result in results:
         print result[0]
-    
+
 
 def main():
     path = os.path.dirname(sys.argv[0])
@@ -35,7 +39,7 @@ def main():
 
     stat(conn, sys.argv[1])
     stat(conn, sys.argv[2])
-    
+
     # Fake uptime
     print "12:34"
     print "nqr"

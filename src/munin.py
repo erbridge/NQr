@@ -6,21 +6,25 @@ import os
 import sqlite3
 import sys
 
+
 def scored(cursor, score):
     cursor.execute("""select count(trackid) from tracks
                       where score=""" + str(score))
     results = cursor.fetchall()
     return results[0][0]
 
+
 def unscored(cursor):
     cursor.execute("select count(trackid) from tracks where score is null")
     results = cursor.fetchall()
     return results[0][0]
 
+
 def total(cursor):
     cursor.execute("select count(trackid) from tracks")
     results = cursor.fetchall()
     return results[0][0]
+
 
 def config():
     print 'graph_title NQr'
@@ -29,13 +33,14 @@ def config():
     for n in range(5, 11):
         print 'score_' + str(n) + '.label ' + str(n)
 
+
 def values(conn):
     cursor = conn.cursor()
     print 'total.value ' + str(total(cursor))
     print 'unscored.value ' + str(unscored(cursor))
     for n in range(5, 11):
         print 'score_' + str(n) + '.value ' + str(scored(cursor, n))
-    
+
 
 def main():
     path = os.environ['NQR_PATH']

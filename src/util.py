@@ -11,7 +11,7 @@ import threading
 import traceback
 
 #import wxversion
-#wxversion.select([x for x in wxversion.getInstalled()
+# wxversion.select([x for x in wxversion.getInstalled()
 #                  if x.find('unicode') != -1])
 #import wx
 
@@ -25,6 +25,7 @@ MAC_NAMES = ["Mac OS X", "Darwin"]
 WINDOWS_NAMES = ["Windows"]
 FREEBSD_NAMES = ["FreeBSD"]
 LINUX_NAMES = ["Linux"]
+
 
 def de_utf8(u):
     try:
@@ -50,8 +51,8 @@ def formatLength(rawLength):
     return length
 
 
-#def convertToUnicode(string, debugCompletion, logging=True):
-#    return unicode(string, "mbcs") # the rest is now possibly unnecessary?
+# def convertToUnicode(string, debugCompletion, logging=True):
+# return unicode(string, "mbcs") # the rest is now possibly unnecessary?
 #    try:
 #        unicodeString = unicode(string, "cp1252")
 #    except UnicodeDecodeError:
@@ -78,7 +79,7 @@ def doNothing():
     pass
 
 
-#def extractTraceStack(trace=None):
+# def extractTraceStack(trace=None):
 #    newTrace = traceback.extract_stack()[:-1]
 #    if trace is None:
 #        return newTrace
@@ -135,7 +136,8 @@ def _doRough(time, bigDivider, bigName, littleDivider, littleName):
         timeString = str(big) + " " + bigName + plural(big)
     if little != 0:
         if timeString:
-            timeString  += " " + str(little) + " " + littleName + plural(little)
+            timeString  += " " + \
+                str(little) + " " + littleName + plural(little)
         else:
             timeString = str(little) + " " + littleName + plural(little)
     return timeString
@@ -145,16 +147,16 @@ def roughAge(time):
     """
        Return a string roughly describing the time difference handed in.
     """
-    if time < 60*60:
+    if time < 60 * 60:
         return _doRough(time, 60, "minute", 1, "second")
-    if time < 24*60*60:
+    if time < 24 * 60 * 60:
         return _doRough(time, 60, "hour", 60, "minute")
-    if time < 7*24*60*60:
-        return _doRough(time, 24, "day", 60*60, "hour")
-    if time < 365*24*60*60:
-        return _doRough(time, 7, "week", 24*60*60, "day")
+    if time < 7 * 24 * 60 * 60:
+        return _doRough(time, 24, "day", 60 * 60, "hour")
+    if time < 365 * 24 * 60 * 60:
+        return _doRough(time, 7, "week", 24 * 60 * 60, "day")
     # Yes, this measure of a year is fairly crap :-).
-    return _doRough(time, 52, "year", 7*24*60*60, "week")
+    return _doRough(time, 52, "year", 7 * 24 * 60 * 60, "week")
 
 
 # FIXME: Implement for other systems (maybe see:
@@ -163,7 +165,7 @@ def getIsInstalled(softwareName):
     if SYSTEM_NAME in WINDOWS_NAMES:
         import wmi
         import _winreg
-        
+
         result, names = wmi.Registry().EnumKey(
             hDefKey=_winreg.HKEY_LOCAL_MACHINE,
             sSubKeyName=r"Software\Microsoft\Windows\CurrentVersion\Uninstall")
@@ -227,12 +229,12 @@ def postWarningLog(lock, target, logger, message):
 
 
 class EventPoster:
-    
+
     def __init__(self, window, logger, lock):
         self._window = window
         self._logger = logger
         self._lock = lock
-        
+
     def postEvent(self, event):
         postEvent(self._lock, self._window, event)
 
@@ -244,17 +246,17 @@ class EventPoster:
 
     def postErrorLog(self, message):
         postErrorLog(self._lock, self._window, self._logger, message)
-        
+
     def postWarningLog(self, message):
         postWarningLog(self._lock, self._window, self._logger, message)
 
 
 class RedirectText:
-    
+
     def __init__(self, out, sysout):
         self._out = sysout
         self._out2 = out
-        
+
     def write(self, string):
         self._out.write(string)
         start, end = self._out2.GetSelection()
@@ -264,27 +266,27 @@ class RedirectText:
 
 
 class RedirectErr(RedirectText):
-    
+
     def __init__(self, textCtrl, stderr):
         RedirectText.__init__(self, textCtrl, stderr)
 
 
 class RedirectOut(RedirectText):
-    
+
     def __init__(self, textCtrl, stdout):
         RedirectText.__init__(self, textCtrl, stdout)
 
 
 class BaseCallback:
     # FIXME: Catch all errors and re-raise with trace (possibly done?).
-    
+
     def __init__(self, completion, traceCallbackOrList=None):
         self._completion = completion
         self._trace = getTrace(traceCallbackOrList)[:-1]
-        
+
     def getTrace(self):
         return getTrace(self._trace)[:-1]
-    
+
     def _complete(self, *args, **kwargs):
         try:
             self._completion(*args, **kwargs)
@@ -295,36 +297,36 @@ class BaseCallback:
 
 
 class Callback(BaseCallback):
-    
+
     def __call__(self, *args, **kwargs):
         self._complete(self, *args, **kwargs)
 
 
 class MultiCompletion(BaseCallback):
-    
+
     def __init__(self, number, completion, traceCallback=None):
         BaseCallback.__init__(self, completion, traceCallback)
         self._slots = [None] * number
         self._puts = [False] * number
-    
+
     def __call__(self, slot, value):
         if self._puts[slot]:
             raise errors.MultiCompletionPutError(trace=getTrace(self))
         self._slots[slot] = value
         self._puts[slot] = True
         if False not in self._puts:
-            self._complete(*self._slots)        
+            self._complete(*self._slots)
 
 
 class ErrorCompletion(BaseCallback):
-    
+
     def __init__(self, exceptions, completion, traceCallbackOrList=None):
         BaseCallback.__init__(self, completion, traceCallbackOrList)
         if isinstance(exceptions, list):
             self._exceptions = exceptions
         else:
             self._exceptions = [exceptions]
-    
+
     def __call__(self, err, *args, **kwargs):
         for exception in self._exceptions:
             if isinstance(err, exception) or err is exception:
@@ -334,7 +336,7 @@ class ErrorCompletion(BaseCallback):
 
 
 class BasePrefsPage(wx.Panel):
-    
+
     def __init__(self, parent, configParser, logger, sectionName, *args,
                  **kwargs):
         wx.Panel.__init__(self, parent)
@@ -348,7 +350,7 @@ class BasePrefsPage(wx.Panel):
         except ConfigParser.DuplicateSectionError:
             pass
         self._loadSettings()
-        
+
     def savePrefs(self):
         self._logger.debug("Saving \'" + self._sectionName + "\' preferences.")
         for (name, value) in self._settings.items():
@@ -356,16 +358,16 @@ class BasePrefsPage(wx.Panel):
 
     def setSetting(self, name, value):
         self._configParser.set(self._sectionName, name, str(value))
-        
-    def _setDefaults(self, *args, **kwargs): # Override me.
+
+    def _setDefaults(self, *args, **kwargs):  # Override me.
         pass
-        
-    def _loadSettings(self): # Override me.
+
+    def _loadSettings(self):  # Override me.
         pass
 
 
 class BaseThread(threading.Thread, EventPoster):
-    
+
     def __init__(self, parent, name, logger, errcallback, lock,
                  raiseEmpty=False, doneQueueLength=50):
         # FIXME: This doc string is wrong.
@@ -403,7 +405,7 @@ class BaseThread(threading.Thread, EventPoster):
         self._raisedEmpty = raiseEmpty
         self._interrupt = False
         self._runningLock = threading.Lock()
-        
+
     def queue(self, thing, traceCallbackOrList=None, priority=2):
         thing = Callback(thing, traceCallbackOrList)
         self._eventCount += 1
@@ -411,7 +413,7 @@ class BaseThread(threading.Thread, EventPoster):
         if self._raisedEmpty:
             self._raisedEmpty = False
             self._queueEmptyQueueCallback()
-            
+
     def start_(self, trace=None):
         self._trace = getTrace(trace)
         self.start()
@@ -424,13 +426,15 @@ class BaseThread(threading.Thread, EventPoster):
                 try:
                     self._pop()
                 except errors.AbortThreadSignal:
-                    if self._abortCount > 20: # FIXME: Make more deterministic.
+                    # FIXME: Make more deterministic.
+                    if self._abortCount > 20:
                         self._abort()
                         break
                     self.abort()
                     self._abortCount += 1
                 except errors.EmptyQueueError as err:
-                    if self._emptyCount > 20: # FIXME: Make more deterministic.
+                    # FIXME: Make more deterministic.
+                    if self._emptyCount > 20:
                         if self._errcallback is not None:
                             self._raise(err, self._errcallback)
                         self._raisedEmpty = True
@@ -441,7 +445,7 @@ class BaseThread(threading.Thread, EventPoster):
 
     def _run(self):
         pass
-    
+
     def _pop(self):
         got = self._queue.get()
         self._doneQueue.append(got)
@@ -454,22 +458,22 @@ class BaseThread(threading.Thread, EventPoster):
 
     def _queueCallback(self, completion, *args, **kwargs):
         completion(*args, **kwargs)
-        
+
     def _raise(self, err, errcompletion=None):
         try:
             errcompletion(err)
         except:
             self.postEvent(events.ExceptionEvent(err))
-        
+
     def _queueEmptyQueueCallback(self):
         self.queue(self._emptyQueueCallback, priority=999)
-            
+
     def _emptyQueueCallback(self, thisCallback, *args, **kwargs):
         raise errors.EmptyQueueError(trace=thisCallback.getTrace())
-        
+
     def setAbortInterrupt(self, interrupt):
         self._interrupt = interrupt
-            
+
     def abort(self, abortMainThread=True):
         self._abortMainThread = abortMainThread
         if self._interrupt:
@@ -477,10 +481,10 @@ class BaseThread(threading.Thread, EventPoster):
         else:
             priority = 1000
         self.queue(self._abortCallback, priority=priority)
-        
+
     def _abortCallback(self, thisCallback, *args, **kwargs):
         raise errors.AbortThreadSignal()
-        
+
     def dumpQueue(self, filename, extraLines=0):
         dump = copy.copy(self._queue.queue)
         file = open(filename, "w")
@@ -491,57 +495,57 @@ class BaseThread(threading.Thread, EventPoster):
         for item in dump:
             file.write(self._dumpQueueFormatter(item, extraLines))
         file.close()
-        
+
     def _dumpQueueFormatter(self, item, extraLines=0, time=None):
         trace = "\tTraceback (most recent call last):\n" + "".join([
-                    line for line in traceback.format_list(
-                        getTrace(item[2])[:-(8 + extraLines)])])
+            line for line in traceback.format_list(
+                getTrace(item[2])[:-(8 + extraLines)])])
         traceHash = str(hash(trace))
         if time is None:
             time = datetime.datetime.now()
         return (time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] +
-                "   Priority: "+str(item[0]) +
+                "   Priority: " + str(item[0]) +
                 "   Event Number: " + str(item[1]) +
                 "   Object: " + str(item[2]) +
                 "   Trace Hash: " + traceHash + "\n\n" +
                 trace + "\n\n\n")
-            
+
     def getRunningLock(self):
         return self._runningLock
 
 
 class CircularQueue:
-    
+
     def __init__(self, size):
-        self._queue = [(None, None)]*size
+        self._queue = [(None, None)] * size
 
     def append(self, item):
         self._queue.pop(0)
         self._queue.append((item, datetime.datetime.now()))
-        
+
     def __getitem__(self, index):
         return self._queue[index][0], self._queue[index][1]
 
 
 class EventLogger:
-    
+
     def __init__(self, length=100):
         self._queue = CircularQueue(length)
         self("---INIT---", None)
-        
+
     def __call__(self, eventString, event):
         self._queue.append((eventString, event))
-        
+
     def done(self):
         self("---DONE---", None)
-        
+
     def dump(self, filename):
         file = open(filename, "w")
         for item, time in self._queue:
             if item is not None:
                 file.write(self._dumpFormatter(item, time))
         file.close()
-        
+
     def _dumpFormatter(self, item, time=None):
         if time is None:
             time = datetime.datetime.now()
