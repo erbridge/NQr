@@ -26,15 +26,27 @@ require([
         "dom-ready!",
         "jquery",
         "underscore",
-        "player-controls"
+        "player-controls",
+        "track-list"
     ],
     function(
         doc,
         $,
         _,
-        PlayerControls) {
+        PlayerControls,
+        TrackList) {
 
     "use strict";
 
     $("body").html(new PlayerControls().render().el);
+    $("body").append(new TrackList().render().el);
+
+    // setInterval(function() {
+    //     $.getJSON("trackInfo", function(track) {
+    //         // FIXME: display duplicate tracks
+    //         if ($("#" + track.trackID).length == 0) {
+    //             buildQueueEntry("#queueHead", track.trackID, track)
+    //         }
+    //     });
+    // }, 1000);
 });
