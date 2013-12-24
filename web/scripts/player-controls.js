@@ -6,7 +6,7 @@ define(function(require) {
     var Backbone = require("backbone");
     var _        = require("underscore");
 
-    var player   = require("player");
+    var player = require("player");
 
     var Control = Backbone.View.extend({
         className: "control",

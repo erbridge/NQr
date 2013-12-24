@@ -8,11 +8,11 @@ define(function(require) {
 
     var player = {
         buttonMap: {
-            play: "Play",
+            play:  "Play",
             pause: "Pause",
-            stop: "Stop",
-            next: "Next",
-            prev: "Prev"
+            stop:  "Stop",
+            next:  "Next",
+            prev:  "Prev"
         }
     };
 

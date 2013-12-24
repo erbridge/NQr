@@ -4,16 +4,16 @@
 require.config({
     baseUrl: "scripts",
     paths: {
-        backbone: "lib/backbone",
-        "dom-ready": "lib/require/dom-ready",
-        jquery: "lib/jquery",
-        text: "lib/require/text",
+        backbone:          "lib/backbone",
+        "dom-ready":       "lib/require/dom-ready",
+        jquery:            "lib/jquery",
+        text:              "lib/require/text",
         "underscore-base": "lib/underscore",
-        underscore: "lib/underscore-wrapper"
+        underscore:        "lib/underscore-wrapper"
     },
     shim: {
         backbone: {
-            deps: ["underscore", "jquery"],
+            deps:    ["underscore", "jquery"],
             exports: "Backbone"
         },
         "underscore-base": {

@@ -8,13 +8,15 @@ define(function(require) {
     var _        = require("underscore");
 
     var Entry = Backbone.View.extend({
-        tagName: "tr",
+        tagName:   "tr",
         className: "entry",
-        template: _.template(require("text!templates/track-list-entry.html")),
+        template:  _.template(require("text!templates/track-list-entry.html")),
+
         initialize: function(args) {
             this.track = args.track;
             this.$el.attr("id", this.track.trackID);
         },
+
         render: function() {
             this.$el.html(this.template({
                 track: this.track
@@ -35,9 +37,10 @@ define(function(require) {
     });
 
     var TrackList = Backbone.View.extend({
-        tagName: "table",
+        tagName:   "table",
         className: "track-list",
-        template: _.template(require("text!templates/track-list-header.html")),
+        template:  _.template(require("text!templates/track-list-header.html")),
+
         render: function() {
             this.$el.html(this.template());
 
@@ -46,6 +49,7 @@ define(function(require) {
 
             return this;
         },
+
         update: function() {
             var self = this;
             $.getJSON("trackInfo", function(track) {
