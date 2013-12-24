@@ -53,7 +53,8 @@ define(function(require) {
         update: function() {
             var self = this;
             $.getJSON("trackInfo", function(track) {
-                if (self.$("#" + track.trackID).length === 0) {
+                var firstTrack = self.$(".entry:first");
+                if (firstTrack.attr("id") != track.trackID) {
                     self.$(".header").after(new Entry({
                         track: track
                     }).render().el);
