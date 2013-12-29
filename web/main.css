@@ -9,8 +9,9 @@ body {
 .control {
     padding: .5em;
     background: grey;
-    border: dotted black;
-    border-width: .3em;
-    margin: 1em;
+    border: solid black;
+    border-radius: .5em;
+    border-width: 1px;
+    margin: .5em;
     display: inline;
 }
