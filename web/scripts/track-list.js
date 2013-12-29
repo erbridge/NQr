@@ -27,6 +27,8 @@ define(function(require) {
                 for (var i = 10; i > -11; i--) {
                     $dropdown.append($("<option>").html(i));
                 }
+                $dropdown.val($(this).text());
+
                 $(this).html($dropdown).change(function() {
                     var score = parseInt($(":selected", this).text());
                     $.post("changeScore", JSON.stringify({
