@@ -92,26 +92,29 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.sendFile(os.path.join(self.webDir, "main.html"))
 
     def changeScore(self):
-        score = self.receiveJson()["score"]
-        print score
+        json = self.receiveJson()
+        print json
+        self.server.setScore(json["id"], json["score"])
 
 
 class NQrServer(BaseHTTPServer.HTTPServer, util.EventPoster):
 
-    def __init__(self, shared, window):
+    def __init__(self, shared, window, db, trackFactory):
         BaseHTTPServer.HTTPServer.__init__(self, ("", 8000), RequestHandler)
         util.EventPoster.__init__(self, window, None, None)
         self.shared = shared
+        self._db = db
+        self._trackFactory = trackFactory
         self.count = 0
+        self.serve_forever()
+
+    def setScore(self, id, score):
+        self._trackFactory.getTrackFromID(self._db, id,
+            lambda traceCallback, track: track.setScore(score, traceCallback),
+            priority=1)
 
 
 class WebThread(threading.Thread):
 
-    def __init__(self, shared, window):
-        threading.Thread.__init__(self)
-        self._shared = shared
-        self._eventWindow = window
-
-    def run(self):
-        httpd = NQrServer(self._shared, self._eventWindow)
-        httpd.serve_forever()
+    def __init__(self, *args):
+        threading.Thread.__init__(self, target=NQrServer, args=args)

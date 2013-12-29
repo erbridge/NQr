@@ -1,4 +1,4 @@
-/* global define */
+/* global define -*- indent-tabs-mode: nil -*- */
 
 define(function(require) {
     "use strict";
@@ -30,7 +30,8 @@ define(function(require) {
                 $(this).html($dropdown).change(function() {
                     var score = parseInt($(":selected", this).text());
                     $.post("changeScore", JSON.stringify({
-                        score: score
+                        score: score,
+                        id: parseInt($(this).parent().attr("id"))
                     }));
                     $(this).html(score).unbind("change");
                 });

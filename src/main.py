@@ -205,7 +205,8 @@ class Main(wx.App):
                               self._defaultIgnoreNewTracks,
                               self._defaultTrackCheckDelay,
                               self._defaultDumpPath, eventLogger)
-        _web = web.WebThread(_gui.getSharedTrackRecord(), _gui)
+        _web = web.WebThread(_gui.getSharedTrackRecord(), _gui, db,
+                             trackFactory)
         _web.start()
 
         self._logger.info("Initialization complete.")
