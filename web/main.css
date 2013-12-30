@@ -15,3 +15,28 @@ body {
     margin: .5em;
     display: inline;
 }
+
+table {
+    border-collapse: collapse;
+}
+
+th, td {
+    border-right: solid black 1px;
+    padding-right: .3em;
+    padding-left: .3em;
+}
+
+td:nth-child(6), th:nth-child(6) {
+    border-right: none;
+}
+
+@-webkit-keyframes pinkfade {
+    from { background: white; }
+    to { background: pink; /*-webkit-transform: rotate(360deg);*/ }
+}
+
+td:hover {
+    background-color: pink;
+    -webkit-animation: pinkfade 5s;
+}
+
