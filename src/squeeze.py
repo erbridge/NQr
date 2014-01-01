@@ -80,7 +80,7 @@ class SQDriver:
         # then when telnet tries to detect IAC (chr(255)) stuff breaks. So,
         # force it to ASCII, which it should be anyway, being quoted.
         quoted = quoted.encode('ascii')
-        # print "send:", quoted
+        #print "send:", quoted
         #import sys
         # sys.stdout.flush()
         self.__telnet.write(quoted + "\n")
@@ -97,7 +97,7 @@ class SQDriver:
     def ask(self, cmd):
         cmd.append('?')
         ret = self.__send(cmd)
-#        print "ret=", ret
+        #print "ret=", ret
         assert ret[:-1] == cmd[:-1]
         assert ret[-1] != '?'
         return ret[-1]
@@ -201,6 +201,8 @@ class Squeezebox(mediaplayer.MediaPlayer):
     def _getTrackPathAtPos(self, index, traceCallback=None,
                            logging=True):
         path = self.__driver.getPlaylistPath(index)
+        if path == '0':
+            return None
         assert path.startswith('file://')
         path = urllib.unquote(path[7:])
 #        print 'path:', path
