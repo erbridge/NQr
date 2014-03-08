@@ -694,7 +694,7 @@ class MainWindow(wx.Frame, util.EventPoster):
     def _initCreateTrackRightClickMenu(self):
         self._logger.debug("Creating track right click menu.")
         self._initCreateRightClickTagMenu()
-        self._initCreateRightClickRateMenu()
+        #self._initCreateRightClickRateMenu()
 
         self._trackRightClickMenu = wx.Menu()
         self._addMenuItem(self._trackRightClickMenu, "Rate &Up",
@@ -703,8 +703,9 @@ class MainWindow(wx.Frame, util.EventPoster):
         self._addMenuItem(self._trackRightClickMenu, "Rate &Down",
                           " Decrease the score of the current track by one",
                           self._onRateDown)
-        self._trackRightClickMenu.AppendMenu(wx.NewId(), "&Rate",
-                                             self._rightClickRateMenu)
+        self._populateRateMenu(self._trackRightClickMenu)
+        #self._trackRightClickMenu.AppendMenu(wx.NewId(), "&Rate",
+        #                                     self._rightClickRateMenu)
         self._trackRightClickMenu.AppendSeparator()
         self._trackRightClickMenu.AppendMenu(wx.NewId(), "&Tag",
                                              self._rightClickTagMenu)
@@ -730,11 +731,11 @@ class MainWindow(wx.Frame, util.EventPoster):
                               id=tagID, checkItem=True)
         self._bindMouseAndKeyEvents(self._rightClickTagMenu)
 
-    def _initCreateRightClickRateMenu(self):
-        self._logger.debug("Creating rate menu.")
-        self._rightClickRateMenu = wx.Menu()
-        self._populateRateMenu(self._rightClickRateMenu)
-        self._bindMouseAndKeyEvents(self._rightClickRateMenu)
+    # def _initCreateRightClickRateMenu(self):
+    #     self._logger.debug("Creating rate menu.")
+    #     self._rightClickRateMenu = wx.Menu()
+    #     self._populateRateMenu(self._rightClickRateMenu)
+    #     self._bindMouseAndKeyEvents(self._rightClickRateMenu)
 
     def _initCreateMainPanel(self):
         self._panel = wx.Panel(self)
