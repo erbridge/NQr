@@ -25,7 +25,7 @@ class Randomizer:
                  defaultDefaultScore, defaultScoreThreshold=-9,
                  defaultWeight="(score ** 2) * (time ** 2)"):
         self._safeOperations = ["", "(", ")", "score", "time", "**", "*", "/",
-                                "+", "-"]
+                                "+", "-", "==", "if", "else"]
         self._db = db
         self._trackFactory = trackFactory
         self._logger = loggerFactory.getLogger("NQr.Randomizer", "debug")
