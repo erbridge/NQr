@@ -3,9 +3,9 @@
 # FIXME: Fix ids (to wx.NewId()s).
 # FIXME: Use wx's built in method for creating events?
 
-import wxversion
-wxversion.select([x for x in wxversion.getInstalled()
-                  if x.find('unicode') != -1])
+#import wxversion
+#wxversion.select([x for x in wxversion.getInstalled()
+#                  if x.find('unicode') != -1])
 import wx
 
 #from util import wx
