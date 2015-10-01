@@ -2,7 +2,7 @@ import sqlite3
 
 
 def main():
-    conn = sqlite3.connect("database")
+    conn = sqlite3.connect("../database")
     cursor = conn.cursor()
     # I claim this gives the current score. Another formulation is
     # select trackid, score, max(scoreid) from scores group by trackid;
