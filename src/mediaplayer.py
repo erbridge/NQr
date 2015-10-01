@@ -311,8 +311,15 @@ class PrefsPage(util.BasePrefsPage):
                                               style=wx.RB_GROUP)
             self._playerSizer.Add(self._xmmsButton, 0, wx.TOP | wx.BOTTOM, 3)
 
+            self._squeezeButton = wx.RadioButton(self, ID_PLAYER,
+                                                 "Squeezebox  \t",
+                                                 style=wx.RB_GROUP)
+            self._playerSizer.Add(self._squeezeButton, 0, wx.TOP | wx.BOTTOM, 3)
+
             if self._settings["player"] == "XMMS":
                 self._xmmsButton.SetValue(True)
+            elif self._settings["player"] == "Squeeze":
+                self._squuezeButton.SetValue(True)
 
             if not util.getIsInstalled("XMMS"):
                 self._xmmsButton.Enable(False)
@@ -370,8 +377,12 @@ class PrefsPage(util.BasePrefsPage):
         try:
             player = self._configParser.get("Player", "player")
             if player not in self._safePlayers:
-                self._sendWarning("Chosen player is not supported.")
+                self._sendWarning("Chosen player (%s) is not supported (%s)."
+                                  % (player, self._safePlayers))
                 player = self._defaultPlayer
             self._settings["player"] = player
         except ConfigParser.NoOptionError:
             self._settings["player"] = self._defaultPlayer
+
+    def _sendWarning(self, warning):
+        print warning
